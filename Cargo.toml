@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "pisugar-core"
+    "pisugar-core",
+    "pisugar-server"
 ]
