@@ -1,0 +1,10 @@
+os:
+  - linux
+language: rust
+rust:
+  - stable
+before_install:
+  - sudo apt-get update
+  - sudo apt-get -y install gcc-arm-linux-gnueabihf
+script:
+  - cargo build --verbose --all
