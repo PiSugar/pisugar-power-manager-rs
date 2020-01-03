@@ -4,7 +4,7 @@
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
 </p>
 
-## Management programe for PiSugar 2
+## Management program for PiSugar 2
 
 PiSugar power manager in rust language.
 
