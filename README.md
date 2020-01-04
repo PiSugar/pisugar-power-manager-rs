@@ -1,5 +1,7 @@
 # pisugar-power-manager-rs
 
+<img src="https://travis-ci.com/PiSugar/pisugar-power-manager-rs.svg?branch=master">
+
 <p align="center">
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
 </p>

@@ -9,5 +9,5 @@ before_install:
   - rustup target add arm-unknown-linux-gnueabihf
   - rustup target add armv7-unknown-linux-gnueabihf
 script:
-  - cargo build --target arm-unknown-linux-gnueabihf --release
-  - cargo build --target armv7-unknown-linux-gnueabihf --release
+  # - cargo build --target arm-unknown-linux-gnueabihf --release
+  # - cargo build --target armv7-unknown-linux-gnueabihf --release
