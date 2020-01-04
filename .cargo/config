@@ -1,5 +1,11 @@
 [build]
-target = "arm-unknown-linux-gnueabihf"
+target = "arm-unknown-linux-musleabihf"
+
+[target.arm-unknown-linux-musleabihf]
+linker = "arm-linux-musleabihf-ld"
+
+[target.armv7-unknown-linux-musleabihf]
+linker = "arm-linux-musleabihf-ld"
 
 [target.arm-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-ld"

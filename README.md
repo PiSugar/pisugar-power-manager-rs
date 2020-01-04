@@ -24,7 +24,7 @@ Install rust
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup update
 
-Then
+Build
 
     cargo build --release
 
@@ -32,18 +32,19 @@ Then
 
 Install cross compiler utils
 
-    brew install arm-linux-gnueabihf-binutils
+    brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-arm-hf
 
 Install rust and armv6(zero/zerow) or armv7(3b/3b+) target
 
     brew install rustup-init
     rustup update
-    rustup target add arm-unknown-linux-gnueabihf       # armv6
-    rustup target add armv7-unknown-linux-gnueabihf     # armv7
+    rustup target add arm-unknown-linux-musleabihf      # armv6
+    rustup target add armv7-unknown-linux-musleabihf    # armv7
 
 Build
 
-    RUSTC_LINKER=arm-linux-gnueabihf-ld cargo build --target arm-unknown-linux-gnueabihf --release
+    cargo build --target arm-unknown-linux-musleabihf --release     # armv6
+    cargo build --target armv7-unknown-linux-musleabihf --release   # armv7
 
 ### Cross compilation - linux/ubuntu
 
@@ -60,7 +61,8 @@ Install rust and arm/armv7 target
 
 Build
 
-    RUSTC_LINKER=arm-linux-gnueabihf-ld cargo build --target arm-unknown-linux-gnueabihf --release
+    cargo build --target arm-unknown-linux-gnueabihf --release      # armv6
+    cargo build --target armv7-unknown-linux-gnueabihf --release    # armv7
 
 ### Cross compilation - windows
 

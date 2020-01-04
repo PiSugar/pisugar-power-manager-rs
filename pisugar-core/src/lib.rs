@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use rppal::i2c;
+
 const TIME_HOST: &str = "cdn.pisugar.com";
 
 const RTC_ADDRESS: u8 = 0x32;
