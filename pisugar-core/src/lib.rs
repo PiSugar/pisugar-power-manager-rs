@@ -1,11 +1,13 @@
 #![allow(unused)]
 
-use rppal::i2c;
+use rppal::i2c::I2c;
 
 const TIME_HOST: &str = "cdn.pisugar.com";
 
-const RTC_ADDRESS: u8 = 0x32;
-const BAT_ADDRESS: u8 = 0x75;
+const RTC_ADDRESS: u16 = 0x32;
+const BAT_ADDRESS: u16 = 0x75;
+const I2C_CMD_READ_LOW: u16 = 0xa2;
+const I2C_CMD_READ_HIGH: u16 = 0xa3;
 
 const CTR1: u8 = 0x0f;
 const CTR2: u8 = 0x10;
