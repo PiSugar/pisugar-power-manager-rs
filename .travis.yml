@@ -11,3 +11,4 @@ before_install:
 script:
   # - cargo build --target arm-unknown-linux-gnueabihf --release
   # - cargo build --target armv7-unknown-linux-gnueabihf --release
+  - echo 0
