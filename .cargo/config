@@ -1,5 +1,3 @@
-[build]
-target = "arm-unknown-linux-musleabihf"
 
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
