@@ -386,7 +386,7 @@ pub struct PiSugarBatteryStatus {
     pub updated_at: Instant,
 }
 
-impl PiSugarStatus {
+impl PiSugarBatteryStatus {
     pub fn new() -> Self {
         Self {
             voltage: 0.0,
@@ -541,5 +541,11 @@ mod tests {
     fn test_const() {
         let s = TIME_HOST;
         assert_eq!(s, "cdn.pisugar.com")
+    }
+
+    #[test]
+    fn test_read_voltage() {
+        let r = read_battery_voltage();
+        assert!(r.is_ok())
     }
 }
