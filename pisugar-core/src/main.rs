@@ -1,17 +1,23 @@
 #[macro_use]
 extern crate num_derive;
 
+use std::collections::VecDeque;
+use std::sync::{Arc, RwLock};
+use std::thread;
+use std::thread::Thread;
+use std::time::{Duration, Instant};
+
 use num_traits::{FromPrimitive, ToPrimitive};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
-use std::collections::VecDeque;
-use std::time::{Instant, Duration};
-
 
 const TIME_HOST: &str = "cdn.pisugar.com";
 
 /// RTC address
 pub const I2C_ADDR_RTC: u16 = 0x32;
+pub const I2C_RTC_CTR1: u8 = 0x0f;
+pub const I2C_RTC_CTR2: u8 = 0x10;
+pub const I2C_RTC_CTR3: u8 = 0x11;
 
 /// Battery address
 pub const I2C_ADDR_BAT: u16 = 0x75;
@@ -29,7 +35,7 @@ const I2C_READ_INTERVAL: Duration = Duration::from_secs(1);
 
 /// IP5209/IP5109/IP5207/IP5108 register address
 #[allow(non_camel_case_types)]
-#[derive(FromPrimitive, ToPrimive)]
+#[derive(FromPrimitive, ToPrimitive)]
 enum IP5209Register {
     /// SYS_CTL0
     /// ```txt
@@ -265,64 +271,68 @@ const BATTERY_CURVE: [BatteryThreshold; 11] = [
     (0.0, 3.1, 0.0, 0.0),
 ];
 
-/// Battery voltage to percentage
-pub fn battery_voltage_percentage(voltage: f64) -> f64 {
+/// Battery voltage to percentage level
+pub fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
     if voltage > 5.5 {
         return 100.0;
     }
     for threshold in &BATTERY_CURVE {
-        if voltage >= threshold.0 && voltage < threshold.1 {
+        if voltage >= threshold.0 {
             let mut percentage = (voltage - threshold.0) / (threshold.1 - threshold.0);
-            percentage *= threshold.3 - threshold.2;
-            percentage += threshold.2 + percentage;
-            return percentage;
+            let level = threshold.2 + percentage * (threshold.3 - threshold.2);
+            return level;
         }
     }
     0.0
-}
-
-/// Read battery current intensity
-fn read_battery_intensity() -> Result<f64> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(IP5209Register::BATIADC_DAT0.to_u8())?;
-    let high = i2c.smbus_read_byte(IP5209Register::BATIADC_DAT1.to_u8())?;
-    let intensity = if high & 0x20 != 0 {
-        let low = (!low) as u16;
-        let high = (!high & 0x1f) as u16;
-        -((high << 8 + low + 1) as f64) * 0.745985
-    } else {
-        let low = low as u16;
-        let high = (high & 0x1f) as u16;
-        (high << 8 + low + 1) as f64 * 0.745985
-    };
-    Ok(intensity)
 }
 
 /// Read battery voltage
 fn read_battery_voltage() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(IP5209Register::BATVADC_DAT0.to_u8())?;
-    let high = i2c.smbus_read_byte(IP5209Register::BATVADC_DAT1.to_u8())?;
-    let voltage = if high & 0x20 != 0 {
-        let low = (!low) as u16;
-        let high = (!high & 0x1f) as u16;
-        -((high << 8 + low + 1) as f64) * 0.26855 + 2600.0
+
+    let low = i2c.smbus_read_byte(I2C_CMD_READ_VOLTAGE_LOW)? as u16;
+    let high = i2c.smbus_read_byte(I2C_CMD_READ_VOLTAGE_HIGH)? as u16;
+    log::debug!("voltage low: 0x{:x}, high: 0x{:x}", low, high);
+
+    // check negative values
+    let voltage = if high & 0x20 == 0x20 {
+        let v = (!(((high & 0x1f) << 8) + low) as i16) + 1;
+        2600.0 - (v as f64) * 0.26855
     } else {
-        let low = low as u16;
-        let high = (high & 0x1f) as u16;
-        (high << 8 + low + 1) as f64 * 0.26855 + 2600.0
+        let v = ((high & 0x1f) << 8) + low;
+        2600.0 + v as f64 * 0.26855
     };
-    Ok(voltage)
+
+    Ok(voltage / 1000.0)
+}
+
+/// Read battery current intensity
+fn read_battery_intensity() -> Result<f64> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
+
+    let low = i2c.smbus_read_byte(I2C_CMD_READ_INTENSITY_LOW)? as u16;
+    let high = i2c.smbus_read_byte(I2C_CMD_READ_INTENSITY_HIGH)? as u16;
+    log::debug!("intensity low: 0x{:x}, high: 0x{:x}", low, high);
+
+    let intensity = if high & 0x20 == 0x20 {
+        let v = (!(((high & 0x1f) << 8) + low) as i16) + 1;
+        -(v as f64) * 0.745985
+    } else {
+        let v = ((high & 0x1f) << 8) + low;
+        v as f64 * 0.745985
+    };
+
+    Ok(intensity / 1000.0)
 }
 
 /// Read battery pro intensity
 fn read_battery_pro_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(IP5209Register::BATIADC_DAT0.to_u8())?;
-    let high = i2c.smbus_read_byte(IP5209Register::BATIADC_DAT0.to_u8())?;
+    let low = i2c.smbus_read_byte(I2C_CMD_READ_PRO_INTENSITY_LOW)?;
+    let high = i2c.smbus_read_byte(I2C_CMD_READ_PRO_INTENSITY_HIGH)?;
     let intensity = if high & 0x20 != 0 {
         let low = (!low) as u16;
         let high = (!high & 0x1f) as u16;
@@ -353,13 +363,82 @@ fn read_battery_pro_voltage() -> Result<f64> {
     Ok(voltage)
 }
 
+/// Set shutdown threshold
 fn set_battery_shutdown_threshold() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
     unimplemented!()
 }
 
-pub const MODEL_V2: &str = "PiSugar 2 Pro";
+fn rtc_disable_write_protect() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    let mut data = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
+    data |= 0b1000_0000;
+    i2c.smbus_write_byte(I2C_RTC_CTR2, data);
+
+    data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
+    data |= 0b1000_0100;
+    i2c.smbus_write_byte(I2C_RTC_CTR1, data)?;
+
+    Ok(())
+}
+
+fn rtc_enable_write_protect() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    let mut data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
+    data &= 0b0111_1011;
+    i2c.smbus_write_byte(I2C_RTC_CTR1, data);
+
+    data = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
+    data &= 0b0111_1111;
+    i2c.smbus_write_byte(I2C_RTC_CTR2, data)?;
+
+    Ok(())
+}
+
+pub fn rtc_read_alarm_flag() -> Result<bool> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    let data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
+    if data & 0b0010_0000 != 0 || data & 0b0001_0000 != 0 {
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+pub fn rtc_clean_alarm_flag() -> Result<()> {
+    match rtc_read_alarm_flag() {
+        Ok(true) => {
+            rtc_disable_write_protect()?;
+            let mut i2c = I2c::new()?;
+            i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+            let mut data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
+            data &= 0b1100_1111;
+            i2c.smbus_write_byte(I2C_RTC_CTR1, data)?;
+
+            rtc_enable_write_protect()?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn bcd_to_dec(bcd: u8) -> u8 {
+    (bcd & 0x0F) + (((bcd & 0xF0) >> 4) * 10)
+}
+
+fn dec_to_bcd(dec: u8) -> u8 {
+    dec % 10 + ((dec / 10) << 4)
+}
+
+pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
 
 /// PiSugar configuation
@@ -378,40 +457,141 @@ pub struct PiSugarConfig {
 }
 
 pub struct PiSugarBatteryStatus {
-    pub voltage: f64,
-    pub intensity: f64,
-    pub level: f64,
-    pub level_records: VecDeque<f64>,
-    pub charging: bool,
-    pub updated_at: Instant,
+    model: &'static str,
+    voltage: f64,
+    intensity: f64,
+    level: f64,
+    level_records: VecDeque<f64>,
+    charging: bool,
+    updated_at: Instant,
 }
 
 impl PiSugarBatteryStatus {
     pub fn new() -> Self {
+        let mut level_records = VecDeque::with_capacity(10);
+
+        let mut model = MODEL_V2_PRO;
+        let voltage = match read_battery_voltage() {
+            Ok(voltage) => {
+                model = MODEL_V2;
+                voltage
+            }
+            _ => { 0.0 }
+        };
+        let level = convert_battery_voltage_to_level(voltage);
+
+        let intensity = match read_battery_intensity() {
+            Ok(intensity) => {
+                intensity
+            }
+            _ => { 0.0 }
+        };
+
+        for i in 0..level_records.capacity() {
+            level_records.push_back(level);
+        }
+
         Self {
-            voltage: 0.0,
-            intensity: 0.0,
-            level: 0.0,
-            level_records: VecDeque::with_capacity(128),
+            model,
+            voltage,
+            intensity,
+            level,
+            level_records,
             charging: false,
             updated_at: Instant::now(),
         }
     }
 
+    /// PiSugar model
+    pub fn mode(&self) -> &'static str {
+        self.model
+    }
+
+    /// Battery level
+    pub fn level(&self) -> f64 {
+        self.level
+    }
+
+    /// Battery voltage
+    pub fn voltage(&self) -> f64 {
+        self.voltage
+    }
+
+    /// Update battery voltage
+    pub fn update_voltage(&mut self, voltage: f64, now: Instant) {
+        self.updated_at = now;
+        self.voltage = voltage;
+        self.level = convert_battery_voltage_to_level(voltage);
+        self.level_records.pop_front();
+        self.level_records.push_back(self.level);
+    }
+
+    /// Battery intensity
+    pub fn intensity(&self) -> f64 {
+        self.intensity
+    }
+
+    /// Update battery intensity
+    pub fn update_intensity(&mut self, intensity: f64, now: Instant) {
+        self.updated_at = now;
+        self.intensity = intensity
+    }
+
     /// PiSugar battery alive
     pub fn is_alive(&self, now: Instant) -> bool {
-        if self.updated_at + I2C_READ_INTERVAL >= now {
+        if self.updated_at + 3 * I2C_READ_INTERVAL >= now {
             return true;
         }
         false
     }
 
-    /// PiSugar is charging
+    /// PiSugar is charging, with voltage linear regression
     pub fn is_charging(&self, now: Instant) -> bool {
         if self.is_alive(now) {
+            log::debug!("levels: {:?}", self.level_records);
+            let capacity = self.level_records.capacity() as f64;
+            let mut x_sum = (0.0 + capacity - 1.0) * capacity / 2.0;
+            let x_bar = x_sum / capacity;
+            let mut y_sum: f64 = self.level_records.iter().sum();
+            let y_bar = y_sum / capacity;
+            // k = Sum(yi * (xi - x_bar)) / Sum(xi - x_bar)^2
+            let mut iter = self.level_records.iter();
+            let mut a = 0.0;
+            let mut b = 0.0;
+            for i in 0..self.level_records.capacity() {
+                let xi = i as f64;
+                let yi = iter.next().unwrap().clone();
+                a += yi * (xi - x_bar);
+                b += (xi - x_bar) * (xi - x_bar);
+            }
+            let k = a / b;
+            log::debug!("charging k: {}", k);
+            return k >= 0.005;
         }
         false
     }
+}
+
+/// Infinity loop to read battery status
+pub fn start_pisugar_loop(status: Arc<RwLock<PiSugarBatteryStatus>>) {
+    let handler = thread::spawn(move || {
+        log::info!("PiSugar batter loop started");
+        loop {
+            let now = Instant::now();
+            if let Ok(mut status) = status.write() {
+                if let Ok(v) = read_battery_voltage() {
+                    log::debug!("voltage: {}", v);
+                    status.update_voltage(v, now);
+                }
+                if let Ok(i) = read_battery_intensity() {
+                    log::debug!("intensity: {}", i);
+                    status.update_intensity(i, now);
+                }
+            }
+            // sleep
+            thread::sleep(I2C_READ_INTERVAL);
+        }
+    });
 }
 
 pub struct PiSugarCore {
@@ -533,19 +713,18 @@ impl PiSugarCore {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn main() {
+    env_logger::init();
 
-    #[test]
-    fn test_const() {
-        let s = TIME_HOST;
-        assert_eq!(s, "cdn.pisugar.com")
-    }
+    let status = Arc::new(RwLock::new(PiSugarBatteryStatus::new()));
 
-    #[test]
-    fn test_read_voltage() {
-        let r = read_battery_voltage();
-        assert!(r.is_ok())
+    start_pisugar_loop(status.clone());
+
+    for i in 0..10 {
+        let now = Instant::now();
+        if let Ok(status) = status.read() {
+            log::info!("battery status => {}V, {}A, active: {}, charging: {}, level: {}",  status.voltage(), status.intensity(), status.is_alive(now), status.is_charging(now), status.level());
+        }
+        thread::sleep(Duration::from_secs(1));
     }
 }
