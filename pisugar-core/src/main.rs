@@ -7,238 +7,36 @@ use std::thread;
 use std::thread::Thread;
 use std::time::{Duration, Instant};
 
+use chrono::{Datelike, DateTime, Local, Timelike, TimeZone};
 use num_traits::{FromPrimitive, ToPrimitive};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
+use std::process::Command;
+use bitvec::vec::BitVec;
 
 const TIME_HOST: &str = "cdn.pisugar.com";
 
-/// RTC address
-pub const I2C_ADDR_RTC: u16 = 0x32;
-pub const I2C_RTC_CTR1: u8 = 0x0f;
-pub const I2C_RTC_CTR2: u8 = 0x10;
-pub const I2C_RTC_CTR3: u8 = 0x11;
+/// RTC address, SD3078
+const I2C_ADDR_RTC: u16 = 0x32;
+const I2C_RTC_CTR1: u8 = 0x0f;
+const I2C_RTC_CTR2: u8 = 0x10;
+const I2C_RTC_CTR3: u8 = 0x11;
 
-/// Battery address
-pub const I2C_ADDR_BAT: u16 = 0x75;
-
-const I2C_CMD_READ_INTENSITY_LOW: u8 = 0xa4;
-const I2C_CMD_READ_INTENSITY_HIGH: u8 = 0xa5;
-const I2C_CMD_READ_VOLTAGE_LOW: u8 = 0xa2;
-const I2C_CMD_READ_VOLTAGE_HIGH: u8 = 0xa3;
-const I2C_CMD_READ_PRO_INTENSITY_LOW: u8 = 0x66;
-const I2C_CMD_READ_PRO_INTENSITY_HIGH: u8 = 0x67;
-const I2C_CMD_READ_PRO_VOLTAGE_LOW: u8 = 0x64;
-const I2C_CMD_READ_PRO_VOLTAGE_HIGH: u8 = 0x65;
+/// Battery address, IP5209 or IP5312
+const I2C_ADDR_BAT: u16 = 0x75;
+const I2C_BAT_INTENSITY_LOW: u8 = 0xa4;
+const I2C_BAT_INTENSITY_HIGH: u8 = 0xa5;
+const I2C_BAT_VOLTAGE_LOW: u8 = 0xa2;
+const I2C_BAT_VOLTAGE_HIGH: u8 = 0xa3;
+const I2C_BAT_P_INTENSITY_LOW: u8 = 0x66;
+const I2C_BAT_P_INTENSITY_HIGH: u8 = 0x67;
+const I2C_BAT_P_VOLTAGE_LOW: u8 = 0x64;
+const I2C_BAT_P_VOLTAGE_HIGH: u8 = 0x65;
 
 const I2C_READ_INTERVAL: Duration = Duration::from_secs(1);
 
-/// IP5209/IP5109/IP5207/IP5108 register address
-#[allow(non_camel_case_types)]
-#[derive(FromPrimitive, ToPrimitive)]
-enum IP5209Register {
-    /// SYS_CTL0
-    /// ```txt
-    /// 3 - enable/disable light, rw
-    /// 2 - enable/disable boost, rw
-    /// 1 - enable/disable charger, rw
-    /// ```
-    SYS_CTL0 = 0x01,
-
-    /// SYS_CTL1
-    /// ```txt
-    /// 1 - automatically shutdown, rw
-    /// 0 - automatically turn on, rw
-    /// ```
-    SYS_CTL1 = 0x02,
-
-    /// SYS_CTL2
-    /// ```txt
-    /// 7:3 - shutdown intensity threshold last for least 32s, n*12mA (at least 100mA), rw
-    /// ```
-    SYS_CTL2 = 0x0c,
-
-    /// SYS_CTL3
-    /// ```txt
-    /// 7:6 - long press time
-    ///       00 1s
-    ///       01 2s
-    ///       10 3s
-    ///       11 4s
-    /// 5 - enable/disable double-click shutdown, rw
-    /// ```
-    SYS_CTL3 = 0x03,
-
-    /// SYS_CTL4
-    /// ```txt
-    /// 7:6 - shutdown countdown, rw
-    ///       00 8s
-    ///       01 16s
-    ///       10 32s
-    ///       11 64s
-    /// 5 - auto enable boost when VIN is unplugged
-    /// ```
-    SYS_CTL4 = 0x04,
-
-    /// SYS_CTL5
-    /// ```txt
-    /// 6 - enable/disable NTC, rw
-    /// 1 - WLED, not supported
-    /// 0 - poweroff method
-    ///     0 double-click
-    ///     1 long press for 2s
-    /// ```
-    SYS_CTL5 = 0x07,
-
-    /// Charger_CTL1
-    /// ```txt
-    /// 3:2 - output voltage when charging, rw
-    ///       11 4.83V
-    ///       10 4.73V
-    ///       01 4.63V
-    ///       00 4.53V
-    /// ```
-    Charger_CTL1 = 0x22,
-
-    /// Charger_CTL2
-    /// ```txt
-    /// 6:5 - Baterry type, rw
-    ///       11 reserved
-    ///       10 4.35V
-    ///       01 4.3V
-    ///       00 4.2V
-    /// 2:1 - Constant voltage
-    ///       11 add 42mV
-    ///       10 add 28mV
-    ///       01 add 14mV
-    ///       00 no
-    /// ```
-    Charget_CTL2 = 0x24,
-
-    /// CHG_DIG_CTL0
-    CHG_DIG_CTL0 = 0x26,
-
-    /// CHG_DIG_CTL1
-    CHG_DIG_CTL1 = 0x25,
-
-    /// MFP_CTL0
-    MFP_CTL0 = 0x51,
-
-    /// MFP_CTL1
-    MFP_CTL1 = 0x52,
-
-    /// GPIO_CTL1
-    GPIO_CTL1 = 0x53,
-
-    /// GPIO_CTL2
-    GPIO_CTL2 = 0x54,
-
-    /// GPIO_CTL3
-    GPIO_CTL3 = 0x55,
-
-    /// BATVADC_DAT0
-    /// ```txt
-    /// 7:0 - BATVADC low 8 bits, r
-    /// ```
-    BATVADC_DAT0 = 0xa2,
-
-    /// BATVADC_DAT1
-    /// ```txt
-    /// 5:0 - BATVADC high 6 bits, r
-    /// ```
-    BATVADC_DAT1 = 0xa3,
-
-    /// BATIADC_DAT0
-    /// ```txt
-    /// 7:0 - BATIADC low 8 bits, r
-    /// ```
-    BATIADC_DAT0 = 0xa4,
-
-    /// BATIADC_DAT1
-    /// ```txt
-    /// 5:0 - BATIADC high 6 bits, r
-    /// ```
-    BATIADC_DAT1 = 0xa5,
-
-    /// BATOCV_DAT0
-    /// ```txt
-    /// 7:0 - BATOAC low 8 bits, r
-    /// ```
-    BATOCV_DAT0 = 0xa8,
-
-    /// BATOCV_DAT1
-    /// ```txt
-    /// 5:0 - BATOAC high 6 bits, r
-    /// ```
-    BATOCV_DAT1 = 0xa9,
-
-    /// Reg_READ0,
-    /// ```txt
-    /// 3 - Charging status
-    ///     0
-    ///     1
-    /// ```
-    Reg_READ0 = 0x70,
-
-    /// Reg_READ0_B (Reg_READ0 in document)
-    /// ```txt
-    /// 7:5 - Charging status
-    ///       000 idle
-    ///       001
-    ///       010
-    ///       011
-    ///       110
-    /// 3 - Charging end flag
-    ///     0
-    ///     1
-    /// 2 - Constant charging timeout
-    ///     0
-    ///     1
-    /// 1 - Charging timeout
-    ///     0
-    ///     1
-    /// 0 - Charing timeout
-    ///     0
-    ///     1
-    /// ```
-    Reg_READ0_B = 0x71,
-
-    /// Reg_READ1 (Reg_READ1 in document)
-    /// ```txt
-    /// 7 - Have light led
-    ///     0 Yes
-    ///     1 No
-    /// 6 - Low load flag
-    ///     0 Heavy load (>75mA)
-    ///     1 Light load (<75mA)
-    /// ```
-    Reg_READ1 = 0x72,
-
-    /// Reg_READ2 (Reg_READ2 in document)
-    /// ```txt
-    /// 3 - Button flag, r
-    ///     0 Not pressed
-    ///     1 Button down
-    /// 1 - Long pressed flag, r
-    ///     0
-    ///     1 Pressed
-    /// 0 - Short pressed flag, r
-    ///     0
-    ///     1
-    /// ```
-    Reg_READ2 = 0x77,
-}
-
-enum IP5312Register {}
-
-/// SD3078 register address
-enum SD3078Register {
-    CTR1 = 0x0f,
-    CTR2 = 0x10,
-    CTR3 = 0x11,
-}
-
 /// PiSugar error
+#[derive(Debug)]
 pub enum Error {
     I2c(I2cError),
 }
@@ -287,12 +85,12 @@ pub fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
 }
 
 /// Read battery voltage
-fn read_battery_voltage() -> Result<f64> {
+fn bat_read_voltage() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
-    let low = i2c.smbus_read_byte(I2C_CMD_READ_VOLTAGE_LOW)? as u16;
-    let high = i2c.smbus_read_byte(I2C_CMD_READ_VOLTAGE_HIGH)? as u16;
+    let low = i2c.smbus_read_byte(I2C_BAT_VOLTAGE_LOW)? as u16;
+    let high = i2c.smbus_read_byte(I2C_BAT_VOLTAGE_HIGH)? as u16;
     log::debug!("voltage low: 0x{:x}, high: 0x{:x}", low, high);
 
     // check negative values
@@ -308,12 +106,12 @@ fn read_battery_voltage() -> Result<f64> {
 }
 
 /// Read battery current intensity
-fn read_battery_intensity() -> Result<f64> {
+fn bat_read_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
-    let low = i2c.smbus_read_byte(I2C_CMD_READ_INTENSITY_LOW)? as u16;
-    let high = i2c.smbus_read_byte(I2C_CMD_READ_INTENSITY_HIGH)? as u16;
+    let low = i2c.smbus_read_byte(I2C_BAT_INTENSITY_LOW)? as u16;
+    let high = i2c.smbus_read_byte(I2C_BAT_INTENSITY_HIGH)? as u16;
     log::debug!("intensity low: 0x{:x}, high: 0x{:x}", low, high);
 
     let intensity = if high & 0x20 == 0x20 {
@@ -328,11 +126,11 @@ fn read_battery_intensity() -> Result<f64> {
 }
 
 /// Read battery pro intensity
-fn read_battery_pro_intensity() -> Result<f64> {
+fn bat_p_read_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(I2C_CMD_READ_PRO_INTENSITY_LOW)?;
-    let high = i2c.smbus_read_byte(I2C_CMD_READ_PRO_INTENSITY_HIGH)?;
+    let low = i2c.smbus_read_byte(I2C_BAT_P_INTENSITY_LOW)?;
+    let high = i2c.smbus_read_byte(I2C_BAT_P_INTENSITY_HIGH)?;
     let intensity = if high & 0x20 != 0 {
         let low = (!low) as u16;
         let high = (!high & 0x1f) as u16;
@@ -346,11 +144,11 @@ fn read_battery_pro_intensity() -> Result<f64> {
 }
 
 /// Read battery pro voltage
-fn read_battery_pro_voltage() -> Result<f64> {
+fn bat_p_read_voltage() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(I2C_CMD_READ_PRO_VOLTAGE_LOW)?;
-    let high = i2c.smbus_read_byte(I2C_CMD_READ_PRO_VOLTAGE_HIGH)?;
+    let low = i2c.smbus_read_byte(I2C_BAT_P_VOLTAGE_LOW)?;
+    let high = i2c.smbus_read_byte(I2C_BAT_P_VOLTAGE_HIGH)?;
     let voltage = if high & 0x20 != 0 {
         let low = (!low) as u16;
         let high = (!high & 0x1f) as u16;
@@ -364,10 +162,68 @@ fn read_battery_pro_voltage() -> Result<f64> {
 }
 
 /// Set shutdown threshold
-fn set_battery_shutdown_threshold() -> Result<()> {
+fn bat_set_shutdown_threshold() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
+
+    // threshold intensity
+    let mut v = i2c.smbus_read_byte(0x0c)?;
+    v &= 0b0000_0111;
+    v |= (12 << 3);
+    i2c.smbus_write_byte(0x0c, v)?;
+
+    // time
+    let mut v = i2c.smbus_read_byte(0x04)?;
+    v |= 0b0000_0000;
+    v &= 0b00111111;
+    i2c.smbus_write_byte(0x04, v)?;
+
+    // enable
+    let mut v = i2c.smbus_read_byte(0x02)?;
+    v |= 0b0000_0011;
+    i2c.smbus_write_byte(0x02, v)?;
+
+    Ok(())
+}
+
+fn bat_p_set_shutdown_threshold() -> Result<()> {
     unimplemented!()
+}
+
+fn bat_p_force_shutdown() -> Result<()> {
+    unimplemented!()
+}
+
+fn bat_set_gpio() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
+
+    // vset
+    let mut v = i2c.smbus_read_byte(0x26)?;
+    v |= 0b0000_0000;
+    v &= 0b1011_1111;
+    i2c.smbus_write_byte(0x26, v)?;
+
+    // vset -> gpio
+    let mut v = i2c.smbus_read_byte(0x52)?;
+    v |= 0b0000_0100;
+    v &= 0b1111_0111;
+    i2c.smbus_write_byte(0x52, v)?;
+
+    // gpio input
+    let mut v = i2c.smbus_read_byte(0x53)?;
+    v |= 0b0001_0000;
+    v &= 0b1111_1111;
+    i2c.smbus_write_byte(0x53, v)?;
+
+    Ok(())
+}
+
+fn bat_read_gpio() -> Result<u8> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
+    let v = i2c.smbus_read_byte(0x55)?;
+    Ok(v)
 }
 
 fn rtc_disable_write_protect() -> Result<()> {
@@ -400,7 +256,7 @@ fn rtc_enable_write_protect() -> Result<()> {
     Ok(())
 }
 
-pub fn rtc_read_alarm_flag() -> Result<bool> {
+fn rtc_read_alarm_flag() -> Result<bool> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -412,7 +268,7 @@ pub fn rtc_read_alarm_flag() -> Result<bool> {
     Ok(false)
 }
 
-pub fn rtc_clean_alarm_flag() -> Result<()> {
+fn rtc_clean_alarm_flag() -> Result<()> {
     match rtc_read_alarm_flag() {
         Ok(true) => {
             rtc_disable_write_protect()?;
@@ -438,6 +294,183 @@ fn dec_to_bcd(dec: u8) -> u8 {
     dec % 10 + ((dec / 10) << 4)
 }
 
+fn bcd_to_dec_list(bcd_list: &Vec<u8>) -> Vec<u8> {
+    let mut list = Vec::with_capacity(bcd_list.len());
+    for bcd in bcd_list {
+        list.push(bcd_to_dec(bcd.clone()));
+    }
+    list
+}
+
+fn dec_to_bcd_list(dec_list: &Vec<u8>) -> Vec<u8> {
+    let mut list = Vec::with_capacity(dec_list.len());
+    for dec in dec_list {
+        list.push(dec_to_bcd(dec.clone()));
+    }
+    list
+}
+
+fn datetime_to_bcd(datetime: DateTime<Local>) -> [u8; 7] {
+    let mut bcd_time = [0_u8; 7];
+    bcd_time[0] = (dec_to_bcd(datetime.second() as u8));
+    bcd_time[1] = (dec_to_bcd(datetime.minute() as u8));
+    bcd_time[2] = (dec_to_bcd(datetime.hour() as u8));
+    bcd_time[3] = (dec_to_bcd(datetime.weekday().num_days_from_sunday() as u8));
+    bcd_time[4] = (dec_to_bcd(datetime.day() as u8));
+    bcd_time[5] = (dec_to_bcd(datetime.month() as u8));
+    bcd_time[6] = (dec_to_bcd((datetime.year() % 100) as u8));
+    bcd_time
+}
+
+fn bcd_to_datetime(bcd_time: &[u8; 7]) -> DateTime<Local> {
+    let sec = bcd_to_dec(bcd_time[0]) as u32;
+    let min = bcd_to_dec(bcd_time[1]) as u32;
+    let hour = bcd_to_dec(bcd_time[2]) as u32;
+    let day_of_month = bcd_to_dec(bcd_time[4]) as u32;
+    let month = bcd_to_dec(bcd_time[5]) as u32;
+    let year = 2000 + bcd_to_dec(bcd_time[6]) as i32;
+
+    let datetime = Local.ymd(year, month, day_of_month).and_hms(hour, min, sec);
+    datetime
+}
+
+pub struct RtcDateTime(pub [u8; 7]);
+
+impl RtcDateTime {
+    pub fn from_raw_bcd(raw_bcd: &[u8; 7]) -> Self {
+        Self(raw_bcd.clone())
+    }
+
+    pub fn from_datetime(datetime: DateTime<Local>) -> Self {
+        unimplemented!()
+    }
+
+    pub fn new() -> Self {
+        Self([0; 7])
+    }
+
+    pub fn seconds(&self) -> u8 {
+        bcd_to_dec(self.0[0])
+    }
+
+    pub fn set_seconds(&mut self, seconds: u8) {
+        self.0[0] = dec_to_bcd(seconds)
+    }
+
+    pub fn minus(&self) -> u8 {
+        bcd_to_dec(self.0[1])
+    }
+
+    pub fn set_minus(&mut self, minus: u8) {
+        self.0[1] = dec_to_bcd(minus)
+    }
+
+    pub fn hour(&self) -> u8 {
+        // 24hr
+        if self.0[2] & 0b1000_0000 != 0 {
+            bcd_to_dec(self.0[2] & 0b0111_1111) // 24hr
+        } else if self.0[2] &0b0010_0000 != 0 {
+            12 + bcd_to_dec(self.0[2] & 0b0001_1111) // 12hr, pm
+        } else {
+            bcd_to_dec(self.0[2]) // 12hr, am
+        }
+    }
+
+    pub fn weekday(&self) -> u8 {
+        bcd_to_dec(self.0[3])
+    }
+
+    pub fn day(&self) -> u8 {
+        bcd_to_dec(self.0[4])
+    }
+
+    pub fn month(&self) -> u8 {
+        bcd_to_dec(self.0[5])
+    }
+
+    pub fn year(&self) -> u8 {
+        bcd_to_dec(self.0[6])
+    }
+
+    pub fn to_local(&self) -> DateTime<Local> {
+        bcd_to_datetime(&self.0)
+    }
+}
+
+fn rtc_write_time(bcd_time: &[u8; 7]) -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    // 24h
+    let mut bcd_time = bcd_time.clone();
+    bcd_time[2] |= 0b1000_0000;
+
+    rtc_disable_write_protect()?;
+    i2c.block_write(0, bcd_time.as_ref());
+    rtc_enable_write_protect()?;
+
+    Ok(())
+}
+
+fn rtc_read_time() -> Result<[u8; 7]> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    let mut bcd_time = [0_u8; 7];
+    i2c.block_read(0, &mut bcd_time)?;
+
+    // 12hr or 24hr
+    if bcd_time[2] & 0b1000_0000 != 0 {
+        bcd_time[2] &= 0b0111_1111; // 24hr
+    } else if bcd_time[2] & 0b0010_0000 != 0 {
+        bcd_time[2] += 12;  // 12hr and pm
+    }
+
+    Ok(bcd_time)
+}
+
+fn rtc_set_alarm(bcd_time: &[u8; 7], weekday_repeat: u8) -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    let mut bcd_time = bcd_time.clone();
+    bcd_time[3] = weekday_repeat;
+
+    rtc_disable_write_protect()?;
+    i2c.block_write(0x07, bcd_time.as_ref())?;
+
+    let mut ctr2 = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
+    ctr2 |= 0b0101_0010;
+    ctr2 &= 0b1101_1111;
+    i2c.smbus_write_byte(I2C_RTC_CTR2, ctr2)?;
+
+    // alarm allows hour/minus/second
+    i2c.smbus_write_byte(0x0e, 0b0000_0111);
+
+    rtc_enable_write_protect()?;
+
+    Ok(())
+}
+
+fn rtc_disable_alarm() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_RTC)?;
+
+    rtc_disable_write_protect()?;
+
+    let mut ctr2 = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
+    ctr2 |= 0b0101_0010;
+    ctr2 &= 0b1101_1111;
+    i2c.smbus_write_byte(I2C_RTC_CTR2, ctr2)?;
+
+    i2c.smbus_write_byte(0x0e, 0b0000_0000);
+
+    rtc_enable_write_protect()?;
+
+    Ok(())
+}
+
+
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
 
@@ -456,7 +489,7 @@ pub struct PiSugarConfig {
     pub auto_shutdown_percent: String,
 }
 
-pub struct PiSugarBatteryStatus {
+pub struct PiSugarStatus {
     model: &'static str,
     voltage: f64,
     intensity: f64,
@@ -466,12 +499,12 @@ pub struct PiSugarBatteryStatus {
     updated_at: Instant,
 }
 
-impl PiSugarBatteryStatus {
+impl PiSugarStatus {
     pub fn new() -> Self {
         let mut level_records = VecDeque::with_capacity(10);
 
         let mut model = MODEL_V2_PRO;
-        let voltage = match read_battery_voltage() {
+        let voltage = match bat_read_voltage() {
             Ok(voltage) => {
                 model = MODEL_V2;
                 voltage
@@ -480,7 +513,7 @@ impl PiSugarBatteryStatus {
         };
         let level = convert_battery_voltage_to_level(voltage);
 
-        let intensity = match read_battery_intensity() {
+        let intensity = match bat_read_intensity() {
             Ok(intensity) => {
                 intensity
             }
@@ -566,28 +599,56 @@ impl PiSugarBatteryStatus {
             }
             let k = a / b;
             log::debug!("charging k: {}", k);
-            return k >= 0.005;
+            return k >= 0.01;
         }
         false
     }
 }
 
-/// Infinity loop to read battery status
-pub fn start_pisugar_loop(status: Arc<RwLock<PiSugarBatteryStatus>>) {
+/// Infinity loop
+pub fn start_pisugar_loop(status: Arc<RwLock<PiSugarStatus>>, auto_shutdown_level: Option<f64>) {
     let handler = thread::spawn(move || {
         log::info!("PiSugar batter loop started");
+
+        let mut gpio_button_detect: BitVec<bitvec::prelude::Local, usize> = BitVec::with_capacity(64);
+
         loop {
             let now = Instant::now();
+
+            // battery
             if let Ok(mut status) = status.write() {
-                if let Ok(v) = read_battery_voltage() {
+                if let Ok(v) = bat_read_voltage() {
                     log::debug!("voltage: {}", v);
                     status.update_voltage(v, now);
                 }
-                if let Ok(i) = read_battery_intensity() {
+                if let Ok(i) = bat_read_intensity() {
                     log::debug!("intensity: {}", i);
                     status.update_intensity(i, now);
                 }
             }
+
+            // auto shutdown
+            if let Some(auto_shutdown_level) = auto_shutdown_level.clone() {
+                if let Ok(status) = status.read() {
+                    if status.level < auto_shutdown_level {
+                        loop {
+                            let mut proc = Command::new("poweroff").spawn().unwrap();
+                            let exit_status = proc.wait().unwrap();
+                            thread::sleep(Duration::from_secs(3));
+                        }
+                    }
+                }
+            }
+
+            // rtc
+
+            // gpio
+            if let Ok(pressed) = bat_read_gpio() {
+                if pressed != 0 {
+                    //gpio_button_detect.push(true);
+                }
+            }
+
             // sleep
             thread::sleep(I2C_READ_INTERVAL);
         }
@@ -605,7 +666,7 @@ impl PiSugarCore {
 
     /// Get PiSugar model
     pub fn get_model(&self) -> &str {
-        if let Ok(voltage) = read_battery_voltage() {
+        if let Ok(voltage) = bat_read_voltage() {
             if voltage > 0.1 {
                 return MODEL_V2;
             }
@@ -620,12 +681,12 @@ impl PiSugarCore {
 
     /// Get battery voltage
     pub fn get_battery_voltage(&self) -> Result<f64> {
-        read_battery_voltage()
+        bat_read_voltage()
     }
 
     /// Get battery intensity
     pub fn get_battery_intensity(&self) -> Result<f64> {
-        read_battery_intensity()
+        bat_read_intensity()
     }
 
     /// Is battery charging
@@ -716,15 +777,26 @@ impl PiSugarCore {
 fn main() {
     env_logger::init();
 
-    let status = Arc::new(RwLock::new(PiSugarBatteryStatus::new()));
+    let status = Arc::new(RwLock::new(PiSugarStatus::new()));
 
-    start_pisugar_loop(status.clone());
+    start_pisugar_loop(status.clone(), Some(8.0));
 
     for i in 0..10 {
         let now = Instant::now();
         if let Ok(status) = status.read() {
             log::info!("battery status => {}V, {}A, active: {}, charging: {}, level: {}",  status.voltage(), status.intensity(), status.is_alive(now), status.is_charging(now), status.level());
         }
+
+        match rtc_read_time() {
+            Ok(bcd_time) => {
+                let datetime = bcd_to_datetime(&bcd_time);
+                log::info!("rtc time: {}", datetime);
+            }
+            Err(e) => {
+                log::info!("rtc read time error: {:?}", e);
+            }
+        }
+
         thread::sleep(Duration::from_secs(1));
     }
 }
