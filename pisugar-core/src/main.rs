@@ -2,6 +2,8 @@
 extern crate num_derive;
 
 use std::collections::VecDeque;
+use std::fmt::{Display, Formatter};
+use std::process::Command;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::thread::Thread;
@@ -11,8 +13,6 @@ use chrono::{Datelike, DateTime, Local, Timelike, TimeZone};
 use num_traits::{FromPrimitive, ToPrimitive};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
-use std::process::Command;
-use bitvec::vec::BitVec;
 
 const TIME_HOST: &str = "cdn.pisugar.com";
 
@@ -369,7 +369,7 @@ impl RtcDateTime {
         // 24hr
         if self.0[2] & 0b1000_0000 != 0 {
             bcd_to_dec(self.0[2] & 0b0111_1111) // 24hr
-        } else if self.0[2] &0b0010_0000 != 0 {
+        } else if self.0[2] & 0b0010_0000 != 0 {
             12 + bcd_to_dec(self.0[2] & 0b0001_1111) // 12hr, pm
         } else {
             bcd_to_dec(self.0[2]) // 12hr, am
@@ -605,12 +605,62 @@ impl PiSugarStatus {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum TapType {
+    Single,
+    Double,
+    Long,
+}
+
+impl Display for TapType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TapType::Single => "single",
+            TapType::Double => "double",
+            TapType::Long => "long"
+        };
+        write!(f, "{}", s)
+    }
+}
+
+fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
+    let long_pattern = "111111110";
+    let double_pattern = vec![
+        "1010",
+        "10010",
+        "10110",
+        "100110",
+        "101110",
+        "1001110",
+    ];
+    let single_pattern = "1000";
+
+    if gpio_history.contains(long_pattern) {
+        gpio_history.clear();
+        return Some(TapType::Long);
+    }
+
+    for pattern in double_pattern {
+        if gpio_history.contains(pattern) {
+            gpio_history.clear();
+            return Some(TapType::Double);
+        }
+    }
+
+    if gpio_history.contains(single_pattern) {
+        gpio_history.clear();
+        return Some(TapType::Single);
+    }
+
+    None
+}
+
 /// Infinity loop
 pub fn start_pisugar_loop(status: Arc<RwLock<PiSugarStatus>>, auto_shutdown_level: Option<f64>) {
     let handler = thread::spawn(move || {
         log::info!("PiSugar batter loop started");
 
-        let mut gpio_button_detect: BitVec<bitvec::prelude::Local, usize> = BitVec::with_capacity(64);
+        let mut gpio_detect_history = String::with_capacity(32);
 
         loop {
             let now = Instant::now();
@@ -644,8 +694,16 @@ pub fn start_pisugar_loop(status: Arc<RwLock<PiSugarStatus>>, auto_shutdown_leve
 
             // gpio
             if let Ok(pressed) = bat_read_gpio() {
+                if gpio_detect_history.len() == gpio_detect_history.capacity() {
+                    gpio_detect_history.remove(0);
+                }
                 if pressed != 0 {
-                    //gpio_button_detect.push(true);
+                    gpio_detect_history.push('1');
+                } else {
+                    gpio_detect_history.push('0');
+                }
+                if let Some(tap) = gpio_detect_tap(&mut gpio_detect_history) {
+                    log::debug!("tap detected: {}", tap);
                 }
             }
 
