@@ -4,6 +4,7 @@ use std::time::Instant;
 use actix::prelude::*;
 use actix_web::{App, Error, get, HttpRequest, HttpResponse, HttpServer, middleware, Responder, web};
 use actix_web_actors::ws;
+use std::sync::{Mutex, Arc};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -55,8 +56,8 @@ async fn index() -> impl Responder {
 
 
 /// start websocket, to push events
-async fn start_ws(r: HttpRequest, stream: web::Payload, data: web::Data<Addr<ServerMonitor>>) -> Result<HttpResponse, Error> {
-    log::debug!("{:?}", r);
+async fn start_ws(r: HttpRequest, stream: web::Payload, data: web::Data<Addr<PiSugarMonitor>>) -> Result<HttpResponse, Error> {
+    log::debug!("WS connected {:?}", r);
 
     let (addr, res) = ws::start_with_addr(MyWebSocket::new(), &r, stream)?;
     data.get_ref().do_send(RegisterWSClient { addr });
@@ -64,7 +65,7 @@ async fn start_ws(r: HttpRequest, stream: web::Payload, data: web::Data<Addr<Ser
     Ok(res)
 }
 
-/// Client must send ping every 10s, otherwise will be dropped.
+/// Client must send ping every 10s, otherwise will be dropped
 struct MyWebSocket {
     last_received: Instant
 }
@@ -99,11 +100,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
     }
 }
 
-impl Handler<ServerEvent> for MyWebSocket {
+impl Handler<TapEvent> for MyWebSocket {
     type Result = ();
 
-    fn handle(&mut self, msg: ServerEvent, ctx: &mut Self::Context) {
-        ctx.text(msg.event);
+    fn handle(&mut self, msg: TapEvent, ctx: &mut Self::Context) {
+        ctx.text(msg.tap_type);
     }
 }
 
@@ -134,35 +135,55 @@ impl MyWebSocket {
     }
 }
 
+/// WS client connected
 #[derive(Message)]
 #[rtype(result = "()")]
 struct RegisterWSClient {
     addr: Addr<MyWebSocket>,
 }
 
+/// PiSugar tap event
 #[derive(Message)]
 #[rtype(result = "()")]
-struct ServerEvent {
-    event: String,
+struct TapEvent {
+    tap_type: String,
 }
 
-struct ServerMonitor {
+/// PiSugar monitor
+struct PiSugarMonitor {
     listeners: Vec<Addr<MyWebSocket>>,
+    status: Arc<Mutex<PiSugarStatus>>,
 }
 
-impl Actor for ServerMonitor {
-    type Context = Context<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        ctx.run_interval(Duration::from_secs(5), |act, _| {
-            for l in &act.listeners {
-                l.do_send(ServerEvent { event: String::from("Event:") });
-            }
-        });
+impl PiSugarMonitor {
+    pub fn new(status: Arc<Mutex<PiSugarStatus>>) -> Self {
+        Self {
+            listeners: vec![],
+            status
+        }
     }
 }
 
-impl Handler<RegisterWSClient> for ServerMonitor {
+impl Actor for PiSugarMonitor {
+    type Context = Context<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        log::info!("PiSugar Power Manager started");
+        ctx.run_interval(Duration::from_millis(100), |act, ctx| {
+            log::debug!("polling PiSugar state");
+
+            for l in &act.listeners {
+                l.do_send(TapEvent { tap_type: String::from("Event:") });
+            }
+        });
+    }
+
+    fn stopped(&mut self, ctx: &mut Self::Context) {
+        log::info!("PiSugar Power Manager stopped");
+    }
+}
+
+impl Handler<RegisterWSClient> for PiSugarMonitor {
     type Result = ();
 
     fn handle(&mut self, msg: RegisterWSClient, _: &mut Context<Self>) {
@@ -170,6 +191,7 @@ impl Handler<RegisterWSClient> for ServerMonitor {
     }
 }
 
+#[derive(Default)]
 pub struct PiSugarStatus {
     pub model: String,
     pub voltage: f64,
@@ -177,33 +199,16 @@ pub struct PiSugarStatus {
     pub charging: f64,
 }
 
-pub struct PiSugarActor;
-
-impl Actor for PiSugarActor {
-    type Context = Context<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        log::info!("pisugar power manager started");
-        ctx.run_interval(Duration::from_millis(500), |actor, ctx| {
-            log::debug!("polling pisugar status");
-        });
-    }
-
-    fn stopped(&mut self, ctx: &mut Self::Context) {
-        log::info!("pisugar power manager stopped");
-    }
-}
-
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let sys = System::new("PiSugar Power Manager");
-
-    let srvmon = ServerMonitor { listeners: vec![] }.start();
+    let status = Arc::new(Mutex::new(PiSugarStatus::default()));
+    let monitor = PiSugarMonitor::new(status.clone()).start();
 
     HttpServer::new(move || {
-        App::new().data(srvmon.clone())
+        App::new().data(monitor.clone())
             .wrap(middleware::Logger::default())
             .service(index)
             .service(web::resource("/ws/").to(start_ws))
