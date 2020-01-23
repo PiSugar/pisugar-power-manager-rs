@@ -171,16 +171,16 @@ impl Handler<RegisterWSClient> for ServerMonitor {
 }
 
 pub struct PiSugarStatus {
-    pub model: String;
-    pub voltage: f64;
-    pub intensity: f64;
-    pub charging: f64;
+    pub model: String,
+    pub voltage: f64,
+    pub intensity: f64,
+    pub charging: f64,
 }
 
 pub struct PiSugarActor;
 
 impl Actor for PiSugarActor {
-    type Context = Context<PiSugarStatus>;
+    type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
         log::info!("pisugar power manager started");

@@ -1,3 +1,9 @@
+[source.crates-io]
+registry = "https://github.com/rust-lang/crates.io-index"
+replace-with = 'ustc'
+
+[source.ustc]
+registry = "git://mirrors.ustc.edu.cn/crates.io-index"
 
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
@@ -6,7 +12,7 @@ linker = "arm-linux-musleabihf-ld"
 linker = "arm-linux-musleabihf-ld"
 
 [target.arm-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-ld"
+linker = "arm-linux-gnueabihf-gcc"
 
 [target.armv7-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-ld"
+linker = "arm-linux-gnueabihf-gcc"
