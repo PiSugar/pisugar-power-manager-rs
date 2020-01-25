@@ -1,13 +1,21 @@
+use std::process::Command;
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use std::time::Instant;
 
 use actix::prelude::*;
-use actix_web::{App, Error, get, HttpRequest, HttpResponse, HttpServer, middleware, Responder, web};
+use actix_web::{
+    get, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+};
 use actix_web_actors::ws;
-use std::sync::{Mutex, Arc};
+
+use pisugar_core::{
+    bat_read_gpio, bat_read_intensity, bat_read_voltage, gpio_detect_tap, PiSugarStatus, TapType,
+};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+const I2C_READ_INTERVAL: Duration = Duration::from_millis(100);
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -54,9 +62,12 @@ async fn index() -> impl Responder {
 //    unimplemented!()
 //}
 
-
 /// start websocket, to push events
-async fn start_ws(r: HttpRequest, stream: web::Payload, data: web::Data<Addr<PiSugarMonitor>>) -> Result<HttpResponse, Error> {
+async fn start_ws(
+    r: HttpRequest,
+    stream: web::Payload,
+    data: web::Data<Addr<PiSugarMonitor>>,
+) -> Result<HttpResponse, Error> {
     log::debug!("WS connected {:?}", r);
 
     let (addr, res) = ws::start_with_addr(MyWebSocket::new(), &r, stream)?;
@@ -67,7 +78,7 @@ async fn start_ws(r: HttpRequest, stream: web::Payload, data: web::Data<Addr<PiS
 
 /// Client must send ping every 10s, otherwise will be dropped
 struct MyWebSocket {
-    last_received: Instant
+    last_received: Instant,
 }
 
 impl Actor for MyWebSocket {
@@ -81,11 +92,7 @@ impl Actor for MyWebSocket {
 
 /// Handler for `ws::Message`
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
-    fn handle(
-        &mut self,
-        msg: Result<ws::Message, ws::ProtocolError>,
-        ctx: &mut Self::Context,
-    ) {
+    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         // process websocket messages
         log::info!("WS: {:?}", msg);
         self.last_received = Instant::now();
@@ -110,7 +117,9 @@ impl Handler<TapEvent> for MyWebSocket {
 
 impl MyWebSocket {
     fn new() -> Self {
-        Self { last_received: Instant::now() }
+        Self {
+            last_received: Instant::now(),
+        }
     }
 
     /// helper method that sends ping to client every second.
@@ -149,17 +158,52 @@ struct TapEvent {
     tap_type: String,
 }
 
+impl From<TapType> for TapEvent {
+    fn from(t: TapType) -> Self {
+        match t {
+            TapType::Single => Self {
+                tap_type: String::from("single"),
+            },
+            TapType::Double => Self {
+                tap_type: String::from("double"),
+            },
+            TapType::Long => Self {
+                tap_type: String::from("long"),
+            },
+        }
+    }
+}
+
+/// PiSugar config
+#[derive(Default)]
+struct PiSugarConfig {
+    auto_shutdown_level: f64,
+    single_tap_enable: bool,
+    single_tap_shell: String,
+    double_tap_enable: bool,
+    double_tap_shell: String,
+    long_tap_enable: bool,
+    long_tap_shell: String,
+}
+
+fn execute_shell(shell: &str) {
+    let args = ["-c", shell];
+    let child = Command::new("sh").args(&args).spawn().expect("");
+}
+
 /// PiSugar monitor
 struct PiSugarMonitor {
+    config: Arc<RwLock<PiSugarConfig>>,
+    status: Arc<RwLock<PiSugarStatus>>,
     listeners: Vec<Addr<MyWebSocket>>,
-    status: Arc<Mutex<PiSugarStatus>>,
 }
 
 impl PiSugarMonitor {
-    pub fn new(status: Arc<Mutex<PiSugarStatus>>) -> Self {
+    pub fn new(config: Arc<RwLock<PiSugarConfig>>, status: Arc<RwLock<PiSugarStatus>>) -> Self {
         Self {
+            config,
+            status,
             listeners: vec![],
-            status
         }
     }
 }
@@ -169,11 +213,57 @@ impl Actor for PiSugarMonitor {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         log::info!("PiSugar Power Manager started");
-        ctx.run_interval(Duration::from_millis(100), |act, ctx| {
+
+        let mut gpio_detect_history = String::with_capacity(32);
+
+        ctx.run_interval(I2C_READ_INTERVAL, move |act, ctx| {
             log::debug!("polling PiSugar state");
 
-            for l in &act.listeners {
-                l.do_send(TapEvent { tap_type: String::from("Event:") });
+            let mut status = act.status.write().expect("lock status failed");
+            let config = act.config.read().expect("lock config failed");
+
+            let now = Instant::now();
+
+            // battery
+            if let Ok(v) = bat_read_voltage() {
+                log::debug!("voltage: {}", v);
+                status.update_voltage(v, now);
+            }
+            if let Ok(i) = bat_read_intensity() {
+                log::debug!("intensity: {}", i);
+                status.update_intensity(i, now);
+            }
+
+            // auto shutdown
+            if status.level() < config.auto_shutdown_level {
+                log::debug!("low battery, will power off");
+                loop {
+                    let mut proc = Command::new("poweroff").spawn().unwrap();
+                    let exit_status = proc.wait().unwrap();
+                }
+            }
+
+            // rtc
+
+            // GPIO tap detect
+            if let Ok(pressed) = bat_read_gpio() {
+                log::debug!("gpio button state: {}", pressed);
+
+                if gpio_detect_history.len() == gpio_detect_history.capacity() {
+                    gpio_detect_history.remove(0);
+                }
+                if pressed != 0 {
+                    gpio_detect_history.push('1');
+                } else {
+                    gpio_detect_history.push('0');
+                }
+
+                if let Some(tap_type) = gpio_detect_tap(&mut gpio_detect_history) {
+                    log::debug!("tap detected: {}", tap_type);
+                    act.listeners
+                        .iter()
+                        .for_each(|l| l.do_send(tap_type.into()))
+                }
             }
         });
     }
@@ -191,29 +281,24 @@ impl Handler<RegisterWSClient> for PiSugarMonitor {
     }
 }
 
-#[derive(Default)]
-pub struct PiSugarStatus {
-    pub model: String,
-    pub voltage: f64,
-    pub intensity: f64,
-    pub charging: f64,
-}
-
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
+    let config = Arc::new(RwLock::new(PiSugarConfig::default()));
+    let status = Arc::new(RwLock::new(PiSugarStatus::new()));
+
     let sys = System::new("PiSugar Power Manager");
-    let status = Arc::new(Mutex::new(PiSugarStatus::default()));
-    let monitor = PiSugarMonitor::new(status.clone()).start();
+    let monitor = PiSugarMonitor::new(config.clone(), status.clone()).start();
 
     HttpServer::new(move || {
-        App::new().data(monitor.clone())
+        App::new()
+            .data(monitor.clone())
             .wrap(middleware::Logger::default())
             .service(index)
             .service(web::resource("/ws/").to(start_ws))
     })
-        .bind("[::0]:8080")?
-        .run()
-        .await
+    .bind("[::0]:8080")?
+    .run()
+    .await
 }

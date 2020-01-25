@@ -9,7 +9,7 @@ use std::thread;
 use std::thread::Thread;
 use std::time::{Duration, Instant};
 
-use chrono::{Datelike, DateTime, Local, Timelike, TimeZone};
+use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use num_traits::{FromPrimitive, ToPrimitive};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
@@ -70,7 +70,7 @@ const BATTERY_CURVE: [BatteryThreshold; 11] = [
 ];
 
 /// Battery voltage to percentage level
-pub fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
+fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
     if voltage > 5.5 {
         return 100.0;
     }
@@ -85,7 +85,7 @@ pub fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
 }
 
 /// Read battery voltage
-fn bat_read_voltage() -> Result<f64> {
+pub fn bat_read_voltage() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
@@ -106,7 +106,7 @@ fn bat_read_voltage() -> Result<f64> {
 }
 
 /// Read battery current intensity
-fn bat_read_intensity() -> Result<f64> {
+pub fn bat_read_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
@@ -126,7 +126,7 @@ fn bat_read_intensity() -> Result<f64> {
 }
 
 /// Read battery pro intensity
-fn bat_p_read_intensity() -> Result<f64> {
+pub fn bat_p_read_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
     let low = i2c.smbus_read_byte(I2C_BAT_P_INTENSITY_LOW)?;
@@ -144,7 +144,7 @@ fn bat_p_read_intensity() -> Result<f64> {
 }
 
 /// Read battery pro voltage
-fn bat_p_read_voltage() -> Result<f64> {
+pub fn bat_p_read_voltage() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
     let low = i2c.smbus_read_byte(I2C_BAT_P_VOLTAGE_LOW)?;
@@ -162,7 +162,7 @@ fn bat_p_read_voltage() -> Result<f64> {
 }
 
 /// Set shutdown threshold
-fn bat_set_shutdown_threshold() -> Result<()> {
+pub fn bat_set_shutdown_threshold() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
@@ -186,15 +186,15 @@ fn bat_set_shutdown_threshold() -> Result<()> {
     Ok(())
 }
 
-fn bat_p_set_shutdown_threshold() -> Result<()> {
+pub fn bat_p_set_shutdown_threshold() -> Result<()> {
     unimplemented!()
 }
 
-fn bat_p_force_shutdown() -> Result<()> {
+pub fn bat_p_force_shutdown() -> Result<()> {
     unimplemented!()
 }
 
-fn bat_set_gpio() -> Result<()> {
+pub fn bat_set_gpio() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
@@ -219,14 +219,14 @@ fn bat_set_gpio() -> Result<()> {
     Ok(())
 }
 
-fn bat_read_gpio() -> Result<u8> {
+pub fn bat_read_gpio() -> Result<u8> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
     let v = i2c.smbus_read_byte(0x55)?;
     Ok(v)
 }
 
-fn rtc_disable_write_protect() -> Result<()> {
+pub fn rtc_disable_write_protect() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -241,7 +241,7 @@ fn rtc_disable_write_protect() -> Result<()> {
     Ok(())
 }
 
-fn rtc_enable_write_protect() -> Result<()> {
+pub fn rtc_enable_write_protect() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -256,7 +256,7 @@ fn rtc_enable_write_protect() -> Result<()> {
     Ok(())
 }
 
-fn rtc_read_alarm_flag() -> Result<bool> {
+pub fn rtc_read_alarm_flag() -> Result<bool> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -268,7 +268,7 @@ fn rtc_read_alarm_flag() -> Result<bool> {
     Ok(false)
 }
 
-fn rtc_clean_alarm_flag() -> Result<()> {
+pub fn rtc_clean_alarm_flag() -> Result<()> {
     match rtc_read_alarm_flag() {
         Ok(true) => {
             rtc_disable_write_protect()?;
@@ -397,7 +397,7 @@ impl RtcDateTime {
     }
 }
 
-fn rtc_write_time(bcd_time: &[u8; 7]) -> Result<()> {
+pub fn rtc_write_time(bcd_time: &[u8; 7]) -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -412,7 +412,7 @@ fn rtc_write_time(bcd_time: &[u8; 7]) -> Result<()> {
     Ok(())
 }
 
-fn rtc_read_time() -> Result<[u8; 7]> {
+pub fn rtc_read_time() -> Result<[u8; 7]> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -423,13 +423,13 @@ fn rtc_read_time() -> Result<[u8; 7]> {
     if bcd_time[2] & 0b1000_0000 != 0 {
         bcd_time[2] &= 0b0111_1111; // 24hr
     } else if bcd_time[2] & 0b0010_0000 != 0 {
-        bcd_time[2] += 12;  // 12hr and pm
+        bcd_time[2] += 12; // 12hr and pm
     }
 
     Ok(bcd_time)
 }
 
-fn rtc_set_alarm(bcd_time: &[u8; 7], weekday_repeat: u8) -> Result<()> {
+pub fn rtc_set_alarm(bcd_time: &[u8; 7], weekday_repeat: u8) -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -452,7 +452,7 @@ fn rtc_set_alarm(bcd_time: &[u8; 7], weekday_repeat: u8) -> Result<()> {
     Ok(())
 }
 
-fn rtc_disable_alarm() -> Result<()> {
+pub fn rtc_disable_alarm() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_RTC)?;
 
@@ -469,7 +469,6 @@ fn rtc_disable_alarm() -> Result<()> {
 
     Ok(())
 }
-
 
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
@@ -489,8 +488,10 @@ pub struct PiSugarConfig {
     pub auto_shutdown_percent: String,
 }
 
+/// PiSugar status
+
 pub struct PiSugarStatus {
-    model: &'static str,
+    model: String,
     voltage: f64,
     intensity: f64,
     level: f64,
@@ -503,21 +504,19 @@ impl PiSugarStatus {
     pub fn new() -> Self {
         let mut level_records = VecDeque::with_capacity(10);
 
-        let mut model = MODEL_V2_PRO;
+        let mut model = String::from(MODEL_V2_PRO);
         let voltage = match bat_read_voltage() {
             Ok(voltage) => {
-                model = MODEL_V2;
+                model = String::from(MODEL_V2);
                 voltage
             }
-            _ => { 0.0 }
+            _ => 0.0,
         };
         let level = convert_battery_voltage_to_level(voltage);
 
         let intensity = match bat_read_intensity() {
-            Ok(intensity) => {
-                intensity
-            }
-            _ => { 0.0 }
+            Ok(intensity) => intensity,
+            _ => 0.0,
         };
 
         for i in 0..level_records.capacity() {
@@ -536,8 +535,8 @@ impl PiSugarStatus {
     }
 
     /// PiSugar model
-    pub fn mode(&self) -> &'static str {
-        self.model
+    pub fn mode(&self) -> &str {
+        self.model.as_str()
     }
 
     /// Battery level
@@ -617,22 +616,15 @@ impl Display for TapType {
         let s = match self {
             TapType::Single => "single",
             TapType::Double => "double",
-            TapType::Long => "long"
+            TapType::Long => "long",
         };
         write!(f, "{}", s)
     }
 }
 
-fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
+pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
     let long_pattern = "111111110";
-    let double_pattern = vec![
-        "1010",
-        "10010",
-        "10110",
-        "100110",
-        "101110",
-        "1001110",
-    ];
+    let double_pattern = vec!["1010", "10010", "10110", "100110", "101110", "1001110"];
     let single_pattern = "1000";
 
     if gpio_history.contains(long_pattern) {
@@ -653,208 +645,4 @@ fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
     }
 
     None
-}
-
-/// Infinity loop
-pub fn start_pisugar_loop(status: Arc<RwLock<PiSugarStatus>>, auto_shutdown_level: Option<f64>) {
-    let handler = thread::spawn(move || {
-        log::info!("PiSugar batter loop started");
-
-        let mut gpio_detect_history = String::with_capacity(32);
-
-        loop {
-            let now = Instant::now();
-
-            // battery
-            if let Ok(mut status) = status.write() {
-                if let Ok(v) = bat_read_voltage() {
-                    log::debug!("voltage: {}", v);
-                    status.update_voltage(v, now);
-                }
-                if let Ok(i) = bat_read_intensity() {
-                    log::debug!("intensity: {}", i);
-                    status.update_intensity(i, now);
-                }
-            }
-
-            // auto shutdown
-            if let Some(auto_shutdown_level) = auto_shutdown_level.clone() {
-                if let Ok(status) = status.read() {
-                    if status.level < auto_shutdown_level {
-                        loop {
-                            let mut proc = Command::new("poweroff").spawn().unwrap();
-                            let exit_status = proc.wait().unwrap();
-                            thread::sleep(Duration::from_secs(3));
-                        }
-                    }
-                }
-            }
-
-            // rtc
-
-            // gpio
-            if let Ok(pressed) = bat_read_gpio() {
-                if gpio_detect_history.len() == gpio_detect_history.capacity() {
-                    gpio_detect_history.remove(0);
-                }
-                if pressed != 0 {
-                    gpio_detect_history.push('1');
-                } else {
-                    gpio_detect_history.push('0');
-                }
-                if let Some(tap) = gpio_detect_tap(&mut gpio_detect_history) {
-                    log::debug!("tap detected: {}", tap);
-                }
-            }
-
-            // sleep
-            thread::sleep(I2C_READ_INTERVAL);
-        }
-    });
-}
-
-pub struct PiSugarCore {
-    config: PiSugarConfig,
-}
-
-impl PiSugarCore {
-    pub fn new(config: PiSugarConfig) -> Self {
-        Self { config }
-    }
-
-    /// Get PiSugar model
-    pub fn get_model(&self) -> &str {
-        if let Ok(voltage) = bat_read_voltage() {
-            if voltage > 0.1 {
-                return MODEL_V2;
-            }
-        }
-        return MODEL_V2_PRO;
-    }
-
-    /// Get battery level
-    pub fn get_battery_level(&self) -> &str {
-        unimplemented!()
-    }
-
-    /// Get battery voltage
-    pub fn get_battery_voltage(&self) -> Result<f64> {
-        bat_read_voltage()
-    }
-
-    /// Get battery intensity
-    pub fn get_battery_intensity(&self) -> Result<f64> {
-        bat_read_intensity()
-    }
-
-    /// Is battery charging
-    pub fn is_charging(&self) -> bool {
-        unimplemented!()
-    }
-
-    /// Get RTC time
-    pub fn get_rtc_time(&self) {
-        unimplemented!()
-    }
-
-    /// Get RTC time list
-    pub fn get_rtc_time_list(&self) {
-        unimplemented!()
-    }
-
-    /// Get RTC alarm enable or disable
-    pub fn get_rtc_alarm_flag(&self) -> bool {
-        unimplemented!()
-    }
-
-    pub fn get_rtc_alarm_type(&self) {
-        unimplemented!()
-    }
-
-    pub fn get_rtc_alarm_time(&self) {
-        unimplemented!()
-    }
-
-    pub fn get_rtc_alarm_repeat(&self) -> bool {
-        unimplemented!()
-    }
-
-    pub fn get_safe_shutdown_level(&self) {
-        unimplemented!()
-    }
-
-    pub fn is_button_enabled(&self) -> bool {
-        unimplemented!()
-    }
-
-    pub fn get_button_shell(&self) -> &str {
-        unimplemented!()
-    }
-
-    pub fn rtc_clear_alarm_flag(&self) {
-        unimplemented!()
-    }
-
-    pub fn sync_time_pi2rtc(&self) {
-        unimplemented!()
-    }
-
-    pub fn sync_time_rtc2pi(&self) {
-        unimplemented!()
-    }
-
-    pub fn sync_time_web2rtc(&self) {
-        unimplemented!()
-    }
-
-    pub fn set_rtc_alarm(&self) {
-        unimplemented!()
-    }
-
-    pub fn disable_rtc_alarm(&self) {
-        unimplemented!()
-    }
-
-    pub fn set_safe_shutdown_level(&self) {
-        unimplemented!()
-    }
-
-    pub fn set_test_wakeup(&self) {
-        unimplemented!()
-    }
-
-    pub fn set_button_enable(&self) {
-        unimplemented!()
-    }
-
-    pub fn set_button_shell(&self, shell_script: &str) {
-        unimplemented!()
-    }
-}
-
-fn main() {
-    env_logger::init();
-
-    let status = Arc::new(RwLock::new(PiSugarStatus::new()));
-
-    start_pisugar_loop(status.clone(), Some(8.0));
-
-    for i in 0..10 {
-        let now = Instant::now();
-        if let Ok(status) = status.read() {
-            log::info!("battery status => {}V, {}A, active: {}, charging: {}, level: {}",  status.voltage(), status.intensity(), status.is_alive(now), status.is_charging(now), status.level());
-        }
-
-        match rtc_read_time() {
-            Ok(bcd_time) => {
-                let datetime = bcd_to_datetime(&bcd_time);
-                log::info!("rtc time: {}", datetime);
-            }
-            Err(e) => {
-                log::info!("rtc read time error: {:?}", e);
-            }
-        }
-
-        thread::sleep(Duration::from_secs(1));
-    }
 }

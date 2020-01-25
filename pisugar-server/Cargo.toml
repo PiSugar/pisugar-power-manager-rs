@@ -4,12 +4,13 @@ version = "0.1.0"
 authors = ["PiSugar"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 log = "0.4.8"
+env_logger = "0.7"
+
 actix = "0.9"
 actix-web = "2.0"
 actix-web-actors = "2.0.0"
 actix-rt = "1.0"
-env_logger = "0.7"
+
+pisugar-core = { path = "../pisugar-core" }
