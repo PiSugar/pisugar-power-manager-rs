@@ -1,5 +1,6 @@
 use std::process::Command;
 use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -8,6 +9,7 @@ use actix_web::{
     get, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
+use serde::Serialize;
 
 use pisugar_core::{
     bat_read_gpio, bat_read_intensity, bat_read_voltage, gpio_detect_tap, PiSugarStatus, TapType,
@@ -15,11 +17,20 @@ use pisugar_core::{
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-const I2C_READ_INTERVAL: Duration = Duration::from_millis(100);
+const I2C_READ_INTERVAL: Duration = Duration::from_millis(200);
 
 #[get("/")]
-async fn index() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
+async fn index(web_data: web::Data<WebData>) -> HttpResponse {
+    let status = web_data.status.read().expect("read lock failed");
+    let now = Instant::now();
+    let resp = StatusJson {
+        model: "".to_string(),
+        voltage: status.voltage(),
+        intensity: status.intensity(),
+        level: status.level(),
+        charging: status.is_charging(now),
+    };
+    HttpResponse::Ok().json(resp)
 }
 
 //#[get("/model")]
@@ -160,16 +171,8 @@ struct TapEvent {
 
 impl From<TapType> for TapEvent {
     fn from(t: TapType) -> Self {
-        match t {
-            TapType::Single => Self {
-                tap_type: String::from("single"),
-            },
-            TapType::Double => Self {
-                tap_type: String::from("double"),
-            },
-            TapType::Long => Self {
-                tap_type: String::from("long"),
-            },
+        Self {
+            tap_type: t.to_string(),
         }
     }
 }
@@ -186,9 +189,25 @@ struct PiSugarConfig {
     long_tap_shell: String,
 }
 
+#[derive(Serialize)]
+struct StatusJson {
+    model: String,
+    voltage: f64,
+    intensity: f64,
+    level: f64,
+    charging: bool,
+}
+
 fn execute_shell(shell: &str) {
     let args = ["-c", shell];
-    let child = Command::new("sh").args(&args).spawn().expect("");
+    match Command::new("sh").args(&args).spawn() {
+        Ok(child) => {
+            log::debug!("execute shell success");
+        }
+        Err(e) => {
+            log::error!("execute shell failed: {}", e);
+        }
+    }
 }
 
 /// PiSugar monitor
@@ -217,7 +236,7 @@ impl Actor for PiSugarMonitor {
         let mut gpio_detect_history = String::with_capacity(32);
 
         ctx.run_interval(I2C_READ_INTERVAL, move |act, ctx| {
-            log::debug!("polling PiSugar state");
+            log::debug!("polling pisugar state");
 
             let mut status = act.status.write().expect("lock status failed");
             let config = act.config.read().expect("lock config failed");
@@ -240,6 +259,7 @@ impl Actor for PiSugarMonitor {
                 loop {
                     let mut proc = Command::new("poweroff").spawn().unwrap();
                     let exit_status = proc.wait().unwrap();
+                    thread::sleep(Duration::from_millis(3000));
                 }
             }
 
@@ -260,9 +280,10 @@ impl Actor for PiSugarMonitor {
 
                 if let Some(tap_type) = gpio_detect_tap(&mut gpio_detect_history) {
                     log::debug!("tap detected: {}", tap_type);
-                    act.listeners
-                        .iter()
-                        .for_each(|l| l.do_send(tap_type.into()))
+
+                    for l in &act.listeners {
+                        l.do_send(tap_type.into());
+                    }
                 }
             }
         });
@@ -281,6 +302,12 @@ impl Handler<RegisterWSClient> for PiSugarMonitor {
     }
 }
 
+#[derive(Clone)]
+struct WebData {
+    config: Arc<RwLock<PiSugarConfig>>,
+    status: Arc<RwLock<PiSugarStatus>>,
+}
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
@@ -288,17 +315,29 @@ async fn main() -> std::io::Result<()> {
     let config = Arc::new(RwLock::new(PiSugarConfig::default()));
     let status = Arc::new(RwLock::new(PiSugarStatus::new()));
 
-    let sys = System::new("PiSugar Power Manager");
-    let monitor = PiSugarMonitor::new(config.clone(), status.clone()).start();
+    // monitor thread
+    let config_cloned = config.clone();
+    let status_cloned = status.clone();
+    thread::spawn(|| {
+        let sys = System::new("PiSugar Power Manager");
+        let monitor = PiSugarMonitor::new(config_cloned, status_cloned).start();
+        sys.run();
+    });
 
+    // http server
+    let web_data = WebData { config, status };
     HttpServer::new(move || {
         App::new()
-            .data(monitor.clone())
+            .data(web_data.clone())
             .wrap(middleware::Logger::default())
             .service(index)
             .service(web::resource("/ws/").to(start_ws))
     })
-    .bind("[::0]:8080")?
+    .bind("[::0]:8080")
+    .expect("bind [::0]:8080 failed")
+    .bind_uds("/tmp/pisugar")
+    .expect("bind uds /temp/pisugar failed")
+    .workers(1)
     .run()
     .await
 }

@@ -35,6 +35,9 @@ const I2C_BAT_P_VOLTAGE_HIGH: u8 = 0x65;
 
 const I2C_READ_INTERVAL: Duration = Duration::from_secs(1);
 
+pub const MODEL_V2: &str = "PiSugar 2";
+pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
+
 /// PiSugar error
 #[derive(Debug)]
 pub enum Error {
@@ -470,9 +473,6 @@ pub fn rtc_disable_alarm() -> Result<()> {
     Ok(())
 }
 
-pub const MODEL_V2: &str = "PiSugar 2";
-pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
-
 /// PiSugar configuation
 pub struct PiSugarConfig {
     /// Auto wakeup type
@@ -489,7 +489,6 @@ pub struct PiSugarConfig {
 }
 
 /// PiSugar status
-
 pub struct PiSugarStatus {
     model: String,
     voltage: f64,

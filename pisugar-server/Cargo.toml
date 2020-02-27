@@ -8,6 +8,8 @@ edition = "2018"
 log = "0.4.8"
 env_logger = "0.7"
 
+serde = { version = "1.0", features = ["derive"] }
+
 actix = "0.9"
 actix-web = "2.0"
 actix-web-actors = "2.0.0"
