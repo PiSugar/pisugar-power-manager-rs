@@ -2,17 +2,20 @@
 extern crate num_derive;
 
 use std::collections::VecDeque;
+use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::process::Command;
+use std::io;
+use std::process::{Command, ExitStatus};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::thread::Thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
-use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
+use chrono::{DateTime, Datelike, FixedOffset, Local, TimeZone, Timelike};
 use num_traits::{FromPrimitive, ToPrimitive};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
+use std::ops::Add;
 
 const TIME_HOST: &str = "cdn.pisugar.com";
 
@@ -28,6 +31,8 @@ const I2C_BAT_INTENSITY_LOW: u8 = 0xa4;
 const I2C_BAT_INTENSITY_HIGH: u8 = 0xa5;
 const I2C_BAT_VOLTAGE_LOW: u8 = 0xa2;
 const I2C_BAT_VOLTAGE_HIGH: u8 = 0xa3;
+
+// IP5312
 const I2C_BAT_P_INTENSITY_LOW: u8 = 0x66;
 const I2C_BAT_P_INTENSITY_HIGH: u8 = 0x67;
 const I2C_BAT_P_VOLTAGE_LOW: u8 = 0x64;
@@ -42,12 +47,28 @@ pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
 #[derive(Debug)]
 pub enum Error {
     I2c(I2cError),
+    Other(String),
 }
 
-/// Convert I2cError to PiSugar error
+/// Wrap I2cError
 impl From<I2cError> for Error {
     fn from(e: I2cError) -> Self {
         Error::I2c(e)
+    }
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Error::Other(e)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::I2c(e) => write!(f, "{}", e),
+            Error::Other(e) => write!(f, "{}", e),
+        }
     }
 }
 
@@ -189,11 +210,16 @@ pub fn bat_set_shutdown_threshold() -> Result<()> {
     Ok(())
 }
 
+/// Set shutdown threshold of P
 pub fn bat_p_set_shutdown_threshold() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
     unimplemented!()
 }
 
 pub fn bat_p_force_shutdown() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
     unimplemented!()
 }
 
@@ -297,23 +323,40 @@ fn dec_to_bcd(dec: u8) -> u8 {
     dec % 10 + ((dec / 10) << 4)
 }
 
-fn bcd_to_dec_list(bcd_list: &Vec<u8>) -> Vec<u8> {
-    let mut list = Vec::with_capacity(bcd_list.len());
-    for bcd in bcd_list {
-        list.push(bcd_to_dec(bcd.clone()));
+/// BCD datetime, (20)yy-MM-dd weekday(sunday = 0) hh:mm:ss
+pub struct BcdDateTime(pub [u8; 7]);
+
+impl BcdDateTime {
+    pub fn year(&self) -> u16 {
+        self.0[6] as u16 + 2000
     }
-    list
+
+    pub fn month(&self) -> u8 {
+        self.0[5]
+    }
+
+    pub fn day(&self) -> u8 {
+        self.0[4]
+    }
+
+    pub fn weekday(&self) -> u8 {
+        self.0[3]
+    }
+
+    pub fn hour(&self) -> u8 {
+        self.0[2]
+    }
+
+    pub fn minute(&self) -> u8 {
+        self.0[1]
+    }
+
+    pub fn second(&self) -> u8 {
+        self.0[0]
+    }
 }
 
-fn dec_to_bcd_list(dec_list: &Vec<u8>) -> Vec<u8> {
-    let mut list = Vec::with_capacity(dec_list.len());
-    for dec in dec_list {
-        list.push(dec_to_bcd(dec.clone()));
-    }
-    list
-}
-
-fn datetime_to_bcd(datetime: DateTime<Local>) -> [u8; 7] {
+pub fn datetime_to_bcd(datetime: DateTime<Local>) -> [u8; 7] {
     let mut bcd_time = [0_u8; 7];
     bcd_time[0] = (dec_to_bcd(datetime.second() as u8));
     bcd_time[1] = (dec_to_bcd(datetime.minute() as u8));
@@ -325,7 +368,7 @@ fn datetime_to_bcd(datetime: DateTime<Local>) -> [u8; 7] {
     bcd_time
 }
 
-fn bcd_to_datetime(bcd_time: &[u8; 7]) -> DateTime<Local> {
+pub fn bcd_to_datetime(bcd_time: &[u8; 7]) -> DateTime<Local> {
     let sec = bcd_to_dec(bcd_time[0]) as u32;
     let min = bcd_to_dec(bcd_time[1]) as u32;
     let hour = bcd_to_dec(bcd_time[2]) as u32;
@@ -337,67 +380,19 @@ fn bcd_to_datetime(bcd_time: &[u8; 7]) -> DateTime<Local> {
     datetime
 }
 
-pub struct RtcDateTime(pub [u8; 7]);
-
-impl RtcDateTime {
-    pub fn from_raw_bcd(raw_bcd: &[u8; 7]) -> Self {
-        Self(raw_bcd.clone())
-    }
-
-    pub fn from_datetime(datetime: DateTime<Local>) -> Self {
-        unimplemented!()
-    }
-
-    pub fn new() -> Self {
-        Self([0; 7])
-    }
-
-    pub fn seconds(&self) -> u8 {
-        bcd_to_dec(self.0[0])
-    }
-
-    pub fn set_seconds(&mut self, seconds: u8) {
-        self.0[0] = dec_to_bcd(seconds)
-    }
-
-    pub fn minus(&self) -> u8 {
-        bcd_to_dec(self.0[1])
-    }
-
-    pub fn set_minus(&mut self, minus: u8) {
-        self.0[1] = dec_to_bcd(minus)
-    }
-
-    pub fn hour(&self) -> u8 {
-        // 24hr
-        if self.0[2] & 0b1000_0000 != 0 {
-            bcd_to_dec(self.0[2] & 0b0111_1111) // 24hr
-        } else if self.0[2] & 0b0010_0000 != 0 {
-            12 + bcd_to_dec(self.0[2] & 0b0001_1111) // 12hr, pm
-        } else {
-            bcd_to_dec(self.0[2]) // 12hr, am
-        }
-    }
-
-    pub fn weekday(&self) -> u8 {
-        bcd_to_dec(self.0[3])
-    }
-
-    pub fn day(&self) -> u8 {
-        bcd_to_dec(self.0[4])
-    }
-
-    pub fn month(&self) -> u8 {
-        bcd_to_dec(self.0[5])
-    }
-
-    pub fn year(&self) -> u8 {
-        bcd_to_dec(self.0[6])
-    }
-
-    pub fn to_local(&self) -> DateTime<Local> {
-        bcd_to_datetime(&self.0)
-    }
+pub fn sys_write_time(dt: DateTime<Local>) {
+    let cmd = format!(
+        "/bin/date -s {}-{}-{} {}:{}:{}",
+        dt.year(),
+        dt.month(),
+        dt.day(),
+        dt.hour(),
+        dt.minute(),
+        dt.second()
+    );
+    execute_shell(cmd.as_str());
+    let cmd = "/sbin/hwclock -w";
+    execute_shell(cmd);
 }
 
 pub fn rtc_write_time(bcd_time: &[u8; 7]) -> Result<()> {
@@ -473,19 +468,32 @@ pub fn rtc_disable_alarm() -> Result<()> {
     Ok(())
 }
 
-/// PiSugar configuation
+pub fn rtc_set_test_wake() -> Result<()> {
+    log::info!("wakeup after 1min30sec");
+    let now = Local::now();
+    let duration = chrono::Duration::seconds(90);
+    let bcd_time = datetime_to_bcd(now);
+    rtc_write_time(&bcd_time).and_then(|_| {
+        let then = now + duration;
+        let bcd_time_then = datetime_to_bcd(then);
+        rtc_set_alarm(&bcd_time, 0b0111_1111)
+    })
+}
+
+/// PiSugar configuration
+#[derive(Default)]
 pub struct PiSugarConfig {
     /// Auto wakeup type
-    pub auto_wake_type: String,
-    pub auto_wake_time: String,
-    pub auto_wake_repeat: String,
+    pub auto_wake_type: i32,
+    pub auto_wake_time: [u8; 7],
+    pub auto_wake_repeat: u8,
     pub single_tap_enable: bool,
     pub single_tap_shell: String,
-    pub double_tap_enable: String,
+    pub double_tap_enable: bool,
     pub double_tap_shell: String,
-    pub long_tap_enable: String,
+    pub long_tap_enable: bool,
     pub long_tap_shell: String,
-    pub auto_shutdown_percent: String,
+    pub auto_shutdown_level: f64,
 }
 
 /// PiSugar status
@@ -497,6 +505,8 @@ pub struct PiSugarStatus {
     level_records: VecDeque<f64>,
     charging: bool,
     updated_at: Instant,
+    rtc_time: DateTime<Local>,
+    rtc_time_list: [u8; 6],
 }
 
 impl PiSugarStatus {
@@ -530,6 +540,8 @@ impl PiSugarStatus {
             level_records,
             charging: false,
             updated_at: Instant::now(),
+            rtc_time: Local::now(),
+            rtc_time_list: [0; 6],
         }
     }
 
@@ -570,7 +582,7 @@ impl PiSugarStatus {
 
     /// PiSugar battery alive
     pub fn is_alive(&self, now: Instant) -> bool {
-        if self.updated_at + 3 * I2C_READ_INTERVAL >= now {
+        if self.updated_at + Duration::from_secs(3) >= now {
             return true;
         }
         false
@@ -601,8 +613,17 @@ impl PiSugarStatus {
         }
         false
     }
+
+    pub fn rtc_time(&self) -> DateTime<Local> {
+        self.rtc_time
+    }
+
+    pub fn set_rtc_time(&mut self, rtc_time: DateTime<Local>) {
+        self.rtc_time = rtc_time
+    }
 }
 
+/// Button tap type
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum TapType {
     Single,
@@ -621,6 +642,7 @@ impl Display for TapType {
     }
 }
 
+/// Detect button tap
 pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
     let long_pattern = "111111110";
     let double_pattern = vec!["1010", "10010", "10110", "100110", "101110", "1001110"];
@@ -644,4 +666,26 @@ pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
     }
 
     None
+}
+
+/// Execute shell with sh
+pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
+    let args = ["-c", shell];
+    let mut child = Command::new("/bin/sh").args(&args).spawn()?;
+    child.wait()
+}
+
+/// Core
+pub struct PiSugarCore {
+    pub config: PiSugarConfig,
+    pub status: PiSugarStatus,
+}
+
+impl PiSugarCore {
+    pub fn new(config: PiSugarConfig) -> Self {
+        Self {
+            config,
+            status: PiSugarStatus::new(),
+        }
+    }
 }

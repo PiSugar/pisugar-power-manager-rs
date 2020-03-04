@@ -7,12 +7,14 @@ edition = "2018"
 [dependencies]
 log = "0.4.8"
 env_logger = "0.7"
-
+bytes = "0.5.4"
 serde = { version = "1.0", features = ["derive"] }
-
-actix = "0.9"
-actix-web = "2.0"
-actix-web-actors = "2.0.0"
-actix-rt = "1.0"
-
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "0.2", features = ["full"] }
+tokio-util = "0.2"
+tokio-tungstenite = "0.10.1"
+futures = "0.3"
+futures-util = "0.3"
+futures-channel = "0.3"
+hyper = "0.13"
 pisugar-core = { path = "../pisugar-core" }
