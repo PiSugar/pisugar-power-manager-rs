@@ -1,6 +1,9 @@
+use std::collections::LinkedList;
+use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
-use std::process::Command;
+use std::path::Path;
+use std::process::{exit, Command};
 use std::result::Result;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
@@ -14,20 +17,20 @@ use futures::SinkExt;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{future, pin_mut, stream::TryStreamExt};
 use hyper::{Client, Uri};
-use pisugar_core::{
-    bat_read_gpio, bat_read_intensity, bat_read_voltage, bcd_to_datetime, datetime_to_bcd,
-    execute_shell, gpio_detect_tap, rtc_clean_alarm_flag, rtc_disable_alarm, rtc_read_alarm_flag,
-    rtc_read_time, rtc_set_alarm, rtc_set_test_wake, rtc_write_time, sys_write_time,
-    Error as _Error, PiSugarConfig, PiSugarCore, PiSugarStatus, TapType,
-};
 use serde::Serialize;
-use std::collections::LinkedList;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio::prelude::*;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio_tungstenite::{accept_async, tungstenite::Error};
 use tokio_util::codec::{BytesCodec, Framed};
+
+use pisugar_core::{
+    bat_read_gpio_tap, bat_read_intensity, bat_read_voltage, bcd_to_datetime, datetime_to_bcd,
+    execute_shell, gpio_detect_tap, rtc_clean_alarm_flag, rtc_disable_alarm, rtc_read_alarm_flag,
+    rtc_read_time, rtc_set_alarm, rtc_set_test_wake, rtc_write_time, sys_write_time,
+    Error as _Error, PiSugarConfig, PiSugarCore, PiSugarStatus, TapType, MODEL_V2,
+};
 
 const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 const CLIENT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -57,7 +60,7 @@ struct PiSugarStatusJson {
 impl Default for PiSugarStatusJson {
     fn default() -> Self {
         Self {
-            model: "PiSugar 2".to_string(),
+            model: "".to_string(),
             voltage: 0.0,
             intensity: 0.0,
             level: 0.0,
@@ -83,49 +86,8 @@ fn poll_pisugar_status(core: &mut PiSugarCore, gpio_detect_history: &mut String,
     let status = &mut core.status;
     let config = &mut core.config;
 
-    // battery
-    if let Ok(v) = bat_read_voltage() {
-        log::debug!("voltage: {}", v);
-        status.update_voltage(v, now);
-    }
-    if let Ok(i) = bat_read_intensity() {
-        log::debug!("intensity: {}", i);
-        status.update_intensity(i, now);
-    }
-
-    // auto shutdown
-    if status.level() < config.auto_shutdown_level {
-        log::debug!("low battery, will power off");
-        loop {
-            let mut proc = Command::new("poweroff").spawn().unwrap();
-            let _exit_status = proc.wait().unwrap();
-            thread::sleep(std::time::Duration::from_millis(3000));
-        }
-    }
-
-    // rtc
-    if let Ok(rtc_time) = rtc_read_time() {
-        let rtc_time = bcd_to_datetime(&rtc_time);
-        status.set_rtc_time(rtc_time)
-    }
-
-    // GPIO tap detect
-    if let Ok(pressed) = bat_read_gpio() {
-        log::debug!("gpio button state: {}", pressed);
-
-        if gpio_detect_history.len() == gpio_detect_history.capacity() {
-            gpio_detect_history.remove(0);
-        }
-        if pressed != 0 {
-            gpio_detect_history.push('1');
-        } else {
-            gpio_detect_history.push('0');
-        }
-
-        if let Some(tap_type) = gpio_detect_tap(gpio_detect_history) {
-            log::debug!("tap detected: {}", tap_type);
-            tx.broadcast(format!("{}", tap_type));
-        }
+    if let Ok(Some(tap_type)) = status.poll(config, now) {
+        tx.broadcast(format!("{}", tap_type));
     }
 }
 
@@ -203,7 +165,7 @@ fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
                 return match rtc_clean_alarm_flag() {
                     Ok(flag) => format!("{}: done\n", parts[0]),
                     Err(e) => err,
-                }
+                };
             }
             "rtc_pi2rtc" => {
                 let now = Local::now();
@@ -221,7 +183,7 @@ fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
                         format!("{}: done\n", parts[0])
                     }
                     Err(e) => err,
-                }
+                };
             }
             "rtc_web" => {
                 tokio::spawn(async move {
@@ -274,7 +236,7 @@ fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
                 return match rtc_disable_alarm() {
                     Ok(_) => format!("{}: done\n", parts[0]),
                     Err(_) => err,
-                }
+                };
             }
             "set_safe_shutdown_level" => {
                 if parts.len() >= 1 {
@@ -289,7 +251,7 @@ fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
                 return match rtc_set_test_wake() {
                     Ok(_) => format!("{}: wakeup after 1 min 30 sec\n", parts[0]),
                     Err(e) => err,
-                }
+                };
             }
             "set_button_enable" => {
                 if parts.len() > 2 {
@@ -302,6 +264,7 @@ fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
                             return err;
                         }
                     }
+                    core.save_config();
                     return format!("{}: done\n", parts[0]);
                 }
                 return err;
@@ -317,6 +280,7 @@ fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
                             return err;
                         }
                     }
+                    core.save_config();
                     return format!("{}: done\n", parts[0]);
                 }
                 return err;
@@ -401,7 +365,7 @@ async fn handle_ws_connection(
                 tx_cloned
                     .send(resp)
                     .await
-                    .expect("unexpected channel failed");
+                    .expect("Unexpected channel failed");
             }
         }
     });
@@ -425,13 +389,29 @@ async fn handle_uds_stream(
     _handle_stream(core, stream, event_rx).await
 }
 
+/// Clean up before exit
+extern "C" fn clean_up() {
+    let uds_addr = "/tmp/pisugar.socket";
+    let p: &Path = Path::new(uds_addr);
+    if p.exists() {
+        match remove_file(p) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("{}", e);
+                exit(1);
+            }
+        }
+    }
+    exit(0)
+}
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     // config
     let tcp_addr = "127.0.0.1:8080";
-    let ws_addr = "127.0.0.1:8081";
+    let ws_addr = "127.0.0.1:8082";
     let uds_addr = "/tmp/pisugar.socket";
 
     // core
@@ -441,16 +421,9 @@ async fn main() -> std::io::Result<()> {
     // event watch
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());
 
-    // polling
-    let core_cloned = core.clone();
-    let mut interval = tokio::time::interval(Duration::from_millis(200));
-    let mut gpio_detect_history = String::with_capacity(30);
-    tokio::spawn(async move {
-        loop {
-            interval.tick().await;
-            let mut core = core_cloned.lock().expect("unexpected lock failed");
-            poll_pisugar_status(&mut core, &mut gpio_detect_history, &event_tx);
-        }
+    // CTRL+C signal handling
+    ctrlc::set_handler(|| {
+        clean_up();
     });
 
     // tcp
@@ -458,9 +431,11 @@ async fn main() -> std::io::Result<()> {
     let event_rx_cloned = event_rx.clone();
     let mut tcp_listener: TcpListener = TcpListener::bind(tcp_addr).await?;
     tokio::spawn(async move {
+        log::info!("TCP listening...");
         while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
             handle_tcp_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
         }
+        log::info!("TCP stopped");
     });
 
     // ws
@@ -468,9 +443,11 @@ async fn main() -> std::io::Result<()> {
     let event_rx_cloned = event_rx.clone();
     let mut ws_listener = tokio::net::TcpListener::bind(ws_addr).await?;
     tokio::spawn(async move {
+        log::info!("WS listening...");
         while let Ok(Some(stream)) = ws_listener.incoming().try_next().await {
             handle_ws_connection(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
         }
+        log::info!("WS stopped");
     });
 
     // uds
@@ -478,10 +455,23 @@ async fn main() -> std::io::Result<()> {
     let event_rx_cloned = event_rx;
     let mut uds_listener = tokio::net::UnixListener::bind(uds_addr)?;
     tokio::spawn(async move {
+        log::info!("UDS listening...");
         while let Some(Ok(stream)) = uds_listener.incoming().next().await {
             handle_uds_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
         }
+        log::info!("UDS stopped");
     });
 
+    // polling
+    let core_cloned = core.clone();
+    let mut interval = tokio::time::interval(Duration::from_millis(200));
+    let mut gpio_detect_history = String::with_capacity(30);
+    loop {
+        interval.tick().await;
+        let mut core = core_cloned.lock().expect("unexpected lock failed");
+        poll_pisugar_status(&mut core, &mut gpio_detect_history, &event_tx);
+    }
+
+    clean_up();
     Ok(())
 }

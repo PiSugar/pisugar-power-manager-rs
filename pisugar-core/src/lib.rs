@@ -4,7 +4,11 @@ extern crate num_derive;
 use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
 use std::io;
+use std::io::{Read, Write};
+use std::ops::Add;
+use std::path::Path;
 use std::process::{Command, ExitStatus};
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -15,30 +19,23 @@ use chrono::{DateTime, Datelike, FixedOffset, Local, TimeZone, Timelike};
 use num_traits::{FromPrimitive, ToPrimitive};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
-use std::ops::Add;
+use serde::export::Result::Err;
+use serde::{Deserialize, Serialize};
 
 const TIME_HOST: &str = "cdn.pisugar.com";
 
-/// RTC address, SD3078
+// RTC address, SD3078
 const I2C_ADDR_RTC: u16 = 0x32;
 const I2C_RTC_CTR1: u8 = 0x0f;
 const I2C_RTC_CTR2: u8 = 0x10;
 const I2C_RTC_CTR3: u8 = 0x11;
 
-/// Battery address, IP5209 or IP5312
+// Battery address, IP5209 or IP5312
 const I2C_ADDR_BAT: u16 = 0x75;
 const I2C_BAT_INTENSITY_LOW: u8 = 0xa4;
 const I2C_BAT_INTENSITY_HIGH: u8 = 0xa5;
 const I2C_BAT_VOLTAGE_LOW: u8 = 0xa2;
 const I2C_BAT_VOLTAGE_HIGH: u8 = 0xa3;
-
-// IP5312
-const I2C_BAT_P_INTENSITY_LOW: u8 = 0x66;
-const I2C_BAT_P_INTENSITY_HIGH: u8 = 0x67;
-const I2C_BAT_P_VOLTAGE_LOW: u8 = 0x64;
-const I2C_BAT_P_VOLTAGE_HIGH: u8 = 0x65;
-
-const I2C_READ_INTERVAL: Duration = Duration::from_secs(1);
 
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
@@ -115,15 +112,15 @@ pub fn bat_read_voltage() -> Result<f64> {
 
     let low = i2c.smbus_read_byte(I2C_BAT_VOLTAGE_LOW)? as u16;
     let high = i2c.smbus_read_byte(I2C_BAT_VOLTAGE_HIGH)? as u16;
-    log::debug!("voltage low: 0x{:x}, high: 0x{:x}", low, high);
+    log::debug!("voltage low 0x{:x}, high 0x{:x}", low, high);
 
     // check negative values
     let voltage = if high & 0x20 == 0x20 {
-        let v = (!(((high & 0x1f) << 8) + low) as i16) + 1;
+        let v = (((high | 0b1100_0000) << 8) + low) as i16;
         2600.0 - (v as f64) * 0.26855
     } else {
         let v = ((high & 0x1f) << 8) + low;
-        2600.0 + v as f64 * 0.26855
+        2600.0 + (v as f64) * 0.26855
     };
 
     Ok(voltage / 1000.0)
@@ -134,16 +131,17 @@ pub fn bat_read_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
 
-    let low = i2c.smbus_read_byte(I2C_BAT_INTENSITY_LOW)? as u16;
-    let high = i2c.smbus_read_byte(I2C_BAT_INTENSITY_HIGH)? as u16;
-    log::debug!("intensity low: 0x{:x}, high: 0x{:x}", low, high);
+    let low = i2c.smbus_read_byte(0xa4)? as u16;
+    let high = i2c.smbus_read_byte(0xa5)? as u16;
+    log::debug!("intensity low 0x{:x}, high 0x{:x}", low, high);
 
+    // check negative value
     let intensity = if high & 0x20 == 0x20 {
-        let v = (!(((high & 0x1f) << 8) + low) as i16) + 1;
-        -(v as f64) * 0.745985
+        let i = (((high | 0b1100_0000) << 8) + low) as i16;
+        (i as f64) * 0.745985
     } else {
-        let v = ((high & 0x1f) << 8) + low;
-        v as f64 * 0.745985
+        let i = ((high & 0x1f) << 8) + low;
+        (i as f64) * 0.745985
     };
 
     Ok(intensity / 1000.0)
@@ -153,36 +151,36 @@ pub fn bat_read_intensity() -> Result<f64> {
 pub fn bat_p_read_intensity() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(I2C_BAT_P_INTENSITY_LOW)?;
-    let high = i2c.smbus_read_byte(I2C_BAT_P_INTENSITY_HIGH)?;
+
+    let low = i2c.smbus_read_byte(0xd2)? as u16;
+    let high = i2c.smbus_read_byte(0xd3)? as u16;
+    log::debug!("intensity low 0x{:x}, high 0x{:x}", low, high);
+
     let intensity = if high & 0x20 != 0 {
-        let low = (!low) as u16;
-        let high = (!high & 0x1f) as u16;
-        -((high << 8 + low + 1) as f64) * 1.27883
+        let i = (((high | 0b1100_0000) << 8) + low) as i16;
+        (i as f64) * 2.68554
     } else {
-        let low = low as u16;
-        let high = (high & 0x1f) as u16;
-        (high << 8 + low + 1) as f64 * 1.27883
+        let i = ((high & 0x1f) << 8) + low;
+        (i as f64) * 2.68554
     };
-    Ok(intensity)
+    Ok(intensity / 1000.0)
 }
 
-/// Read battery pro voltage
+/// Read battery pro voltage, use this to detect the model
 pub fn bat_p_read_voltage() -> Result<f64> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let low = i2c.smbus_read_byte(I2C_BAT_P_VOLTAGE_LOW)?;
-    let high = i2c.smbus_read_byte(I2C_BAT_P_VOLTAGE_HIGH)?;
-    let voltage = if high & 0x20 != 0 {
-        let low = (!low) as u16;
-        let high = (!high & 0x1f) as u16;
-        -((high << 8 + low + 1) as f64) * 0.26855 + 2600.0
-    } else {
-        let low = low as u16;
-        let high = (high & 0x1f) as u16;
-        (high << 8 + low + 1) as f64 * 0.26855 + 2600.0
-    };
-    Ok(voltage)
+    let low = i2c.smbus_read_byte(0xd0)? as u16;
+    let high = i2c.smbus_read_byte(0xd1)? as u16;
+    log::debug!("voltage low 0x{:x}, high 0x{:x}", low, high);
+
+    if low == 0 && high == 0 {
+        return Err(Error::I2c(I2cError::FeatureNotSupported));
+    }
+
+    let v = ((high & 0b0011_1111) + low);
+    let v = (v as f64) * 0.26855 + 2600.0;
+    Ok(v / 1000.0)
 }
 
 /// Set shutdown threshold
@@ -214,13 +212,38 @@ pub fn bat_set_shutdown_threshold() -> Result<()> {
 pub fn bat_p_set_shutdown_threshold() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    unimplemented!()
+
+    // threshold intensity
+    let mut t = i2c.smbus_read_byte(0x84)?;
+    t &= 0b0000_0111;
+    t |= (12 << 3);
+    t = 0xFF;
+    i2c.smbus_write_byte(0x84, t)?;
+
+    // time
+    t = i2c.smbus_read_byte(0x07)?;
+    t |= 0b0100_0000;
+    t &= 0b0111_1111;
+    i2c.smbus_write_byte(0x07, t)?;
+
+    Ok(())
 }
 
 pub fn bat_p_force_shutdown() -> Result<()> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
-    unimplemented!()
+
+    // enable force shutdown
+    let mut t = i2c.smbus_read_byte(0x5B)?;
+    t |= 0b0001_0010;
+    i2c.smbus_write_byte(0x5B, t)?;
+
+    // force shutdown
+    t = i2c.smbus_read_byte(0x5B)?;
+    t &= 0b1110_1111;
+    i2c.smbus_write_byte(0x5B, t)?;
+
+    Ok(())
 }
 
 pub fn bat_set_gpio() -> Result<()> {
@@ -248,10 +271,35 @@ pub fn bat_set_gpio() -> Result<()> {
     Ok(())
 }
 
-pub fn bat_read_gpio() -> Result<u8> {
+pub fn bat_p_set_gpio() -> Result<()> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
+
+    // mfp_ctl0, set l4_sel
+    let mut v = i2c.smbus_read_byte(0x52)?;
+    v |= 0b0000_0010;
+    i2c.smbus_write_byte(0x52, v)?;
+
+    // gpio1 input
+    let mut v = i2c.smbus_read_byte(0x54)?;
+    v |= 0b0000_0010;
+    i2c.smbus_write_byte(0x54, v)?;
+
+    Ok(())
+}
+
+pub fn bat_read_gpio_tap() -> Result<u8> {
     let mut i2c = I2c::new()?;
     i2c.set_slave_address(I2C_ADDR_BAT)?;
     let v = i2c.smbus_read_byte(0x55)?;
+    Ok(v)
+}
+
+pub fn bat_p_read_gpio_tap() -> Result<u8> {
+    let mut i2c = I2c::new()?;
+    i2c.set_slave_address(I2C_ADDR_BAT)?;
+    let mut v = i2c.smbus_read_byte(0x58)?;
+    v &= 0b0000_0010;
     Ok(v)
 }
 
@@ -321,39 +369,6 @@ fn bcd_to_dec(bcd: u8) -> u8 {
 
 fn dec_to_bcd(dec: u8) -> u8 {
     dec % 10 + ((dec / 10) << 4)
-}
-
-/// BCD datetime, (20)yy-MM-dd weekday(sunday = 0) hh:mm:ss
-pub struct BcdDateTime(pub [u8; 7]);
-
-impl BcdDateTime {
-    pub fn year(&self) -> u16 {
-        self.0[6] as u16 + 2000
-    }
-
-    pub fn month(&self) -> u8 {
-        self.0[5]
-    }
-
-    pub fn day(&self) -> u8 {
-        self.0[4]
-    }
-
-    pub fn weekday(&self) -> u8 {
-        self.0[3]
-    }
-
-    pub fn hour(&self) -> u8 {
-        self.0[2]
-    }
-
-    pub fn minute(&self) -> u8 {
-        self.0[1]
-    }
-
-    pub fn second(&self) -> u8 {
-        self.0[0]
-    }
 }
 
 pub fn datetime_to_bcd(datetime: DateTime<Local>) -> [u8; 7] {
@@ -481,7 +496,7 @@ pub fn rtc_set_test_wake() -> Result<()> {
 }
 
 /// PiSugar configuration
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct PiSugarConfig {
     /// Auto wakeup type
     pub auto_wake_type: i32,
@@ -496,6 +511,23 @@ pub struct PiSugarConfig {
     pub auto_shutdown_level: f64,
 }
 
+impl PiSugarConfig {
+    pub fn load(&mut self, path: &Path) -> io::Result<()> {
+        let mut f = File::open(path)?;
+        let mut buff = String::new();
+        let _ = f.read_to_string(&mut buff)?;
+        let config = serde_json::from_str(&buff)?;
+        *self = config;
+        Ok(())
+    }
+
+    pub fn save_to(&self, path: &Path) -> io::Result<()> {
+        let mut f = File::open(path)?;
+        let s = serde_json::to_string(self)?;
+        f.write_all(s.as_bytes())
+    }
+}
+
 /// PiSugar status
 pub struct PiSugarStatus {
     model: String,
@@ -507,28 +539,45 @@ pub struct PiSugarStatus {
     updated_at: Instant,
     rtc_time: DateTime<Local>,
     rtc_time_list: [u8; 6],
+    gpio_tap_history: String,
 }
 
 impl PiSugarStatus {
     pub fn new() -> Self {
         let mut level_records = VecDeque::with_capacity(10);
 
-        let mut model = String::from(MODEL_V2_PRO);
-        let voltage = match bat_read_voltage() {
-            Ok(voltage) => {
-                model = String::from(MODEL_V2);
-                voltage
+        let mut model = String::from(MODEL_V2);
+        let mut voltage = 0.0;
+        let mut intensity = 0.0;
+
+        if let Ok(v) = bat_p_read_voltage() {
+            log::info!("Read pro voltage success");
+            model = String::from(MODEL_V2_PRO);
+            voltage = v;
+            intensity = bat_read_intensity().unwrap_or(0.0);
+
+            if bat_p_set_gpio().is_ok() {
+                log::info!("Set gpio tap success");
+            } else {
+                log::error!("Set gpio tap failed")
             }
-            _ => 0.0,
-        };
+        } else if let Ok(v) = bat_read_voltage() {
+            log::info!("Read zero voltage success");
+            model = String::from(MODEL_V2);
+            voltage = v;
+            intensity = bat_p_read_intensity().unwrap_or(0.0);
+
+            if bat_set_gpio().is_ok() {
+                log::info!("Set gpio tap success");
+            } else {
+                log::error!("Set gpio tap failed");
+            }
+        } else {
+            log::warn!("PiSugar not found");
+        }
+
         let level = convert_battery_voltage_to_level(voltage);
-
-        let intensity = match bat_read_intensity() {
-            Ok(intensity) => intensity,
-            _ => 0.0,
-        };
-
-        for i in 0..level_records.capacity() {
+        for _ in 0..level_records.capacity() {
             level_records.push_back(level);
         }
 
@@ -542,6 +591,7 @@ impl PiSugarStatus {
             updated_at: Instant::now(),
             rtc_time: Local::now(),
             rtc_time_list: [0; 6],
+            gpio_tap_history: String::with_capacity(10),
         }
     }
 
@@ -621,6 +671,70 @@ impl PiSugarStatus {
     pub fn set_rtc_time(&mut self, rtc_time: DateTime<Local>) {
         self.rtc_time = rtc_time
     }
+
+    pub fn poll(&mut self, config: &PiSugarConfig, now: Instant) -> Result<Option<TapType>> {
+        if self.gpio_tap_history.len() == self.gpio_tap_history.capacity() {
+            self.gpio_tap_history.remove(0);
+        }
+
+        // battery
+        if self.mode() == MODEL_V2 {
+            if let Ok(v) = bat_read_voltage() {
+                self.update_voltage(v, now);
+            }
+            if let Ok(i) = bat_read_intensity() {
+                self.update_intensity(i, now);
+            }
+            if let Ok(t) = bat_read_gpio_tap() {
+                log::debug!("gpio button state: {}", t);
+                if t != 0 {
+                    self.gpio_tap_history.push('1');
+                } else {
+                    self.gpio_tap_history.push('0');
+                }
+            }
+        } else {
+            if let Ok(v) = bat_p_read_voltage() {
+                self.update_voltage(v, now)
+            }
+            if let Ok(i) = bat_p_read_intensity() {
+                self.update_intensity(i, now)
+            }
+            if let Ok(t) = bat_p_read_gpio_tap() {
+                log::debug!("gpio button state: {}", t);
+                if t != 0 {
+                    self.gpio_tap_history.push('1');
+                } else {
+                    self.gpio_tap_history.push('0');
+                }
+            }
+        }
+
+        // auto shutdown
+        if self.level() < config.auto_shutdown_level {
+            loop {
+                log::error!("low battery, will power off...");
+                if let Ok(mut proc) = Command::new("poweroff").spawn() {
+                    proc.wait();
+                }
+                thread::sleep(std::time::Duration::from_millis(3000));
+            }
+        }
+
+        // rtc
+        if let Ok(rtc_time) = rtc_read_time() {
+            let rtc_time = bcd_to_datetime(&rtc_time);
+            self.set_rtc_time(rtc_time)
+        }
+
+        // gpio tap detect
+        if let Some(tap_type) = gpio_detect_tap(&mut self.gpio_tap_history) {
+            log::debug!("tap detected: {}", tap_type);
+            return Ok(Some(tap_type));
+        }
+
+        Ok(None)
+    }
 }
 
 /// Button tap type
@@ -677,6 +791,7 @@ pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
 
 /// Core
 pub struct PiSugarCore {
+    pub config_path: Option<String>,
     pub config: PiSugarConfig,
     pub status: PiSugarStatus,
 }
@@ -684,8 +799,34 @@ pub struct PiSugarCore {
 impl PiSugarCore {
     pub fn new(config: PiSugarConfig) -> Self {
         Self {
+            config_path: None,
             config,
             status: PiSugarStatus::new(),
         }
+    }
+
+    pub fn load_config(path: &Path) -> Result<Self> {
+        if path.exists() && path.is_file() {
+            let mut config = PiSugarConfig::default();
+            if config.load(path).is_ok() {
+                return Ok(Self {
+                    config_path: Some(path.to_string_lossy().to_string()),
+                    config,
+                    status: PiSugarStatus::new(),
+                });
+            }
+        }
+
+        Err(Error::Other("Failed to load config file".to_string()))
+    }
+
+    pub fn save_config(&self) -> Result<()> {
+        if self.config_path.is_some() {
+            let path = Path::new(self.config_path.as_ref().unwrap());
+            if self.config.save_to(path).is_ok() {
+                return Ok(());
+            }
+        }
+        Err(Error::Other("Failed to save config file".to_string()))
     }
 }
