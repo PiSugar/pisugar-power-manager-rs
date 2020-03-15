@@ -30,7 +30,7 @@ const I2C_RTC_CTR1: u8 = 0x0f;
 const I2C_RTC_CTR2: u8 = 0x10;
 const I2C_RTC_CTR3: u8 = 0x11;
 
-// Battery address, IP5209 or IP5312
+// Battery address, IP5209
 const I2C_ADDR_BAT: u16 = 0x75;
 const I2C_BAT_INTENSITY_LOW: u8 = 0xa4;
 const I2C_BAT_INTENSITY_HIGH: u8 = 0xa5;
