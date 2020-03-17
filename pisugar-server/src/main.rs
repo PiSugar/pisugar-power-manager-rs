@@ -26,10 +26,10 @@ use tokio_tungstenite::{accept_async, tungstenite::Error};
 use tokio_util::codec::{BytesCodec, Framed};
 
 use pisugar_core::{
-    bat_read_gpio_tap, bat_read_intensity, bat_read_voltage, bcd_to_datetime, datetime_to_bcd,
-    execute_shell, gpio_detect_tap, rtc_clean_alarm_flag, rtc_disable_alarm, rtc_read_alarm_flag,
-    rtc_read_time, rtc_set_alarm, rtc_set_test_wake, rtc_write_time, sys_write_time,
-    Error as _Error, PiSugarConfig, PiSugarCore, PiSugarStatus, TapType, MODEL_V2,
+    bcd_to_datetime, datetime_to_bcd, execute_shell, gpio_detect_tap, rtc_clean_alarm_flag,
+    rtc_disable_alarm, rtc_read_alarm_flag, rtc_read_time, rtc_set_alarm, rtc_set_test_wake,
+    rtc_write_time, sys_write_time, Error as _Error, PiSugarConfig, PiSugarCore, PiSugarStatus,
+    TapType, MODEL_V2,
 };
 
 const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
@@ -38,45 +38,6 @@ const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(
 
 type EventTx = tokio::sync::watch::Sender<String>;
 type EventRx = tokio::sync::watch::Receiver<String>;
-
-#[derive(Serialize)]
-struct PiSugarStatusJson {
-    model: String,
-    voltage: f64,
-    intensity: f64,
-    level: f64,
-    charging: bool,
-    rtc_time: DateTime<Local>,
-    rtc_time_list: Vec<DateTime<Local>>,
-    rtc_alarm_flag: bool,
-    rtc_alarm_type: String,
-    rtc_alarm_time: DateTime<Local>,
-    rtc_alarm_repeat: bool,
-    safe_shutdown_level: f64,
-    button_enable: bool,
-    button_shell: String,
-}
-
-impl Default for PiSugarStatusJson {
-    fn default() -> Self {
-        Self {
-            model: "".to_string(),
-            voltage: 0.0,
-            intensity: 0.0,
-            level: 0.0,
-            charging: false,
-            rtc_time: Local::now(),
-            rtc_time_list: vec![],
-            rtc_alarm_flag: false,
-            rtc_alarm_type: "".to_string(),
-            rtc_alarm_time: Local::now(),
-            rtc_alarm_repeat: false,
-            safe_shutdown_level: 0.0,
-            button_enable: false,
-            button_shell: "".to_string(),
-        }
-    }
-}
 
 /// Poll pisugar status
 fn poll_pisugar_status(core: &mut PiSugarCore, gpio_detect_history: &mut String, tx: &EventTx) {
