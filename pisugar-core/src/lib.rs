@@ -16,7 +16,11 @@ use rppal::i2c::I2c;
 use serde::export::Result::Err;
 use serde::{Deserialize, Serialize};
 
+/// Time host
 pub const TIME_HOST: &str = "cdn.pisugar.com";
+
+/// I2c poll interval
+pub const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
 
 /// RTC address, SD3078
 const I2C_ADDR_RTC: u16 = 0x32;
@@ -430,7 +434,7 @@ impl SD3078 {
         // ctr2 - wrtc1
         let mut crt2 = i2c.smbus_read_byte(0x10)?;
         crt2 |= 0b1000_0000;
-        i2c.smbus_write_byte(0x10, crt2);
+        i2c.smbus_write_byte(0x10, crt2)?;
 
         // ctr1 - wrtc2 and wrtc3
         let mut crt2 = i2c.smbus_read_byte(0x0f)?;
@@ -448,7 +452,7 @@ impl SD3078 {
         // ctr1 - wrtc2 and wrtc3
         let mut crt1 = i2c.smbus_read_byte(0x0f)?;
         crt1 &= 0b0111_1011;
-        i2c.smbus_write_byte(0x0f, crt1);
+        i2c.smbus_write_byte(0x0f, crt1)?;
 
         // ctr2 - wrtc1
         let mut crt2 = i2c.smbus_read_byte(0x10)?;
@@ -603,9 +607,13 @@ pub fn sys_write_time(dt: DateTime<Local>) {
         dt.minute(),
         dt.second()
     );
-    execute_shell(cmd.as_str());
-    let cmd = "/sbin/hwclock -w";
-    execute_shell(cmd);
+    if let Ok(_) = execute_shell(cmd.as_str()) {
+        let cmd = "/sbin/hwclock -w";
+        if let Ok(_) = execute_shell(cmd) {
+            return;
+        }
+    }
+    log::error!("Failed to write time to system");
 }
 
 /// PiSugar configuration
@@ -651,10 +659,8 @@ pub struct PiSugarStatus {
     intensity: f64,
     level: f64,
     level_records: VecDeque<f64>,
-    charging: bool,
     updated_at: Instant,
     rtc_time: DateTime<Local>,
-    rtc_time_list: [u8; 6],
     gpio_tap_history: String,
 }
 
@@ -727,10 +733,8 @@ impl PiSugarStatus {
             intensity,
             level,
             level_records,
-            charging: false,
             updated_at: Instant::now(),
             rtc_time: rtc_now,
-            rtc_time_list: [0; 6],
             gpio_tap_history: String::with_capacity(10),
         }
     }
@@ -854,9 +858,7 @@ impl PiSugarStatus {
         if self.level() < config.auto_shutdown_level {
             loop {
                 log::error!("Low battery, will power off...");
-                if let Ok(mut proc) = Command::new("poweroff").spawn() {
-                    proc.wait();
-                }
+                let _ = execute_shell("/sbin/shutdown --poweroff 0");
                 thread::sleep(std::time::Duration::from_millis(3000));
             }
         }
@@ -896,7 +898,7 @@ impl Display for TapType {
 }
 
 /// Detect button tap
-pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
+fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
     let long_pattern = "111111110";
     let double_pattern = vec!["1010", "10010", "10110", "100110", "101110", "1001110"];
     let single_pattern = "1000";
@@ -922,7 +924,7 @@ pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
 }
 
 /// Execute shell with sh
-pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
+fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
     let args = ["-c", shell];
     let mut child = Command::new("/bin/sh").args(&args).spawn()?;
     child.wait()
@@ -967,6 +969,14 @@ impl PiSugarCore {
             }
         }
         Err(Error::Other("Failed to save config file".to_string()))
+    }
+
+    pub fn status(&self) -> &PiSugarStatus {
+        &self.status
+    }
+
+    pub fn status_mut(&mut self) -> &mut PiSugarStatus {
+        &mut self.status
     }
 
     pub fn model(&self) -> String {

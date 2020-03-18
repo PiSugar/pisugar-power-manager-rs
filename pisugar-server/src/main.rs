@@ -1,44 +1,28 @@
-use std::collections::LinkedList;
 use std::fs::remove_file;
 use std::io;
-use std::net::SocketAddr;
 use std::path::Path;
-use std::process::{exit, Command};
-use std::result::Result;
-use std::sync::{Arc, Mutex, RwLock};
-use std::thread;
-use std::time::Duration;
+use std::process::exit;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use bytes::*;
 use chrono::prelude::*;
 use futures::prelude::*;
 use futures::SinkExt;
-use futures_channel::mpsc::{unbounded, UnboundedSender};
-use futures_util::{future, pin_mut, stream::TryStreamExt};
-use hyper::{Client, Uri};
-use serde::Serialize;
+use futures_channel::mpsc::unbounded;
+use futures_util::stream::TryStreamExt;
+use hyper::Client;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
-use tokio::prelude::*;
-use tokio::sync::mpsc::unbounded_channel;
-use tokio_tungstenite::{accept_async, tungstenite::Error};
 use tokio_util::codec::{BytesCodec, Framed};
 
-use pisugar_core::{
-    execute_shell, gpio_detect_tap, sys_write_time, Error as _Error, PiSugarConfig, PiSugarCore,
-    PiSugarStatus, TapType, MODEL_V2, TIME_HOST,
-};
-
-const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
-const CLIENT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
-const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
+use pisugar_core::{sys_write_time, PiSugarConfig, PiSugarCore, I2C_READ_INTERVAL, TIME_HOST};
 
 type EventTx = tokio::sync::watch::Sender<String>;
 type EventRx = tokio::sync::watch::Receiver<String>;
 
 /// Poll pisugar status
-fn poll_pisugar_status(core: &mut PiSugarCore, gpio_detect_history: &mut String, tx: &EventTx) {
+fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
     log::debug!("Polling state");
 
     let now = Instant::now();
@@ -46,27 +30,22 @@ fn poll_pisugar_status(core: &mut PiSugarCore, gpio_detect_history: &mut String,
     let config = &mut core.config;
 
     if let Ok(Some(tap_type)) = status.poll(config, now) {
-        tx.broadcast(format!("{}", tap_type));
+        let _ = tx.broadcast(format!("{}", tap_type));
     }
 }
 
 /// Handle request
 fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
-    let now = Instant::now();
     let parts: Vec<String> = req.split(" ").map(|s| s.to_string()).collect();
     let err = "Invalid request.\n".to_string();
 
     let core_cloned = core.clone();
     if let Ok(mut core) = core.lock() {
-        // let status = &mut core.status;
-        // let config = &mut core.config;
-
-        let mut resp = String::new();
         if parts.len() > 0 {
             match parts[0].as_str() {
                 "get" => {
                     if parts.len() > 1 {
-                        resp = match parts[1].as_str() {
+                        let resp = match parts[1].as_str() {
                             "model" => core.model().to_string(),
                             "battery" => core.level().to_string(),
                             "battery_v" => core.voltage().to_string(),
@@ -134,15 +113,21 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 }
                 "rtc_clear_flag" => {
                     return match core.clear_alarm_flag() {
-                        Ok(flag) => format!("{}: done\n", parts[0]),
-                        Err(e) => err,
+                        Ok(_) => format!("{}: done\n", parts[0]),
+                        Err(e) => {
+                            log::error!("{}", e);
+                            err
+                        }
                     };
                 }
                 "rtc_pi2rtc" => {
                     let now = Local::now();
                     return match core.write_time(now) {
                         Ok(_) => format!("{}: done\n", parts[0]),
-                        Err(e) => err,
+                        Err(e) => {
+                            log::error!("{}", e);
+                            err
+                        }
                     };
                 }
                 "rtc_rtc2pi" => {
@@ -154,23 +139,13 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     tokio::spawn(async move {
                         if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
                             if let Some(date) = resp.headers().get("Date") {
-                                if let Err(e) =
-                                    date.to_str().map_err(|e| format!("{}", e)).and_then(|s| {
-                                        DateTime::parse_from_rfc2822(s)
-                                            .map_err(|e| {
-                                                "Not a rfc2822 datetime string".to_string()
-                                            })
-                                            .and_then(|dt| {
-                                                if let Ok(mut core) = core_cloned.lock() {
-                                                    sys_write_time(dt.into());
-                                                    core.write_time(dt.into())
-                                                        .map_err(|e| format!("{}", e));
-                                                }
-                                                Ok(())
-                                            })
-                                    })
-                                {
-                                    log::error!("{}", e);
+                                if let Ok(s) = date.to_str() {
+                                    if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
+                                        if let Ok(core) = core_cloned.lock() {
+                                            sys_write_time(dt.into());
+                                            let _ = core.write_time(dt.into());
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -217,7 +192,10 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "rtc_test_wake" => {
                     return match core.test_wake() {
                         Ok(_) => format!("{}: wakeup after 1 min 30 sec\n", parts[0]),
-                        Err(e) => err,
+                        Err(e) => {
+                            log::error!("{}", e);
+                            err
+                        }
                     };
                 }
                 "set_button_enable" => {
@@ -231,7 +209,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 return err;
                             }
                         }
-                        core.save_config();
+                        if let Err(e) = core.save_config() {
+                            log::error!("{}", e);
+                        }
                         return format!("{}: done\n", parts[0]);
                     }
                     return err;
@@ -247,7 +227,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 return err;
                             }
                         }
-                        core.save_config();
+                        if let Err(e) = core.save_config() {
+                            log::error!("{}", e);
+                        }
                         return format!("{}: done\n", parts[0]);
                     }
                     return err;
@@ -270,7 +252,7 @@ where
 {
     let framed = Framed::new(stream, BytesCodec::new());
     let (sink, mut stream) = framed.split();
-    let (tx, mut rx) = unbounded();
+    let (tx, rx) = unbounded();
 
     // handle request
     let mut tx_cloned = tx.clone();
@@ -317,8 +299,8 @@ async fn handle_ws_connection(
         .await?;
     log::info!("WS connection established");
 
-    let (mut tx, mut rx) = unbounded::<String>();
-    let (mut sink, mut stream) = ws_stream.split();
+    let (tx, rx) = unbounded::<String>();
+    let (sink, mut stream) = ws_stream.split();
 
     // handle request
     let mut tx_cloned = tx.clone();
@@ -430,14 +412,10 @@ async fn main() -> std::io::Result<()> {
 
     // polling
     let core_cloned = core.clone();
-    let mut interval = tokio::time::interval(Duration::from_millis(200));
-    let mut gpio_detect_history = String::with_capacity(30);
+    let mut interval = tokio::time::interval(I2C_READ_INTERVAL);
     loop {
         interval.tick().await;
         let mut core = core_cloned.lock().expect("unexpected lock failed");
-        poll_pisugar_status(&mut core, &mut gpio_detect_history, &event_tx);
+        poll_pisugar_status(&mut core, &event_tx);
     }
-
-    clean_up();
-    Ok(())
 }
