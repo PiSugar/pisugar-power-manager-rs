@@ -16,20 +16,13 @@ use rppal::i2c::I2c;
 use serde::export::Result::Err;
 use serde::{Deserialize, Serialize};
 
-const TIME_HOST: &str = "cdn.pisugar.com";
+pub const TIME_HOST: &str = "cdn.pisugar.com";
 
-// RTC address, SD3078
+/// RTC address, SD3078
 const I2C_ADDR_RTC: u16 = 0x32;
-const I2C_RTC_CTR1: u8 = 0x0f;
-const I2C_RTC_CTR2: u8 = 0x10;
-const I2C_RTC_CTR3: u8 = 0x11;
 
-// Battery address, IP5209
+/// Battery address, IP5209/IP5312
 const I2C_ADDR_BAT: u16 = 0x75;
-const I2C_BAT_INTENSITY_LOW: u8 = 0xa4;
-const I2C_BAT_INTENSITY_HIGH: u8 = 0xa5;
-const I2C_BAT_VOLTAGE_LOW: u8 = 0xa2;
-const I2C_BAT_VOLTAGE_HIGH: u8 = 0xa3;
 
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
@@ -91,7 +84,7 @@ fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
     }
     for threshold in &BATTERY_CURVE {
         if voltage >= threshold.0 {
-            let mut percentage = (voltage - threshold.0) / (threshold.1 - threshold.0);
+            let percentage = (voltage - threshold.0) / (threshold.1 - threshold.0);
             let level = threshold.2 + percentage * (threshold.3 - threshold.2);
             return level;
         }
@@ -374,6 +367,22 @@ impl SD3078Time {
     }
 }
 
+impl Display for SD3078Time {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{},{},{},{},{},{},{}]",
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6]
+        )
+    }
+}
+
+impl From<[u8; 7]> for SD3078Time {
+    fn from(a: [u8; 7]) -> Self {
+        Self(a)
+    }
+}
+
 impl From<DateTime<Local>> for SD3078Time {
     fn from(dt: DateTime<Local>) -> Self {
         let mut t = SD3078Time([0; 7]);
@@ -476,9 +485,9 @@ impl SD3078 {
         let mut bcd_time = t.0.clone();
         bcd_time[2] |= 0b1000_0000;
 
-        rtc_disable_write_protect()?;
-        i2c.block_write(0, bcd_time.as_ref());
-        rtc_enable_write_protect()?;
+        self.enable_write()?;
+        i2c.block_write(0, bcd_time.as_ref())?;
+        self.disable_write()?;
 
         Ok(())
     }
@@ -497,12 +506,28 @@ impl SD3078 {
         Ok(false)
     }
 
+    /// Clear alarm flag
+    pub fn clear_alarm_flag(&self) -> Result<()> {
+        if let Ok(true) = self.read_alarm_flag() {
+            self.enable_write()?;
+            let mut i2c = I2c::new()?;
+            i2c.set_slave_address(self.i2c_addr)?;
+
+            let mut ctr1 = i2c.smbus_read_byte(0x0f)?;
+            ctr1 &= 0b1100_1111;
+            i2c.smbus_write_byte(0x0f, ctr1)?;
+
+            self.disable_write()?;
+        }
+        Ok(())
+    }
+
     /// Disable alarm
     pub fn disable_alarm(&self) -> Result<()> {
         let mut i2c = I2c::new()?;
         i2c.set_slave_address(self.i2c_addr)?;
 
-        rtc_disable_write_protect()?;
+        self.enable_write()?;
 
         // CTR2 - INTS1, clear
         let mut ctr2 = i2c.smbus_read_byte(0x10)?;
@@ -511,9 +536,9 @@ impl SD3078 {
         i2c.smbus_write_byte(0x10, ctr2)?;
 
         // disable alarm
-        i2c.smbus_write_byte(0x0e, 0b0000_0000);
+        i2c.smbus_write_byte(0x0e, 0b0000_0000)?;
 
-        rtc_enable_write_protect()?;
+        self.disable_write()?;
 
         Ok(())
     }
@@ -526,8 +551,9 @@ impl SD3078 {
         let mut bcd_time = t.0.clone();
         bcd_time[3] = weekday_repeat;
 
+        self.enable_write()?;
+
         // alarm time
-        rtc_disable_write_protect()?;
         i2c.block_write(0x07, bcd_time.as_ref())?;
 
         // CTR2 - alarm interrupt and frequency
@@ -537,9 +563,9 @@ impl SD3078 {
         i2c.smbus_write_byte(0x10, ctr2)?;
 
         // alarm allows hour/minus/second
-        i2c.smbus_write_byte(0x0e, 0b0000_0111);
+        i2c.smbus_write_byte(0x0e, 0b0000_0111)?;
 
-        rtc_enable_write_protect()?;
+        self.disable_write()?;
 
         Ok(())
     }
@@ -547,276 +573,16 @@ impl SD3078 {
     /// Set a test wake up after 1 minutes
     pub fn set_test_wake(&self) -> Result<()> {
         let now = Local::now();
-        let duration = chrono::Duration::seconds(90);
-        let bcd_time = datetime_to_bcd(now);
-        rtc_write_time(&bcd_time)?;
+        self.write_time(now.into())?;
 
+        let duration = chrono::Duration::seconds(90);
         let then = now + duration;
-        let t = datetime_to_bcd(then);
-        rtc_set_alarm(&t, 0b0111_1111)?;
+        self.set_alarm(then.into(), 0b0111_1111)?;
 
         log::error!("Will wake up after 1min 30sec, please power-off");
 
         Ok(())
     }
-}
-
-// /// Read battery voltage
-// pub fn bat_read_voltage() -> Result<f64> {
-//     let mut i2c = I2c::new()?;
-//     i2c.set_slave_address(I2C_ADDR_BAT)?;
-//
-//     let low = i2c.smbus_read_byte(I2C_BAT_VOLTAGE_LOW)? as u16;
-//     let high = i2c.smbus_read_byte(I2C_BAT_VOLTAGE_HIGH)? as u16;
-//     log::debug!("voltage low 0x{:x}, high 0x{:x}", low, high);
-//
-//     // check negative values
-//     let voltage = if high & 0x20 == 0x20 {
-//         let v = (((high | 0b1100_0000) << 8) + low) as i16;
-//         2600.0 - (v as f64) * 0.26855
-//     } else {
-//         let v = ((high & 0x1f) << 8) + low;
-//         2600.0 + (v as f64) * 0.26855
-//     };
-//
-//     Ok(voltage / 1000.0)
-// }
-//
-// /// Read battery current intensity
-// pub fn bat_read_intensity() -> Result<f64> {
-//     let mut i2c = I2c::new()?;
-//     i2c.set_slave_address(I2C_ADDR_BAT)?;
-//
-//     let low = i2c.smbus_read_byte(0xa4)? as u16;
-//     let high = i2c.smbus_read_byte(0xa5)? as u16;
-//     log::debug!("intensity low 0x{:x}, high 0x{:x}", low, high);
-//
-//     // check negative value
-//     let intensity = if high & 0x20 == 0x20 {
-//         let i = (((high | 0b1100_0000) << 8) + low) as i16;
-//         (i as f64) * 0.745985
-//     } else {
-//         let i = ((high & 0x1f) << 8) + low;
-//         (i as f64) * 0.745985
-//     };
-//
-//     Ok(intensity / 1000.0)
-// }
-//
-// /// Read battery pro intensity
-// pub fn bat_p_read_intensity() -> Result<f64> {
-//     let mut i2c = I2c::new()?;
-//     i2c.set_slave_address(I2C_ADDR_BAT)?;
-//
-//     let low = i2c.smbus_read_byte(0xd2)? as u16;
-//     let high = i2c.smbus_read_byte(0xd3)? as u16;
-//     log::debug!("intensity low 0x{:x}, high 0x{:x}", low, high);
-//
-//     let intensity = if high & 0x20 != 0 {
-//         let i = (((high | 0b1100_0000) << 8) + low) as i16;
-//         (i as f64) * 2.68554
-//     } else {
-//         let i = ((high & 0x1f) << 8) + low;
-//         (i as f64) * 2.68554
-//     };
-//     Ok(intensity / 1000.0)
-// }
-//
-// /// Read battery pro voltage, use this to detect the model
-// pub fn bat_p_read_voltage() -> Result<f64> {
-//     let mut i2c = I2c::new()?;
-//     i2c.set_slave_address(I2C_ADDR_BAT)?;
-//     let low = i2c.smbus_read_byte(0xd0)? as u16;
-//     let high = i2c.smbus_read_byte(0xd1)? as u16;
-//     log::debug!("voltage low 0x{:x}, high 0x{:x}", low, high);
-//
-//     if low == 0 && high == 0 {
-//         return Err(Error::I2c(I2cError::FeatureNotSupported));
-//     }
-//
-//     let v = (high & 0b0011_1111) + low;
-//     let v = (v as f64) * 0.26855 + 2600.0;
-//     Ok(v / 1000.0)
-// }
-//
-// /// Set shutdown threshold
-// pub fn bat_set_shutdown_threshold() -> Result<()> {
-//     let mut i2c = I2c::new()?;
-//     i2c.set_slave_address(I2C_ADDR_BAT)?;
-//
-//     // threshold intensity
-//     let mut v = i2c.smbus_read_byte(0x0c)?;
-//     v &= 0b0000_0111;
-//     v |= (12 << 3);
-//     i2c.smbus_write_byte(0x0c, v)?;
-//
-//     // time
-//     let mut v = i2c.smbus_read_byte(0x04)?;
-//     v |= 0b0000_0000;
-//     v &= 0b00111111;
-//     i2c.smbus_write_byte(0x04, v)?;
-//
-//     // enable
-//     let mut v = i2c.smbus_read_byte(0x02)?;
-//     v |= 0b0000_0011;
-//     i2c.smbus_write_byte(0x02, v)?;
-//
-//     Ok(())
-// }
-//
-// /// Set shutdown threshold of P
-// pub fn bat_p_set_shutdown_threshold() -> Result<()> {
-//     let mut i2c = I2c::new()?;
-//     i2c.set_slave_address(I2C_ADDR_BAT)?;
-//
-//     // threshold intensity
-//     let mut t = i2c.smbus_read_byte(0x84)?;
-//     t &= 0b0000_0111;
-//     t |= (12 << 3);
-//     t = 0xFF;
-//     i2c.smbus_write_byte(0x84, t)?;
-//
-//     // time
-//     t = i2c.smbus_read_byte(0x07)?;
-//     t |= 0b0100_0000;
-//     t &= 0b0111_1111;
-//     i2c.smbus_write_byte(0x07, t)?;
-//
-//     Ok(())
-// }
-
-pub fn bat_p_force_shutdown() -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_BAT)?;
-
-    // enable force shutdown
-    let mut t = i2c.smbus_read_byte(0x5B)?;
-    t |= 0b0001_0010;
-    i2c.smbus_write_byte(0x5B, t)?;
-
-    // force shutdown
-    t = i2c.smbus_read_byte(0x5B)?;
-    t &= 0b1110_1111;
-    i2c.smbus_write_byte(0x5B, t)?;
-
-    Ok(())
-}
-
-pub fn bat_set_gpio() -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_BAT)?;
-
-    // vset
-    let mut v = i2c.smbus_read_byte(0x26)?;
-    v |= 0b0000_0000;
-    v &= 0b1011_1111;
-    i2c.smbus_write_byte(0x26, v)?;
-
-    // vset -> gpio
-    let mut v = i2c.smbus_read_byte(0x52)?;
-    v |= 0b0000_0100;
-    v &= 0b1111_0111;
-    i2c.smbus_write_byte(0x52, v)?;
-
-    // gpio input
-    let mut v = i2c.smbus_read_byte(0x53)?;
-    v |= 0b0001_0000;
-    v &= 0b1111_1111;
-    i2c.smbus_write_byte(0x53, v)?;
-
-    Ok(())
-}
-
-pub fn bat_p_set_gpio() -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_BAT)?;
-
-    // mfp_ctl0, set l4_sel
-    let mut v = i2c.smbus_read_byte(0x52)?;
-    v |= 0b0000_0010;
-    i2c.smbus_write_byte(0x52, v)?;
-
-    // gpio1 input
-    let mut v = i2c.smbus_read_byte(0x54)?;
-    v |= 0b0000_0010;
-    i2c.smbus_write_byte(0x54, v)?;
-
-    Ok(())
-}
-
-pub fn bat_read_gpio_tap() -> Result<u8> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let v = i2c.smbus_read_byte(0x55)?;
-    Ok(v)
-}
-
-pub fn bat_p_read_gpio_tap() -> Result<u8> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_BAT)?;
-    let mut v = i2c.smbus_read_byte(0x58)?;
-    v &= 0b0000_0010;
-    Ok(v)
-}
-
-pub fn rtc_disable_write_protect() -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    let mut data = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
-    data |= 0b1000_0000;
-    i2c.smbus_write_byte(I2C_RTC_CTR2, data)?;
-
-    data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
-    data |= 0b1000_0100;
-    i2c.smbus_write_byte(I2C_RTC_CTR1, data)?;
-
-    Ok(())
-}
-
-pub fn rtc_enable_write_protect() -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    let mut data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
-    data &= 0b0111_1011;
-    i2c.smbus_write_byte(I2C_RTC_CTR1, data);
-
-    data = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
-    data &= 0b0111_1111;
-    i2c.smbus_write_byte(I2C_RTC_CTR2, data)?;
-
-    Ok(())
-}
-
-pub fn rtc_read_alarm_flag() -> Result<bool> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    let data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
-    if data & 0b0010_0000 != 0 || data & 0b0001_0000 != 0 {
-        return Ok(true);
-    }
-
-    Ok(false)
-}
-
-pub fn rtc_clean_alarm_flag() -> Result<()> {
-    match rtc_read_alarm_flag() {
-        Ok(true) => {
-            rtc_disable_write_protect()?;
-            let mut i2c = I2c::new()?;
-            i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-            let mut data = i2c.smbus_read_byte(I2C_RTC_CTR1)?;
-            data &= 0b1100_1111;
-            i2c.smbus_write_byte(I2C_RTC_CTR1, data)?;
-
-            rtc_enable_write_protect()?;
-        }
-        _ => {}
-    }
-    Ok(())
 }
 
 fn bcd_to_dec(bcd: u8) -> u8 {
@@ -825,30 +591,6 @@ fn bcd_to_dec(bcd: u8) -> u8 {
 
 fn dec_to_bcd(dec: u8) -> u8 {
     dec % 10 + ((dec / 10) << 4)
-}
-
-pub fn datetime_to_bcd(datetime: DateTime<Local>) -> [u8; 7] {
-    let mut bcd_time = [0_u8; 7];
-    bcd_time[0] = (dec_to_bcd(datetime.second() as u8));
-    bcd_time[1] = (dec_to_bcd(datetime.minute() as u8));
-    bcd_time[2] = (dec_to_bcd(datetime.hour() as u8));
-    bcd_time[3] = (dec_to_bcd(datetime.weekday().num_days_from_sunday() as u8));
-    bcd_time[4] = (dec_to_bcd(datetime.day() as u8));
-    bcd_time[5] = (dec_to_bcd(datetime.month() as u8));
-    bcd_time[6] = (dec_to_bcd((datetime.year() % 100) as u8));
-    bcd_time
-}
-
-pub fn bcd_to_datetime(bcd_time: &[u8; 7]) -> DateTime<Local> {
-    let sec = bcd_to_dec(bcd_time[0]) as u32;
-    let min = bcd_to_dec(bcd_time[1]) as u32;
-    let hour = bcd_to_dec(bcd_time[2]) as u32;
-    let day_of_month = bcd_to_dec(bcd_time[4]) as u32;
-    let month = bcd_to_dec(bcd_time[5]) as u32;
-    let year = 2000 + bcd_to_dec(bcd_time[6]) as i32;
-
-    let datetime = Local.ymd(year, month, day_of_month).and_hms(hour, min, sec);
-    datetime
 }
 
 pub fn sys_write_time(dt: DateTime<Local>) {
@@ -864,91 +606,6 @@ pub fn sys_write_time(dt: DateTime<Local>) {
     execute_shell(cmd.as_str());
     let cmd = "/sbin/hwclock -w";
     execute_shell(cmd);
-}
-
-pub fn rtc_write_time(bcd_time: &[u8; 7]) -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    // 24h
-    let mut bcd_time = bcd_time.clone();
-    bcd_time[2] |= 0b1000_0000;
-
-    rtc_disable_write_protect()?;
-    i2c.block_write(0, bcd_time.as_ref());
-    rtc_enable_write_protect()?;
-
-    Ok(())
-}
-
-pub fn rtc_read_time() -> Result<[u8; 7]> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    let mut bcd_time = [0_u8; 7];
-    i2c.block_read(0, &mut bcd_time)?;
-
-    // 12hr or 24hr
-    if bcd_time[2] & 0b1000_0000 != 0 {
-        bcd_time[2] &= 0b0111_1111; // 24hr
-    } else if bcd_time[2] & 0b0010_0000 != 0 {
-        bcd_time[2] += 12; // 12hr and pm
-    }
-
-    Ok(bcd_time)
-}
-
-pub fn rtc_set_alarm(bcd_time: &[u8; 7], weekday_repeat: u8) -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    let mut bcd_time = bcd_time.clone();
-    bcd_time[3] = weekday_repeat;
-
-    rtc_disable_write_protect()?;
-    i2c.block_write(0x07, bcd_time.as_ref())?;
-
-    let mut ctr2 = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
-    ctr2 |= 0b0101_0010;
-    ctr2 &= 0b1101_1111;
-    i2c.smbus_write_byte(I2C_RTC_CTR2, ctr2)?;
-
-    // alarm allows hour/minus/second
-    i2c.smbus_write_byte(0x0e, 0b0000_0111);
-
-    rtc_enable_write_protect()?;
-
-    Ok(())
-}
-
-pub fn rtc_disable_alarm() -> Result<()> {
-    let mut i2c = I2c::new()?;
-    i2c.set_slave_address(I2C_ADDR_RTC)?;
-
-    rtc_disable_write_protect()?;
-
-    let mut ctr2 = i2c.smbus_read_byte(I2C_RTC_CTR2)?;
-    ctr2 |= 0b0101_0010;
-    ctr2 &= 0b1101_1111;
-    i2c.smbus_write_byte(I2C_RTC_CTR2, ctr2)?;
-
-    i2c.smbus_write_byte(0x0e, 0b0000_0000);
-
-    rtc_enable_write_protect()?;
-
-    Ok(())
-}
-
-pub fn rtc_set_test_wake() -> Result<()> {
-    log::info!("wakeup after 1min30sec");
-    let now = Local::now();
-    let duration = chrono::Duration::seconds(90);
-    let bcd_time = datetime_to_bcd(now);
-    rtc_write_time(&bcd_time).and_then(|_| {
-        let then = now + duration;
-        let bcd_time_then = datetime_to_bcd(then);
-        rtc_set_alarm(&bcd_time, 0b0111_1111)
-    })
 }
 
 /// PiSugar configuration
@@ -1126,10 +783,10 @@ impl PiSugarStatus {
         if self.is_alive(now) {
             log::debug!("levels: {:?}", self.level_records);
             let capacity = self.level_records.capacity() as f64;
-            let mut x_sum = (0.0 + capacity - 1.0) * capacity / 2.0;
+            let x_sum = (0.0 + capacity - 1.0) * capacity / 2.0;
             let x_bar = x_sum / capacity;
-            let mut y_sum: f64 = self.level_records.iter().sum();
-            let y_bar = y_sum / capacity;
+            let y_sum: f64 = self.level_records.iter().sum();
+            let _y_bar = y_sum / capacity;
             // k = Sum(yi * (xi - x_bar)) / Sum(xi - x_bar)^2
             let mut iter = self.level_records.iter();
             let mut a = 0.0;
@@ -1310,5 +967,69 @@ impl PiSugarCore {
             }
         }
         Err(Error::Other("Failed to save config file".to_string()))
+    }
+
+    pub fn model(&self) -> String {
+        self.status.model.clone()
+    }
+
+    pub fn voltage(&self) -> f64 {
+        self.status.voltage()
+    }
+
+    pub fn intensity(&self) -> f64 {
+        self.status.intensity()
+    }
+
+    pub fn level(&self) -> f64 {
+        self.status.level()
+    }
+
+    pub fn charging(&self) -> bool {
+        let now = Instant::now();
+        self.status.is_charging(now)
+    }
+
+    pub fn read_time(&self) -> DateTime<Local> {
+        self.status.rtc_time()
+    }
+
+    pub fn read_raw_time(&self) -> SD3078Time {
+        match self.status.sd3078.read_time() {
+            Ok(t) => t,
+            Err(_) => self.status.rtc_time.into(),
+        }
+    }
+
+    pub fn write_time(&self, dt: DateTime<Local>) -> Result<()> {
+        self.status.sd3078.write_time(dt.into())
+    }
+
+    pub fn set_alarm(&self, t: SD3078Time, weakday_repeat: u8) -> Result<()> {
+        self.status.sd3078.set_alarm(t, weakday_repeat)
+    }
+
+    pub fn read_alarm_flag(&self) -> Result<bool> {
+        self.status.sd3078.read_alarm_flag()
+    }
+
+    pub fn clear_alarm_flag(&self) -> Result<()> {
+        self.status.sd3078.clear_alarm_flag()
+    }
+
+    pub fn disable_alarm(&self) -> Result<()> {
+        self.status.sd3078.disable_alarm()
+    }
+
+    pub fn test_wake(&self) -> Result<()> {
+        self.status.sd3078.set_test_wake()
+    }
+
+    pub fn config(&self) -> &PiSugarConfig {
+        &self.config
+    }
+
+    pub fn config_mut(&mut self) -> &mut PiSugarConfig {
+        &mut self.config
     }
 }

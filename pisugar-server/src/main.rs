@@ -26,10 +26,8 @@ use tokio_tungstenite::{accept_async, tungstenite::Error};
 use tokio_util::codec::{BytesCodec, Framed};
 
 use pisugar_core::{
-    bcd_to_datetime, datetime_to_bcd, execute_shell, gpio_detect_tap, rtc_clean_alarm_flag,
-    rtc_disable_alarm, rtc_read_alarm_flag, rtc_read_time, rtc_set_alarm, rtc_set_test_wake,
-    rtc_write_time, sys_write_time, Error as _Error, PiSugarConfig, PiSugarCore, PiSugarStatus,
-    TapType, MODEL_V2,
+    execute_shell, gpio_detect_tap, sys_write_time, Error as _Error, PiSugarConfig, PiSugarCore,
+    PiSugarStatus, TapType, MODEL_V2, TIME_HOST,
 };
 
 const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
@@ -53,202 +51,211 @@ fn poll_pisugar_status(core: &mut PiSugarCore, gpio_detect_history: &mut String,
 }
 
 /// Handle request
-fn handle_request(core: &mut PiSugarCore, req: &str) -> String {
+fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
     let now = Instant::now();
     let parts: Vec<String> = req.split(" ").map(|s| s.to_string()).collect();
-
-    let status = &mut core.status;
-    let config = &mut core.config;
-
-    let mut resp = String::new();
     let err = "Invalid request.\n".to_string();
-    if parts.len() > 0 {
-        match parts[0].as_str() {
-            "get" => {
-                if parts.len() > 1 {
-                    resp = match parts[1].as_str() {
-                        "model" => status.mode().to_string(),
-                        "battery" => status.level().to_string(),
-                        "battery_v" => status.voltage().to_string(),
-                        "battery_i" => status.intensity().to_string(),
-                        "battery_charging" => status.is_charging(now).to_string(),
-                        "rtc_time" => status.rtc_time().to_rfc2822(),
-                        "rtc_time_list" => format!("{:?}", datetime_to_bcd(status.rtc_time())),
-                        "rtc_alarm_flag" => match rtc_read_alarm_flag() {
-                            Ok(flag) => format!("{}", flag),
-                            Err(e) => {
-                                log::error!("{}", e);
-                                return err;
-                            }
-                        },
-                        "alarm_type" => format!("{}", config.auto_wake_type),
-                        "alarm_repeat" => format!("{}", config.auto_wake_repeat),
-                        "safe_shutdown_level" => format!("{}", config.auto_shutdown_level),
-                        "button_enable" => {
-                            if parts.len() > 2 {
-                                let enable = match parts[2].as_str() {
-                                    "single" => config.single_tap_enable,
-                                    "double" => config.double_tap_enable,
-                                    "long" => config.long_tap_enable,
-                                    _ => {
-                                        log::error!("{} {}: unknown tap type", parts[0], parts[1]);
-                                        return err;
-                                    }
-                                };
-                                format!("{} {}", parts[2], enable)
-                            } else {
-                                return err;
-                            }
-                        }
-                        "button_shell" => {
-                            if parts.len() > 2 {
-                                let shell = match parts[2].as_str() {
-                                    "single" => config.single_tap_shell.as_str(),
-                                    "double" => config.double_tap_shell.as_str(),
-                                    "long" => config.long_tap_shell.as_str(),
-                                    _ => {
-                                        log::error!("{} {}: unknown tap type", parts[0], parts[1]);
-                                        return err;
-                                    }
-                                };
-                                format!("{} {}", parts[2], shell)
-                            } else {
-                                return err;
-                            }
-                        }
-                        _ => return err,
-                    };
 
-                    return format!("{}: {}\n", parts[1], resp);
-                };
-            }
-            "rtc_clear_flag" => {
-                return match rtc_clean_alarm_flag() {
-                    Ok(flag) => format!("{}: done\n", parts[0]),
-                    Err(e) => err,
-                };
-            }
-            "rtc_pi2rtc" => {
-                let now = Local::now();
-                let bcd_time = datetime_to_bcd(now);
-                return match rtc_write_time(&bcd_time) {
-                    Ok(_) => format!("{}: done\n", parts[0]),
-                    Err(e) => err,
-                };
-            }
-            "rtc_rtc2pi" => {
-                return match rtc_read_time() {
-                    Ok(bcd_time) => {
-                        let time = bcd_to_datetime(&bcd_time);
-                        sys_write_time(time);
-                        format!("{}: done\n", parts[0])
-                    }
-                    Err(e) => err,
-                };
-            }
-            "rtc_web" => {
-                tokio::spawn(async move {
-                    if let Ok(resp) = Client::new()
-                        .get("http://cdn.pisugar.com".parse().unwrap())
-                        .await
-                    {
-                        if let Some(date) = resp.headers().get("Date") {
-                            if let Err(e) =
-                                date.to_str().map_err(|e| format!("{}", e)).and_then(|s| {
-                                    DateTime::parse_from_rfc2822(s)
-                                        .map_err(|e| "Not a rfc2822 datetime string".to_string())
-                                        .and_then(|dt| {
-                                            let bcd_time = datetime_to_bcd(dt.into());
-                                            sys_write_time(dt.into());
-                                            rtc_write_time(&bcd_time).map_err(|e| format!("{}", e))
-                                        })
-                                })
-                            {
-                                log::error!("{}", e);
+    let core_cloned = core.clone();
+    if let Ok(mut core) = core.lock() {
+        // let status = &mut core.status;
+        // let config = &mut core.config;
+
+        let mut resp = String::new();
+        if parts.len() > 0 {
+            match parts[0].as_str() {
+                "get" => {
+                    if parts.len() > 1 {
+                        resp = match parts[1].as_str() {
+                            "model" => core.model().to_string(),
+                            "battery" => core.level().to_string(),
+                            "battery_v" => core.voltage().to_string(),
+                            "battery_i" => core.intensity().to_string(),
+                            "battery_charging" => core.charging().to_string(),
+                            "rtc_time" => core.read_time().to_rfc2822(),
+                            "rtc_time_list" => format!("{}", core.read_raw_time()),
+                            "rtc_alarm_flag" => match core.read_alarm_flag() {
+                                Ok(flag) => format!("{}", flag),
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    return err;
+                                }
+                            },
+                            "alarm_type" => format!("{}", core.config().auto_wake_type),
+                            "alarm_repeat" => format!("{}", core.config().auto_wake_repeat),
+                            "safe_shutdown_level" => {
+                                format!("{}", core.config().auto_shutdown_level)
                             }
-                        }
-                    }
-                });
-                return format!("{}: done\n", parts[0]);
-            }
-            "rtc_alarm_set" => {
-                if parts.len() >= 3 {
-                    let mut bcd_time = [0_u8; 7];
-                    if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
-                        let times: Vec<String> =
-                            parts[1].split(",").map(|s| s.to_string()).collect();
-                        if times.len() == 7 {
-                            for i in 0..7 {
-                                if let Ok(v) = times[i].parse::<u8>() {
-                                    bcd_time[i] = v;
+                            "button_enable" => {
+                                if parts.len() > 2 {
+                                    let enable = match parts[2].as_str() {
+                                        "single" => core.config().single_tap_enable,
+                                        "double" => core.config().double_tap_enable,
+                                        "long" => core.config().long_tap_enable,
+                                        _ => {
+                                            log::error!(
+                                                "{} {}: unknown tap type",
+                                                parts[0],
+                                                parts[1]
+                                            );
+                                            return err;
+                                        }
+                                    };
+                                    format!("{} {}", parts[2], enable)
                                 } else {
                                     return err;
                                 }
                             }
-                            if let Ok(_) = rtc_set_alarm(&bcd_time, weekday_repeat) {
-                                return format!("{}: done\n", parts[0]);
+                            "button_shell" => {
+                                if parts.len() > 2 {
+                                    let shell = match parts[2].as_str() {
+                                        "single" => core.config().single_tap_shell.as_str(),
+                                        "double" => core.config().double_tap_shell.as_str(),
+                                        "long" => core.config().long_tap_shell.as_str(),
+                                        _ => {
+                                            log::error!(
+                                                "{} {}: unknown tap type",
+                                                parts[0],
+                                                parts[1]
+                                            );
+                                            return err;
+                                        }
+                                    };
+                                    format!("{} {}", parts[2], shell)
+                                } else {
+                                    return err;
+                                }
+                            }
+                            _ => return err,
+                        };
+
+                        return format!("{}: {}\n", parts[1], resp);
+                    };
+                }
+                "rtc_clear_flag" => {
+                    return match core.clear_alarm_flag() {
+                        Ok(flag) => format!("{}: done\n", parts[0]),
+                        Err(e) => err,
+                    };
+                }
+                "rtc_pi2rtc" => {
+                    let now = Local::now();
+                    return match core.write_time(now) {
+                        Ok(_) => format!("{}: done\n", parts[0]),
+                        Err(e) => err,
+                    };
+                }
+                "rtc_rtc2pi" => {
+                    let t = core.read_time();
+                    sys_write_time(t);
+                    return format!("{}: done\n", parts[0]);
+                }
+                "rtc_web" => {
+                    tokio::spawn(async move {
+                        if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
+                            if let Some(date) = resp.headers().get("Date") {
+                                if let Err(e) =
+                                    date.to_str().map_err(|e| format!("{}", e)).and_then(|s| {
+                                        DateTime::parse_from_rfc2822(s)
+                                            .map_err(|e| {
+                                                "Not a rfc2822 datetime string".to_string()
+                                            })
+                                            .and_then(|dt| {
+                                                if let Ok(mut core) = core_cloned.lock() {
+                                                    sys_write_time(dt.into());
+                                                    core.write_time(dt.into())
+                                                        .map_err(|e| format!("{}", e));
+                                                }
+                                                Ok(())
+                                            })
+                                    })
+                                {
+                                    log::error!("{}", e);
+                                }
+                            }
+                        }
+                    });
+                    return format!("{}: done\n", parts[0]);
+                }
+                "rtc_alarm_set" => {
+                    if parts.len() >= 3 {
+                        let mut bcd_time = [0_u8; 7];
+                        if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
+                            let times: Vec<String> =
+                                parts[1].split(",").map(|s| s.to_string()).collect();
+                            if times.len() == 7 {
+                                for i in 0..7 {
+                                    if let Ok(v) = times[i].parse::<u8>() {
+                                        bcd_time[i] = v;
+                                    } else {
+                                        return err;
+                                    }
+                                }
+                                if let Ok(_) = core.set_alarm(bcd_time.into(), weekday_repeat) {
+                                    return format!("{}: done\n", parts[0]);
+                                }
                             }
                         }
                     }
+                    return err;
                 }
-                return err;
-            }
-            "rtc_alarm_disable" => {
-                return match rtc_disable_alarm() {
-                    Ok(_) => format!("{}: done\n", parts[0]),
-                    Err(_) => err,
-                };
-            }
-            "set_safe_shutdown_level" => {
-                if parts.len() >= 1 {
-                    if let Ok(level) = parts[1].parse::<f64>() {
-                        config.auto_shutdown_level = level;
+                "rtc_alarm_disable" => {
+                    return match core.disable_alarm() {
+                        Ok(_) => format!("{}: done\n", parts[0]),
+                        Err(_) => err,
+                    };
+                }
+                "set_safe_shutdown_level" => {
+                    if parts.len() >= 1 {
+                        if let Ok(level) = parts[1].parse::<f64>() {
+                            core.config_mut().auto_shutdown_level = level;
+                            return format!("{}: done\n", parts[0]);
+                        }
+                    }
+                    return err;
+                }
+                "rtc_test_wake" => {
+                    return match core.test_wake() {
+                        Ok(_) => format!("{}: wakeup after 1 min 30 sec\n", parts[0]),
+                        Err(e) => err,
+                    };
+                }
+                "set_button_enable" => {
+                    if parts.len() > 2 {
+                        let enable = parts[2].as_str().ne("0");
+                        match parts[1].as_str() {
+                            "single" => core.config_mut().single_tap_enable = enable,
+                            "double" => core.config_mut().double_tap_enable = enable,
+                            "long" => core.config_mut().long_tap_enable = enable,
+                            _ => {
+                                return err;
+                            }
+                        }
+                        core.save_config();
                         return format!("{}: done\n", parts[0]);
                     }
+                    return err;
                 }
-                return err;
-            }
-            "rtc_test_wake" => {
-                return match rtc_set_test_wake() {
-                    Ok(_) => format!("{}: wakeup after 1 min 30 sec\n", parts[0]),
-                    Err(e) => err,
-                };
-            }
-            "set_button_enable" => {
-                if parts.len() > 2 {
-                    let enable = parts[2].as_str().ne("0");
-                    match parts[1].as_str() {
-                        "single" => config.single_tap_enable = enable,
-                        "double" => config.double_tap_enable = enable,
-                        "long" => config.long_tap_enable = enable,
-                        _ => {
-                            return err;
+                "set_button_shell" => {
+                    if parts.len() > 2 {
+                        let cmd = parts[2..].join(" ");
+                        match parts[1].as_str() {
+                            "single" => core.config_mut().single_tap_shell = cmd,
+                            "double" => core.config_mut().double_tap_shell = cmd,
+                            "long" => core.config_mut().long_tap_shell = cmd,
+                            _ => {
+                                return err;
+                            }
                         }
+                        core.save_config();
+                        return format!("{}: done\n", parts[0]);
                     }
-                    core.save_config();
-                    return format!("{}: done\n", parts[0]);
+                    return err;
                 }
-                return err;
+                _ => return err,
             }
-            "set_button_shell" => {
-                if parts.len() > 2 {
-                    let cmd = parts[2..].join(" ");
-                    match parts[1].as_str() {
-                        "single" => config.single_tap_shell = cmd,
-                        "double" => config.double_tap_shell = cmd,
-                        "long" => config.long_tap_shell = cmd,
-                        _ => {
-                            return err;
-                        }
-                    }
-                    core.save_config();
-                    return format!("{}: done\n", parts[0]);
-                }
-                return err;
-            }
-            _ => return err,
-        }
-    };
+        };
+    }
 
     err
 }
@@ -270,11 +277,11 @@ where
     tokio::spawn(async move {
         while let Some(Ok(buf)) = stream.next().await {
             let req = String::from_utf8_lossy(buf.as_ref()).replace("\n", "");
-            let resp = match core.lock() {
-                Ok(mut core) => handle_request(&mut core, req.as_str()),
-                Err(e) => "".to_string(),
-            };
-            tx_cloned.send(resp).await;
+            let resp = handle_request(core.clone(), req.as_str());
+            tx_cloned
+                .send(resp)
+                .await
+                .expect("Unexpected channel failed");
         }
     });
 
@@ -319,10 +326,7 @@ async fn handle_ws_connection(
         while let Some(Ok(msg)) = stream.next().await {
             if let Ok(msg) = msg.to_text() {
                 let req = msg.replace("\n", "");
-                let resp = match core.lock() {
-                    Ok(mut core) => handle_request(&mut core, req.as_str()),
-                    Err(e) => "".to_string(),
-                };
+                let resp = handle_request(core.clone(), req.as_str());
                 tx_cloned
                     .send(resp)
                     .await
@@ -383,7 +387,7 @@ async fn main() -> std::io::Result<()> {
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());
 
     // CTRL+C signal handling
-    ctrlc::set_handler(|| {
+    let _ = ctrlc::set_handler(|| {
         clean_up();
     });
 
@@ -394,7 +398,7 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async move {
         log::info!("TCP listening...");
         while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
-            handle_tcp_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
+            let _ = handle_tcp_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
         }
         log::info!("TCP stopped");
     });
@@ -406,7 +410,8 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async move {
         log::info!("WS listening...");
         while let Ok(Some(stream)) = ws_listener.incoming().try_next().await {
-            handle_ws_connection(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
+            let _ =
+                handle_ws_connection(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
         }
         log::info!("WS stopped");
     });
@@ -418,7 +423,7 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async move {
         log::info!("UDS listening...");
         while let Some(Ok(stream)) = uds_listener.incoming().next().await {
-            handle_uds_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
+            let _ = handle_uds_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
         }
         log::info!("UDS stopped");
     });
