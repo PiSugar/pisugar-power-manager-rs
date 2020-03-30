@@ -39,6 +39,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
     let parts: Vec<String> = req.split(" ").map(|s| s.to_string()).collect();
     let err = "Invalid request.\n".to_string();
 
+    log::debug!("Request: {}", req);
+
     let core_cloned = core.clone();
     if let Ok(mut core) = core.lock() {
         if parts.len() > 0 {
