@@ -946,6 +946,26 @@ impl PiSugarCore {
         }
     }
 
+    pub fn new_with_path(config_path: &Path, auto_recovery: bool) -> Result<Self> {
+        if !config_path.is_file() {
+            return Err(Error::Other("Not a file".to_string()));
+        }
+
+        match Self::load_config(config_path) {
+            Ok(core) => Ok(core),
+            Err(_) => {
+                if auto_recovery {
+                    let config = PiSugarConfig::default();
+                    let mut core = Self::new(config);
+                    core.config_path = Some(config_path.to_string_lossy().to_string());
+                    return Ok(core);
+                } else {
+                    return Err(Error::Other("Not recoverable".to_string()));
+                }
+            }
+        }
+    }
+
     pub fn load_config(path: &Path) -> Result<Self> {
         if path.exists() && path.is_file() {
             let mut config = PiSugarConfig::default();

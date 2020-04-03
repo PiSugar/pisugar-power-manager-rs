@@ -1,5 +1,6 @@
 use std::fs::remove_file;
 use std::io;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
@@ -7,11 +8,13 @@ use std::time::Instant;
 
 use bytes::*;
 use chrono::prelude::*;
+use clap::{App, Arg};
 use futures::prelude::*;
 use futures::SinkExt;
 use futures_channel::mpsc::unbounded;
-use futures_util::stream::TryStreamExt;
+use hyper::service::{make_service_fn, service_fn};
 use hyper::Client;
+use hyper::Server;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio_util::codec::{BytesCodec, Framed};
@@ -339,7 +342,7 @@ async fn handle_uds_stream(
 }
 
 /// Clean up before exit
-extern "C" fn clean_up() {
+fn clean_up() {
     let uds_addr = "/tmp/pisugar.socket";
     let p: &Path = Path::new(uds_addr);
     if p.exists() {
@@ -354,18 +357,80 @@ extern "C" fn clean_up() {
     exit(0)
 }
 
+/// Serve web
+async fn serve_http(http_addr: SocketAddr, web_dir: String) {
+    let static_ = hyper_staticfile::Static::new(web_dir);
+
+    let make_service = make_service_fn(move |_| {
+        let static_ = static_.clone();
+        future::ok::<_, hyper::Error>(service_fn(move |req| static_.clone().serve(req)))
+    });
+
+    let server = Server::bind(&http_addr).serve(make_service);
+
+    if let Err(e) = server.await {
+        log::error!("Http web server error: {}", e);
+    }
+}
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    // config
-    let tcp_addr = "127.0.0.1:8080";
-    let ws_addr = "127.0.0.1:8082";
-    let uds_addr = "/tmp/pisugar.socket";
+    let matches = App::new("PiSugar Power Manager")
+        .version("1.0")
+        .author("PiSugar")
+        .about("PiSugar power management module.")
+        .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .help("Config file in json format, e.g. /etc/pisugar.json"),
+        )
+        .arg(
+            Arg::with_name("tcp")
+                .short("t")
+                .long("tcp")
+                .default_value("0.0.0.0:8080")
+                .help("Tcp listen address, e.g. 0.0.0.0:8080"),
+        )
+        .arg(
+            Arg::with_name("uds")
+                .short("u")
+                .long("uds")
+                .default_value("/temp/pisugar.sock")
+                .help("Unix domain socket file, e.g. /temp/pisugar.sock"),
+        )
+        .arg(
+            Arg::with_name("ws")
+                .short("w")
+                .long("ws")
+                .default_value("0.0.0.0:8081")
+                .help("Websocket listen address, e.g. 127.0.0.1:8081"),
+        )
+        .arg(
+            Arg::with_name("web")
+                .requires_all(&["http"])
+                .long("web")
+                .default_value("web")
+                .help("Web content directory, e.g. web"),
+        )
+        .arg(
+            Arg::with_name("http")
+                .long("http")
+                .default_value("127.0.0.1:80")
+                .help("Http server listen address, e.g. 127.0.0.1:80"),
+        )
+        .get_matches();
 
     // core
-    let config = PiSugarConfig::default();
-    let core = Arc::new(Mutex::new(PiSugarCore::new(config)));
+    let core = if matches.is_present("config") {
+        PiSugarCore::new_with_path(Path::new(matches.value_of("config").unwrap()), true).unwrap()
+    } else {
+        let config = PiSugarConfig::default();
+        PiSugarCore::new(config)
+    };
+    let core = Arc::new(Mutex::new(core));
 
     // event watch
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());
@@ -376,41 +441,63 @@ async fn main() -> std::io::Result<()> {
     });
 
     // tcp
-    let core_cloned = core.clone();
-    let event_rx_cloned = event_rx.clone();
-    let mut tcp_listener: TcpListener = TcpListener::bind(tcp_addr).await?;
-    tokio::spawn(async move {
-        log::info!("TCP listening...");
-        while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
-            let _ = handle_tcp_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
-        }
-        log::info!("TCP stopped");
-    });
+    if matches.is_present("tcp") {
+        let tcp_addr = matches.value_of("tcp").unwrap();
+        let core_cloned = core.clone();
+        let event_rx_cloned = event_rx.clone();
+        let mut tcp_listener: TcpListener = TcpListener::bind(tcp_addr).await?;
+        tokio::spawn(async move {
+            log::info!("TCP listening...");
+            while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
+                let core = core_cloned.clone();
+                let _ = handle_tcp_stream(core, stream, event_rx_cloned.clone()).await;
+            }
+            log::info!("TCP stopped");
+        });
+    }
 
     // ws
-    let core_cloned = core.clone();
-    let event_rx_cloned = event_rx.clone();
-    let mut ws_listener = tokio::net::TcpListener::bind(ws_addr).await?;
-    tokio::spawn(async move {
-        log::info!("WS listening...");
-        while let Ok(Some(stream)) = ws_listener.incoming().try_next().await {
-            let _ =
-                handle_ws_connection(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
-        }
-        log::info!("WS stopped");
-    });
+    if matches.is_present("ws") {
+        let ws_addr = matches.value_of("ws").unwrap();
+        let core_cloned = core.clone();
+        let event_rx_cloned = event_rx.clone();
+        let mut ws_listener = tokio::net::TcpListener::bind(ws_addr).await?;
+        tokio::spawn(async move {
+            log::info!("WS listening...");
+            while let Some(Ok(stream)) = ws_listener.incoming().next().await {
+                let core = core_cloned.clone();
+                let _ = handle_ws_connection(core, stream, event_rx_cloned.clone()).await;
+            }
+            log::info!("WS stopped");
+        });
+    }
 
     // uds
-    let core_cloned = core.clone();
-    let event_rx_cloned = event_rx;
-    let mut uds_listener = tokio::net::UnixListener::bind(uds_addr)?;
-    tokio::spawn(async move {
-        log::info!("UDS listening...");
-        while let Some(Ok(stream)) = uds_listener.incoming().next().await {
-            let _ = handle_uds_stream(core_cloned.clone(), stream, event_rx_cloned.clone()).await;
-        }
-        log::info!("UDS stopped");
-    });
+    if matches.is_present("uds") {
+        let uds_addr = matches.value_of("uds").unwrap();
+        let core_cloned = core.clone();
+        let event_rx_cloned = event_rx;
+        let mut uds_listener = tokio::net::UnixListener::bind(uds_addr)?;
+        tokio::spawn(async move {
+            log::info!("UDS listening...");
+            while let Some(Ok(stream)) = uds_listener.incoming().next().await {
+                let core = core_cloned.clone();
+                let _ = handle_uds_stream(core, stream, event_rx_cloned.clone()).await;
+            }
+            log::info!("UDS stopped");
+        });
+    }
+
+    // http web
+    if matches.is_present("http") && matches.is_present("web") {
+        let web_dir = matches.value_of("web").unwrap().to_string();
+        let http_addr = matches.value_of("http").unwrap().parse().unwrap();
+        tokio::spawn(async move {
+            log::info!("Http web server listening...");
+            let _ = serve_http(http_addr, web_dir).await;
+            log::info!("Http web server stopped");
+        });
+    }
 
     // polling
     let core_cloned = core.clone();

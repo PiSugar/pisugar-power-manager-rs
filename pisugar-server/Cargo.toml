@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 log = "0.4.8"
 env_logger = "0.7"
+clap = "2"
 bytes = "0.5.4"
 ctrlc = "3.1.4"
 serde = { version = "1.0", features = ["derive"] }
@@ -18,4 +19,5 @@ futures = "0.3"
 futures-util = "0.3"
 futures-channel = "0.3"
 hyper = "0.13"
+hyper-staticfile = "0.5.1"
 pisugar-core = { path = "../pisugar-core" }
