@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 pub const TIME_HOST: &str = "cdn.pisugar.com";
 
 /// I2c poll interval
-pub const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
+pub const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// RTC address, SD3078
 const I2C_ADDR_RTC: u16 = 0x32;
@@ -30,6 +30,9 @@ const I2C_ADDR_BAT: u16 = 0x75;
 
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
+
+const PI_ZERO_IDLE_INTENSITY: f64 = 0.12;
+const PI_PRO_IDLE_INTENSITY: f64 = 0.12;
 
 /// PiSugar error
 #[derive(Debug)]
@@ -821,14 +824,8 @@ impl PiSugarStatus {
             self.gpio_tap_history.remove(0);
         }
 
-        // battery
+        // gpio tap detect
         if self.mode() == MODEL_V2 {
-            if let Ok(v) = self.ip5209.read_voltage() {
-                self.update_voltage(v, now);
-            }
-            if let Ok(i) = self.ip5209.read_intensity() {
-                self.update_intensity(i, now);
-            }
             if let Ok(t) = self.ip5209.read_gpio_tap() {
                 log::debug!("gpio button state: {}", t);
                 if t != 0 {
@@ -838,12 +835,6 @@ impl PiSugarStatus {
                 }
             }
         } else {
-            if let Ok(v) = self.ip5312.read_voltage() {
-                self.update_voltage(v, now)
-            }
-            if let Ok(i) = self.ip5312.read_intensity() {
-                self.update_intensity(i, now)
-            }
             if let Ok(t) = self.ip5312.read_gpio_tap() {
                 log::debug!("gpio button state: {}", t);
                 if t != 0 {
@@ -853,14 +844,9 @@ impl PiSugarStatus {
                 }
             }
         }
-
-        // auto shutdown
-        if self.level() < config.auto_shutdown_level {
-            loop {
-                log::error!("Low battery, will power off...");
-                let _ = execute_shell("/sbin/shutdown --poweroff 0");
-                thread::sleep(std::time::Duration::from_millis(3000));
-            }
+        if let Some(tap_type) = gpio_detect_tap(&mut self.gpio_tap_history) {
+            log::debug!("tap detected: {}", tap_type);
+            return Ok(Some(tap_type));
         }
 
         // rtc
@@ -868,10 +854,37 @@ impl PiSugarStatus {
             self.set_rtc_time(rtc_time.into())
         }
 
-        // gpio tap detect
-        if let Some(tap_type) = gpio_detect_tap(&mut self.gpio_tap_history) {
-            log::debug!("tap detected: {}", tap_type);
-            return Ok(Some(tap_type));
+        // others, slower
+        if now > self.updated_at && now.duration_since(self.updated_at) > I2C_READ_INTERVAL * 4 {
+            // battery
+            if self.mode() == MODEL_V2 {
+                if let Ok(v) = self.ip5209.read_voltage() {
+                    log::debug!("voltage {}", v);
+                    self.update_voltage(v, now);
+                }
+                if let Ok(i) = self.ip5209.read_intensity() {
+                    log::debug!("intensity {}", i);
+                    self.update_intensity(i, now);
+                }
+            } else {
+                if let Ok(v) = self.ip5312.read_voltage() {
+                    log::debug!("voltage {}", v);
+                    self.update_voltage(v, now)
+                }
+                if let Ok(i) = self.ip5312.read_intensity() {
+                    log::debug!("intensity {}", i);
+                    self.update_intensity(i, now)
+                }
+            }
+
+            // auto shutdown
+            if self.level() < config.auto_shutdown_level {
+                loop {
+                    log::error!("Low battery, will power off...");
+                    let _ = execute_shell("/sbin/shutdown --poweroff 0");
+                    thread::sleep(std::time::Duration::from_millis(3000));
+                }
+            }
         }
 
         Ok(None)
