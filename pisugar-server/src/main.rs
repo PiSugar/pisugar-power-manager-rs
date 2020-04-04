@@ -1,7 +1,7 @@
 use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -15,7 +15,8 @@ use futures_channel::mpsc::unbounded;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Client;
 use hyper::Server;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::fs::OpenOptions;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio_util::codec::{BytesCodec, Framed};
 
@@ -494,11 +495,26 @@ async fn main() -> std::io::Result<()> {
     if matches.is_present("http") && matches.is_present("web") {
         let web_dir = matches.value_of("web").unwrap().to_string();
         let http_addr = matches.value_of("http").unwrap().parse().unwrap();
+        let web_dir_cloned = web_dir.clone();
         tokio::spawn(async move {
             log::info!("Http web server listening...");
             let _ = serve_http(http_addr, web_dir).await;
             log::info!("Http web server stopped");
         });
+        // Write a _ws.json file
+        if matches.is_present("ws") {
+            let ws_addr = matches.value_of("ws").unwrap();
+            let ws_sock_addr: SocketAddr = ws_addr.parse().unwrap();
+            let content = format!("{{\"wsPort\": \"{}\" }}", ws_sock_addr.port());
+            let filename = PathBuf::from(web_dir_cloned).join("_ws.json");
+            let mut file = OpenOptions::default()
+                .create_new(true)
+                .write(true)
+                .read(true)
+                .open(filename)
+                .await?;
+            file.write_all(content.as_bytes()).await?;
+        }
     }
 
     // polling
