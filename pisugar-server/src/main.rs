@@ -508,9 +508,8 @@ async fn main() -> std::io::Result<()> {
             let content = format!("{{\"wsPort\": \"{}\" }}", ws_sock_addr.port());
             let filename = PathBuf::from(web_dir_cloned).join("_ws.json");
             let mut file = OpenOptions::default()
-                .create_new(true)
+                .create(true)
                 .write(true)
-                .read(true)
                 .open(filename)
                 .await?;
             file.write_all(content.as_bytes()).await?;
