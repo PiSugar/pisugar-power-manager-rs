@@ -101,22 +101,21 @@ fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
 
 /// IP5209, pi-zero bat chip
 pub struct IP5209 {
-    i2c_addr: u16,
+    i2c: I2c,
 }
 
 impl IP5209 {
     /// Create new IP5209
-    pub fn new(i2c_addr: u16) -> Self {
-        Self { i2c_addr }
+    pub fn new(i2c_addr: u16) -> Result<Self> {
+        let mut i2c = I2c::new()?;
+        i2c.set_slave_address(i2c_addr)?;
+        Ok(Self { i2c })
     }
 
     /// Read voltage (V)
     pub fn read_voltage(&self) -> Result<f64> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
-        let low = i2c.smbus_read_byte(0xa2)? as u16;
-        let high = i2c.smbus_read_byte(0xa3)? as u16;
+        let low = self.i2c.smbus_read_byte(0xa2)? as u16;
+        let high = self.i2c.smbus_read_byte(0xa3)? as u16;
 
         // check negative values
         let voltage = if high & 0x20 == 0x20 {
@@ -132,11 +131,8 @@ impl IP5209 {
 
     /// Read intensity (A)
     pub fn read_intensity(&self) -> Result<f64> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
-        let low = i2c.smbus_read_byte(0xa4)? as u16;
-        let high = i2c.smbus_read_byte(0xa5)? as u16;
+        let low = self.i2c.smbus_read_byte(0xa4)? as u16;
+        let high = self.i2c.smbus_read_byte(0xa5)? as u16;
 
         // check negative value
         let intensity = if high & 0x20 == 0x20 {
@@ -152,81 +148,72 @@ impl IP5209 {
 
     /// Shutdown under light load (144mA and 8s)
     pub fn init_auto_shutdown(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // threshold intensity, 12*12mA = 144mA
-        let mut v = i2c.smbus_read_byte(0x0c)?;
+        let mut v = self.i2c.smbus_read_byte(0x0c)?;
         v &= 0b0000_0111;
         v |= 12 << 3;
-        i2c.smbus_write_byte(0x0c, v)?;
+        self.i2c.smbus_write_byte(0x0c, v)?;
 
         // time, 8s
-        let mut v = i2c.smbus_read_byte(0x04)?;
+        let mut v = self.i2c.smbus_read_byte(0x04)?;
         v &= 0b00111111;
-        i2c.smbus_write_byte(0x04, v)?;
+        self.i2c.smbus_write_byte(0x04, v)?;
 
         // enable auto shutdown and turn on
-        let mut v = i2c.smbus_read_byte(0x02)?;
+        let mut v = self.i2c.smbus_read_byte(0x02)?;
         v |= 0b0000_0011;
-        i2c.smbus_write_byte(0x02, v)?;
+        self.i2c.smbus_write_byte(0x02, v)?;
 
         Ok(())
     }
 
     /// Enable gpio
     pub fn init_gpio(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(I2C_ADDR_BAT)?;
-
         // vset
-        let mut v = i2c.smbus_read_byte(0x26)?;
+        let mut v = self.i2c.smbus_read_byte(0x26)?;
         v |= 0b0000_0000;
         v &= 0b1011_1111;
-        i2c.smbus_write_byte(0x26, v)?;
+        self.i2c.smbus_write_byte(0x26, v)?;
 
         // vset -> gpio
-        let mut v = i2c.smbus_read_byte(0x52)?;
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
         v |= 0b0000_0100;
         v &= 0b1111_0111;
-        i2c.smbus_write_byte(0x52, v)?;
+        self.i2c.smbus_write_byte(0x52, v)?;
 
         // enable gpio input
-        let mut v = i2c.smbus_read_byte(0x53)?;
+        let mut v = self.i2c.smbus_read_byte(0x53)?;
         v |= 0b0001_0000;
         v &= 0b1111_1111;
-        i2c.smbus_write_byte(0x53, v)?;
+        self.i2c.smbus_write_byte(0x53, v)?;
 
         Ok(())
     }
 
     /// read gpio tap
     pub fn read_gpio_tap(&self) -> Result<u8> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(I2C_ADDR_BAT)?;
-        let v = i2c.smbus_read_byte(0x55)?;
+        let v = self.i2c.smbus_read_byte(0x55)?;
         Ok(v)
     }
 }
 
 /// IP5312, pi-3/4 bat chip
 pub struct IP5312 {
-    i2c_addr: u16,
+    i2c: I2c,
 }
 
 impl IP5312 {
     /// Create new IP5312
-    pub fn new(i2c_addr: u16) -> Self {
-        Self { i2c_addr }
+    pub fn new(i2c_addr: u16) -> Result<Self> {
+        let mut i2c = I2c::new()?;
+        i2c.set_slave_address(i2c_addr)?;
+        Ok(Self { i2c })
     }
 
     /// Read voltage (V)
     pub fn read_voltage(&self) -> Result<f64> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
-        let low = i2c.smbus_read_byte(0xd0)? as u16;
-        let high = i2c.smbus_read_byte(0xd1)? as u16;
+        let low = self.i2c.smbus_read_byte(0xd0)? as u16;
+        let high = self.i2c.smbus_read_byte(0xd1)? as u16;
 
         if low == 0 && high == 0 {
             return Err(Error::I2c(I2cError::FeatureNotSupported));
@@ -239,11 +226,8 @@ impl IP5312 {
 
     /// Read intensity (A)
     pub fn read_intensity(&self) -> Result<f64> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
-        let low = i2c.smbus_read_byte(0xd2)? as u16;
-        let high = i2c.smbus_read_byte(0xd3)? as u16;
+        let low = self.i2c.smbus_read_byte(0xd2)? as u16;
+        let high = self.i2c.smbus_read_byte(0xd3)? as u16;
 
         let intensity = if high & 0x20 != 0 {
             let i = (((high | 0b1100_0000) << 8) + low) as i16;
@@ -257,58 +241,49 @@ impl IP5312 {
 
     /// Shutdown under light load (126mA and 8s)
     pub fn init_auto_shutdown(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // threshold intensity, 30*4.3mA = 126mA
-        let mut v = i2c.smbus_read_byte(0xc9)?;
+        let mut v = self.i2c.smbus_read_byte(0xc9)?;
         v &= 0b1100_0000;
         v |= 30;
-        i2c.smbus_write_byte(0xc9, v)?;
+        self.i2c.smbus_write_byte(0xc9, v)?;
 
         // time, 8s
-        let mut v = i2c.smbus_read_byte(0x06)?;
+        let mut v = self.i2c.smbus_read_byte(0x06)?;
         v &= 0b0011_1111;
-        i2c.smbus_write_byte(0x07, v)?;
+        self.i2c.smbus_write_byte(0x07, v)?;
 
         // enable
-        let mut v = i2c.smbus_read_byte(0x03)?;
+        let mut v = self.i2c.smbus_read_byte(0x03)?;
         v |= 0b0010_0000;
-        i2c.smbus_write_byte(0x03, v)?;
+        self.i2c.smbus_write_byte(0x03, v)?;
 
         // enable bat low, 2.76-2.84V
-        let mut v = i2c.smbus_read_byte(0x13)?;
+        let mut v = self.i2c.smbus_read_byte(0x13)?;
         v &= 0b1100_1111;
         v |= 0b0001_0000;
-        i2c.smbus_write_byte(0x13, v)?;
+        self.i2c.smbus_write_byte(0x13, v)?;
 
         Ok(())
     }
 
     /// Enable gpio1
     pub fn init_gpio(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // mfp_ctl0, set l4_sel
-        let mut v = i2c.smbus_read_byte(0x52)?;
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
         v |= 0b0000_0010;
-        i2c.smbus_write_byte(0x52, v)?;
+        self.i2c.smbus_write_byte(0x52, v)?;
 
         // gpio1 input
-        let mut v = i2c.smbus_read_byte(0x54)?;
+        let mut v = self.i2c.smbus_read_byte(0x54)?;
         v |= 0b0000_0010;
-        i2c.smbus_write_byte(0x54, v)?;
+        self.i2c.smbus_write_byte(0x54, v)?;
 
         Ok(())
     }
 
     /// Read gpio tap
     pub fn read_gpio_tap(&self) -> Result<u8> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
-        let mut v = i2c.smbus_read_byte(0x58)?;
+        let mut v = self.i2c.smbus_read_byte(0x58)?;
         v &= 0b0000_0010;
 
         Ok(v)
@@ -316,18 +291,15 @@ impl IP5312 {
 
     /// Force shutdown
     pub fn force_shutdown(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // enable force shutdown
-        let mut t = i2c.smbus_read_byte(0x5B)?;
+        let mut t = self.i2c.smbus_read_byte(0x5B)?;
         t |= 0b0001_0010;
-        i2c.smbus_write_byte(0x5B, t)?;
+        self.i2c.smbus_write_byte(0x5B, t)?;
 
         // force shutdown
-        t = i2c.smbus_read_byte(0x5B)?;
+        t = self.i2c.smbus_read_byte(0x5B)?;
         t &= 0b1110_1111;
-        i2c.smbus_write_byte(0x5B, t)?;
+        self.i2c.smbus_write_byte(0x5B, t)?;
 
         Ok(())
     }
@@ -420,58 +392,51 @@ impl From<SD3078Time> for DateTime<Local> {
 
 /// SD3078, rtc chip
 pub struct SD3078 {
-    i2c_addr: u16,
+    i2c: I2c,
 }
 
 impl SD3078 {
     /// Create new SD3078
-    pub fn new(i2c_addr: u16) -> Self {
-        Self { i2c_addr }
+    pub fn new(i2c_addr: u16) -> Result<Self> {
+        let mut i2c = I2c::new()?;
+        i2c.set_slave_address(i2c_addr)?;
+        Ok(Self { i2c })
     }
 
     /// Disable write protect
     fn enable_write(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // ctr2 - wrtc1
-        let mut crt2 = i2c.smbus_read_byte(0x10)?;
+        let mut crt2 = self.i2c.smbus_read_byte(0x10)?;
         crt2 |= 0b1000_0000;
-        i2c.smbus_write_byte(0x10, crt2)?;
+        self.i2c.smbus_write_byte(0x10, crt2)?;
 
         // ctr1 - wrtc2 and wrtc3
-        let mut crt2 = i2c.smbus_read_byte(0x0f)?;
+        let mut crt2 = self.i2c.smbus_read_byte(0x0f)?;
         crt2 |= 0b1000_0100;
-        i2c.smbus_write_byte(0x0f, crt2)?;
+        self.i2c.smbus_write_byte(0x0f, crt2)?;
 
         Ok(())
     }
 
     /// Enable write protect
     fn disable_write(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // ctr1 - wrtc2 and wrtc3
-        let mut crt1 = i2c.smbus_read_byte(0x0f)?;
+        let mut crt1 = self.i2c.smbus_read_byte(0x0f)?;
         crt1 &= 0b0111_1011;
-        i2c.smbus_write_byte(0x0f, crt1)?;
+        self.i2c.smbus_write_byte(0x0f, crt1)?;
 
         // ctr2 - wrtc1
-        let mut crt2 = i2c.smbus_read_byte(0x10)?;
+        let mut crt2 = self.i2c.smbus_read_byte(0x10)?;
         crt2 &= 0b0111_1111;
-        i2c.smbus_write_byte(0x10, crt2)?;
+        self.i2c.smbus_write_byte(0x10, crt2)?;
 
         Ok(())
     }
 
     /// Read time
     pub fn read_time(&self) -> Result<SD3078Time> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         let mut bcd_time = [0_u8; 7];
-        i2c.block_read(0, &mut bcd_time)?;
+        self.i2c.block_read(0, &mut bcd_time)?;
 
         // 12hr or 24hr
         if bcd_time[2] & 0b1000_0000 != 0 {
@@ -485,15 +450,12 @@ impl SD3078 {
 
     /// Write time
     pub fn write_time(&self, t: SD3078Time) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // 24h
         let mut bcd_time = t.0.clone();
         bcd_time[2] |= 0b1000_0000;
 
         self.enable_write()?;
-        i2c.block_write(0, bcd_time.as_ref())?;
+        self.i2c.block_write(0, bcd_time.as_ref())?;
         self.disable_write()?;
 
         Ok(())
@@ -501,11 +463,8 @@ impl SD3078 {
 
     /// Read alarm flag
     pub fn read_alarm_flag(&self) -> Result<bool> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         // CTR1 - INTDF and INTAF
-        let data = i2c.smbus_read_byte(0x0f)?;
+        let data = self.i2c.smbus_read_byte(0x0f)?;
         if data & 0b0010_0000 != 0 || data & 0b0001_0000 != 0 {
             return Ok(true);
         }
@@ -517,12 +476,9 @@ impl SD3078 {
     pub fn clear_alarm_flag(&self) -> Result<()> {
         if let Ok(true) = self.read_alarm_flag() {
             self.enable_write()?;
-            let mut i2c = I2c::new()?;
-            i2c.set_slave_address(self.i2c_addr)?;
-
-            let mut ctr1 = i2c.smbus_read_byte(0x0f)?;
+            let mut ctr1 = self.i2c.smbus_read_byte(0x0f)?;
             ctr1 &= 0b1100_1111;
-            i2c.smbus_write_byte(0x0f, ctr1)?;
+            self.i2c.smbus_write_byte(0x0f, ctr1)?;
 
             self.disable_write()?;
         }
@@ -531,19 +487,16 @@ impl SD3078 {
 
     /// Disable alarm
     pub fn disable_alarm(&self) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         self.enable_write()?;
 
         // CTR2 - INTS1, clear
-        let mut ctr2 = i2c.smbus_read_byte(0x10)?;
+        let mut ctr2 = self.i2c.smbus_read_byte(0x10)?;
         ctr2 |= 0b0101_0010;
         ctr2 &= 0b1101_1111;
-        i2c.smbus_write_byte(0x10, ctr2)?;
+        self.i2c.smbus_write_byte(0x10, ctr2)?;
 
         // disable alarm
-        i2c.smbus_write_byte(0x0e, 0b0000_0000)?;
+        self.i2c.smbus_write_byte(0x0e, 0b0000_0000)?;
 
         self.disable_write()?;
 
@@ -552,25 +505,22 @@ impl SD3078 {
 
     /// Set alarm, weekday_repeat from sunday 0-6
     pub fn set_alarm(&self, t: SD3078Time, weekday_repeat: u8) -> Result<()> {
-        let mut i2c = I2c::new()?;
-        i2c.set_slave_address(self.i2c_addr)?;
-
         let mut bcd_time = t.0.clone();
         bcd_time[3] = weekday_repeat;
 
         self.enable_write()?;
 
         // alarm time
-        i2c.block_write(0x07, bcd_time.as_ref())?;
+        self.i2c.block_write(0x07, bcd_time.as_ref())?;
 
         // CTR2 - alarm interrupt and frequency
-        let mut ctr2 = i2c.smbus_read_byte(0x10)?;
+        let mut ctr2 = self.i2c.smbus_read_byte(0x10)?;
         ctr2 |= 0b0101_0010;
         ctr2 &= 0b1101_1111;
-        i2c.smbus_write_byte(0x10, ctr2)?;
+        self.i2c.smbus_write_byte(0x10, ctr2)?;
 
         // alarm allows hour/minus/second
-        i2c.smbus_write_byte(0x0e, 0b0000_0111)?;
+        self.i2c.smbus_write_byte(0x0e, 0b0000_0111)?;
 
         self.disable_write()?;
 
@@ -668,16 +618,16 @@ pub struct PiSugarStatus {
 }
 
 impl PiSugarStatus {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         let mut level_records = VecDeque::with_capacity(10);
 
         let mut model = String::from(MODEL_V2);
         let mut voltage = 0.0;
         let mut intensity = 0.0;
 
-        let ip5209 = IP5209::new(I2C_ADDR_BAT);
-        let ip5312 = IP5312::new(I2C_ADDR_BAT);
-        let sd3078 = SD3078::new(I2C_ADDR_RTC);
+        let ip5209 = IP5209::new(I2C_ADDR_BAT)?;
+        let ip5312 = IP5312::new(I2C_ADDR_BAT)?;
+        let sd3078 = SD3078::new(I2C_ADDR_RTC)?;
 
         if let Ok(v) = ip5312.read_voltage() {
             log::info!("PiSugar with IP5312");
@@ -727,7 +677,7 @@ impl PiSugarStatus {
             Err(_) => Local::now(),
         };
 
-        Self {
+        Ok(Self {
             ip5209,
             ip5312,
             sd3078,
@@ -739,7 +689,7 @@ impl PiSugarStatus {
             updated_at: Instant::now(),
             rtc_time: rtc_now,
             gpio_tap_history: String::with_capacity(10),
-        }
+        })
     }
 
     /// PiSugar model
@@ -951,12 +901,13 @@ pub struct PiSugarCore {
 }
 
 impl PiSugarCore {
-    pub fn new(config: PiSugarConfig) -> Self {
-        Self {
+    pub fn new(config: PiSugarConfig) -> Result<Self> {
+        let status = PiSugarStatus::new()?;
+        Ok(Self {
             config_path: None,
             config,
-            status: PiSugarStatus::new(),
-        }
+            status,
+        })
     }
 
     pub fn new_with_path(config_path: &Path, auto_recovery: bool) -> Result<Self> {
@@ -969,7 +920,7 @@ impl PiSugarCore {
             Err(_) => {
                 if auto_recovery {
                     let config = PiSugarConfig::default();
-                    let mut core = Self::new(config);
+                    let mut core = Self::new(config)?;
                     core.config_path = Some(config_path.to_string_lossy().to_string());
                     return Ok(core);
                 } else {
@@ -983,11 +934,9 @@ impl PiSugarCore {
         if path.exists() && path.is_file() {
             let mut config = PiSugarConfig::default();
             if config.load(path).is_ok() {
-                return Ok(Self {
-                    config_path: Some(path.to_string_lossy().to_string()),
-                    config,
-                    status: PiSugarStatus::new(),
-                });
+                let mut core = Self::new(config)?;
+                core.config_path = Some(path.to_string_lossy().to_string());
+                return Ok(core);
             }
         }
 

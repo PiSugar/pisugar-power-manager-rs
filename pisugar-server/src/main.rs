@@ -431,7 +431,7 @@ async fn main() -> std::io::Result<()> {
         PiSugarCore::new_with_path(Path::new(matches.value_of("config").unwrap()), true).unwrap()
     } else {
         let config = PiSugarConfig::default();
-        PiSugarCore::new(config)
+        PiSugarCore::new(config).unwrap()
     };
     let core = Arc::new(Mutex::new(core));
 
