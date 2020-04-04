@@ -406,7 +406,7 @@ async fn main() -> std::io::Result<()> {
                 .short("w")
                 .long("ws")
                 .default_value("0.0.0.0:8081")
-                .help("Websocket listen address, e.g. 127.0.0.1:8081"),
+                .help("Websocket listen address, e.g. 0.0.0.0:8081"),
         )
         .arg(
             Arg::with_name("web")
