@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::convert::From;
+use std::convert::{From, TryFrom, TryInto};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -10,7 +10,7 @@ use std::process::{Command, ExitStatus};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
+use chrono::{DateTime, Datelike, Local, LocalResult, ParseError, TimeZone, Timelike};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
 use serde::export::Result::Err;
@@ -376,8 +376,10 @@ impl From<DateTime<Local>> for SD3078Time {
     }
 }
 
-impl From<SD3078Time> for DateTime<Local> {
-    fn from(t: SD3078Time) -> Self {
+impl TryFrom<SD3078Time> for DateTime<Local> {
+    type Error = ();
+
+    fn try_from(t: SD3078Time) -> std::result::Result<Self, Self::Error> {
         let sec = bcd_to_dec(t.0[0]) as u32;
         let min = bcd_to_dec(t.0[1]) as u32;
         let hour = bcd_to_dec(t.0[2]) as u32;
@@ -385,8 +387,13 @@ impl From<SD3078Time> for DateTime<Local> {
         let month = bcd_to_dec(t.0[5]) as u32;
         let year = 2000 + bcd_to_dec(t.0[6]) as i32;
 
-        let datetime = Local.ymd(year, month, day_of_month).and_hms(hour, min, sec);
-        datetime
+        let datetime = Local
+            .ymd_opt(year, month, day_of_month)
+            .and_hms_opt(hour, min, sec);
+        match datetime {
+            LocalResult::Single(datetime) => Ok(datetime),
+            _ => Err(()),
+        }
     }
 }
 
@@ -673,7 +680,7 @@ impl PiSugarStatus {
         }
 
         let rtc_now = match sd3078.read_time() {
-            Ok(t) => t.into(),
+            Ok(t) => t.try_into().unwrap_or(Local::now()),
             Err(_) => Local::now(),
         };
 
@@ -801,7 +808,7 @@ impl PiSugarStatus {
 
         // rtc
         if let Ok(rtc_time) = self.sd3078.read_time() {
-            self.set_rtc_time(rtc_time.into())
+            self.set_rtc_time(rtc_time.try_into().unwrap_or(Local::now()))
         }
 
         // others, slower
