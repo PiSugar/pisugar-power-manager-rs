@@ -505,7 +505,7 @@ async fn main() -> std::io::Result<()> {
         if matches.is_present("ws") {
             let ws_addr = matches.value_of("ws").unwrap();
             let ws_sock_addr: SocketAddr = ws_addr.parse().unwrap();
-            let content = format!("{{\"wsPort\": \"{}\" }}", ws_sock_addr.port());
+            let content = format!("{{\"wsPort\": \"{}\"}}", ws_sock_addr.port());
             let filename = PathBuf::from(web_dir_cloned).join("_ws.json");
             let mut file = OpenOptions::default()
                 .create(true)
