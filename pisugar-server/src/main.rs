@@ -385,41 +385,43 @@ async fn main() -> std::io::Result<()> {
             Arg::with_name("config")
                 .short("c")
                 .long("config")
+                .value_name("FILE")
                 .help("Config file in json format, e.g. /etc/pisugar.json"),
         )
         .arg(
             Arg::with_name("tcp")
                 .short("t")
                 .long("tcp")
-                .default_value("0.0.0.0:8080")
-                .help("Tcp listen address, e.g. 0.0.0.0:8080"),
+                .value_name("ADDR")
+                .help("Tcp listen address, e.g. 0.0.0.0:8082"),
         )
         .arg(
             Arg::with_name("uds")
                 .short("u")
                 .long("uds")
-                .default_value("/temp/pisugar.sock")
-                .help("Unix domain socket file, e.g. /temp/pisugar.sock"),
+                .value_name("FILE")
+                .help("Unix domain socket file, e.g. /tmp/pisugar.socket"),
         )
         .arg(
             Arg::with_name("ws")
                 .short("w")
                 .long("ws")
-                .default_value("0.0.0.0:8081")
+                .value_name("ADDR")
                 .help("Websocket listen address, e.g. 0.0.0.0:8081"),
         )
         .arg(
             Arg::with_name("web")
                 .requires_all(&["http"])
                 .long("web")
-                .default_value("web")
+                .value_name("DIR")
                 .help("Web content directory, e.g. web"),
         )
         .arg(
             Arg::with_name("http")
                 .long("http")
-                .default_value("127.0.0.1:80")
-                .help("Http server listen address, e.g. 127.0.0.1:80"),
+                .value_name("ADDR")
+                .default_value("0.0.0.0:8080")
+                .help("Http server listen address, e.g. 0.0.0.0:8080"),
         )
         .get_matches();
 
