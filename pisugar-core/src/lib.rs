@@ -148,10 +148,10 @@ impl IP5209 {
 
     /// Shutdown under light load (144mA and 8s)
     pub fn init_auto_shutdown(&self) -> Result<()> {
-        // threshold intensity, 12*12mA = 144mA
+        // threshold intensity, 9*12mA = 108mA
         let mut v = self.i2c.smbus_read_byte(0x0c)?;
         v &= 0b0000_0111;
-        v |= 12 << 3;
+        v |= 9 << 3;
         self.i2c.smbus_write_byte(0x0c, v)?;
 
         // time, 8s
@@ -455,7 +455,7 @@ impl SD3078 {
     /// Read battery charging flag
     pub fn read_battery_charging_flag(&self) -> Result<bool> {
         let v = self.i2c.smbus_read_byte(0x18)?;
-        Ok(v & 0x1000_0000 != 0)
+        Ok(v & 0b1000_0000 != 0)
     }
 
     /// Toggle rtc battery charging
@@ -844,6 +844,38 @@ impl PiSugarStatus {
         }
         if let Some(tap_type) = gpio_detect_tap(&mut self.gpio_tap_history) {
             log::debug!("tap detected: {}", tap_type);
+
+            let script = match tap_type {
+                TapType::Single => {
+                    if config.single_tap_enable {
+                        Some(config.single_tap_shell.as_str())
+                    } else {
+                        None
+                    }
+                }
+                TapType::Double => {
+                    if config.double_tap_enable {
+                        Some(config.double_tap_shell.as_str())
+                    } else {
+                        None
+                    }
+                }
+                TapType::Long => {
+                    if config.long_tap_enable {
+                        Some(config.long_tap_shell.as_str())
+                    } else {
+                        None
+                    }
+                }
+            };
+            if let Some(script) = script {
+                log::debug!("execute script \"{}\"", script);
+                match execute_shell(script) {
+                    Ok(r) => log::debug!("script ok, code: {:?}", r.code()),
+                    Err(e) => log::error!("{}", e),
+                }
+            }
+
             return Ok(Some(tap_type));
         }
 
@@ -885,17 +917,17 @@ impl PiSugarStatus {
             }
 
             // rtc battery charging
-            if (self.sd3078.read_battery_low_flag() == Ok(true))
-                && (self.sd3078.read_battery_charging_flag() == Ok(false))
+            if (self.sd3078.read_battery_low_flag().ok() == Some(true))
+                && (self.sd3078.read_battery_charging_flag().ok() == Some(false))
             {
                 log::debug!("Enable rtc charging");
-                self.sd3078.toggle_charging(true);
+                let _ = self.sd3078.toggle_charging(true);
             } else {
-                if (self.sd3078.read_battery_high_flag() == Ok(true))
-                    && (self.sd3078.read_battery_charging_flag() == Ok(true))
+                if (self.sd3078.read_battery_high_flag().ok() == Some(true))
+                    && (self.sd3078.read_battery_charging_flag().ok() == Some(true))
                 {
                     log::debug!("Disable rtc charging");
-                    self.sd3078.toggle_charging(false);
+                    let _ = self.sd3078.toggle_charging(false);
                 }
             }
         }
