@@ -166,6 +166,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     return format!("{}: done\n", parts[0]);
                 }
                 "rtc_alarm_set" => {
+                    // rtc_alarm_set ss,mm,hh,weekday,dd,MM,yy repeat
                     if parts.len() >= 3 {
                         let mut bcd_time = [0_u8; 7];
                         if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
