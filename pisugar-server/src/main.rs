@@ -20,7 +20,10 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio_util::codec::{BytesCodec, Framed};
 
-use pisugar_core::{sys_write_time, PiSugarConfig, PiSugarCore, I2C_READ_INTERVAL, TIME_HOST};
+use chrono::LocalResult;
+use pisugar_core::{
+    sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
+};
 
 type EventTx = tokio::sync::watch::Sender<String>;
 type EventRx = tokio::sync::watch::Receiver<String>;
@@ -174,27 +177,31 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "rtc_alarm_set" => {
                     // rtc_alarm_set ss,mm,hh,weekday,dd,MM,yy repeat
                     if parts.len() >= 3 {
-                        let mut bcd_time = [0_u8; 7];
+                        let mut times = [0; 7];
                         if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
-                            let times: Vec<String> =
+                            let time_parts: Vec<String> =
                                 parts[1].split(",").map(|s| s.to_string()).collect();
-                            if times.len() == 7 {
+                            if time_parts.len() == 7 {
                                 for i in 0..7 {
-                                    if let Ok(v) = times[i].parse::<u8>() {
-                                        bcd_time[i] = v;
+                                    if let Ok(v) = time_parts[i].parse() {
+                                        times[i] = v;
                                     } else {
                                         return err;
                                     }
                                 }
-                                if let Ok(_) =
-                                    core.set_alarm(bcd_time.clone().into(), weekday_repeat)
+                                if let LocalResult::Single(datetime) = Local
+                                    .ymd_opt(2000 + times[6], times[5] as u32, times[4] as u32)
+                                    .and_hms_opt(times[2] as u32, times[1] as u32, times[0] as u32)
                                 {
-                                    core.config_mut().auto_wake_time = bcd_time;
-                                    core.config_mut().auto_wake_repeat = weekday_repeat;
-                                    if let Err(e) = core.save_config() {
-                                        log::error!("{}", e);
+                                    let sd3078_time = SD3078Time::from(datetime);
+                                    if core.set_alarm(sd3078_time, weekday_repeat).is_ok() {
+                                        core.config_mut().auto_wake_repeat = weekday_repeat;
+                                        core.config_mut().auto_wake_time = sd3078_time.to_dec();
+                                        if let Err(e) = core.save_config() {
+                                            log::warn!("{}", e);
+                                        }
+                                        return format!("{}: done\n", parts[0]);
                                     }
-                                    return format!("{}: done\n", parts[0]);
                                 }
                             }
                         }
@@ -458,7 +465,7 @@ async fn main() -> std::io::Result<()> {
 
     // core
     let core = if matches.is_present("config") {
-        PiSugarCore::new_with_path(Path::new(matches.value_of("config").unwrap()), true).unwrap()
+        PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true).unwrap()
     } else {
         let config = PiSugarConfig::default();
         PiSugarCore::new(config).unwrap()

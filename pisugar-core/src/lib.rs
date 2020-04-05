@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -310,6 +310,20 @@ impl IP5312 {
 pub struct SD3078Time([u8; 7]);
 
 impl SD3078Time {
+    /// From raw sd3078 time
+    pub fn from_raw(sd3078_raw: [u8; 7]) -> Self {
+        Self(sd3078_raw)
+    }
+
+    /// From dec
+    pub fn from_dec(dec: [u8; 7]) -> Self {
+        let mut raw = [0; 7];
+        for i in 0..7 {
+            raw[i] = bcd_to_dec(dec[i]);
+        }
+        Self(raw)
+    }
+
     /// Year, 2000-2099
     pub fn year(&self) -> u16 {
         bcd_to_dec(self.0[6]) as u16 + 2000
@@ -344,6 +358,19 @@ impl SD3078Time {
     pub fn second(&self) -> u8 {
         bcd_to_dec(self.0[0])
     }
+
+    /// To dec
+    pub fn to_dec(&self) -> [u8; 7] {
+        [
+            self.second(),
+            self.minute(),
+            self.hour(),
+            self.weekday(),
+            self.day(),
+            self.month(),
+            (self.year() - 2000) as u8,
+        ]
+    }
 }
 
 impl Display for SD3078Time {
@@ -353,12 +380,6 @@ impl Display for SD3078Time {
             "[{},{},{},{},{},{},{}]",
             self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6]
         )
-    }
-}
-
-impl From<[u8; 7]> for SD3078Time {
-    fn from(a: [u8; 7]) -> Self {
-        Self(a)
     }
 }
 
@@ -731,7 +752,12 @@ impl PiSugarStatus {
             log::error!("PiSugar not found");
         }
 
-        let level = convert_battery_voltage_to_level(voltage);
+        // battery level, default 100
+        let level = if voltage > 0.0 {
+            convert_battery_voltage_to_level(voltage)
+        } else {
+            100.0
+        };
         for _ in 0..level_records.capacity() {
             level_records.push_back(level);
         }
@@ -820,7 +846,7 @@ impl PiSugarStatus {
             }
             let k = a / b;
             log::debug!("charging k: {}", k);
-            return k >= 0.01;
+            return k >= 0.000001;
         }
         false
     }
@@ -924,6 +950,7 @@ impl PiSugarStatus {
             }
 
             // auto shutdown
+            log::debug!("Battery level: {}", self.level());
             if self.level() <= config.auto_shutdown_level {
                 loop {
                     log::error!("Low battery, will power off...");
@@ -1021,16 +1048,17 @@ impl PiSugarCore {
         })
     }
 
-    pub fn new_with_path(config_path: &Path, auto_recovery: bool) -> Result<Self> {
+    pub fn new_with_path(config_path: &str, auto_recovery: bool) -> Result<Self> {
+        let config_path = PathBuf::from(config_path);
         if config_path.is_dir() {
             return Err(Error::Other("Not a file".to_string()));
         }
 
-        match Self::load_config(config_path) {
-            Ok(core) => {
+        match Self::load_config(config_path.as_path()) {
+            Ok(mut core) => {
                 if core
                     .set_alarm(
-                        core.config.auto_wake_time.into(),
+                        SD3078Time::from_dec(core.config.auto_wake_time.into()),
                         core.config.auto_wake_repeat,
                     )
                     .is_ok()
@@ -1073,8 +1101,8 @@ impl PiSugarCore {
     }
 
     pub fn save_config(&self) -> Result<()> {
-        if self.config_path.is_some() {
-            let path = Path::new(self.config_path.as_ref().unwrap());
+        if let Some(config_path) = &self.config_path {
+            let path = Path::new(config_path);
             if self.config.save_to(path).is_ok() {
                 return Ok(());
             }

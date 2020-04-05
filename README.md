@@ -10,6 +10,14 @@
 
 PiSugar power manager in rust language.
 
+## Enable I2C interface
+
+On raspberry pi
+
+    sudo raspi-config
+
+`Interfacing Options -> I2C -> Yes`
+
 ## Compilation
 
 CPU architecture of raspberry pi is different from your linux/windows PC or macbook, there are two ways of compiling the code:
