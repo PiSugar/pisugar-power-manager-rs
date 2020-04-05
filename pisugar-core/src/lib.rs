@@ -440,6 +440,32 @@ impl SD3078 {
         Ok(())
     }
 
+    /// Read battery low flag
+    pub fn read_battery_low_flag(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x1a)?;
+        Ok(v & 0b0000_0001 != 0)
+    }
+
+    /// Read battery high flag
+    pub fn read_battery_high_flag(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x1a)?;
+        Ok(v & 0b0000_0010 != 0)
+    }
+
+    /// Read battery charging flag
+    pub fn read_battery_charging_flag(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x18)?;
+        Ok(v & 0x1000_0000 != 0)
+    }
+
+    /// Toggle rtc battery charging
+    pub fn toggle_charging(&self, enable: bool) -> Result<()> {
+        self.enable_write()?;
+        let v = if enable { 0x82 } else { 0x82 & 0b0111_1111 };
+        self.i2c.smbus_write_byte(0x18, v);
+        self.disable_write()
+    }
+
     /// Read time
     pub fn read_time(&self) -> Result<SD3078Time> {
         let mut bcd_time = [0_u8; 7];
@@ -855,6 +881,21 @@ impl PiSugarStatus {
                     log::error!("Low battery, will power off...");
                     let _ = execute_shell("/sbin/shutdown --poweroff 0");
                     thread::sleep(std::time::Duration::from_millis(3000));
+                }
+            }
+
+            // rtc battery charging
+            if (self.sd3078.read_battery_low_flag() == Ok(true))
+                && (self.sd3078.read_battery_charging_flag() == Ok(false))
+            {
+                log::debug!("Enable rtc charging");
+                self.sd3078.toggle_charging(true);
+            } else {
+                if (self.sd3078.read_battery_high_flag() == Ok(true))
+                    && (self.sd3078.read_battery_charging_flag() == Ok(true))
+                {
+                    log::debug!("Disable rtc charging");
+                    self.sd3078.toggle_charging(false);
                 }
             }
         }
