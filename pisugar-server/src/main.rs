@@ -80,7 +80,6 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                     return err;
                                 }
                             },
-                            "alarm_type" => format!("{}", core.config().auto_wake_type),
                             "alarm_repeat" => format!("{}", core.config().auto_wake_repeat),
                             "safe_shutdown_level" => {
                                 format!("{}", core.config().auto_shutdown_level)
@@ -289,7 +288,9 @@ where
     let mut tx_cloned = tx.clone();
     tokio::spawn(async move {
         while let Some(Ok(buf)) = stream.next().await {
-            let req = String::from_utf8_lossy(buf.as_ref()).replace("\n", "");
+            let req = String::from_utf8_lossy(buf.as_ref())
+                .replace("\r", "")
+                .replace("\n", "");
             if req.len() == 0 {
                 log::debug!("Request ended");
                 break;

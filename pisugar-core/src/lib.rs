@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::convert::{From, TryFrom, TryInto};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -462,7 +462,7 @@ impl SD3078 {
     pub fn toggle_charging(&self, enable: bool) -> Result<()> {
         self.enable_write()?;
         let v = if enable { 0x82 } else { 0x82 & 0b0111_1111 };
-        self.i2c.smbus_write_byte(0x18, v);
+        self.i2c.smbus_write_byte(0x18, v)?;
         self.disable_write()
     }
 
@@ -635,8 +635,6 @@ pub fn sys_write_time(dt: DateTime<Local>) {
 /// PiSugar configuration
 #[derive(Default, Serialize, Deserialize)]
 pub struct PiSugarConfig {
-    /// Auto wakeup type
-    pub auto_wake_type: i32,
     pub auto_wake_time: [u8; 7],
     pub auto_wake_repeat: u8,
     pub single_tap_enable: bool,
@@ -659,8 +657,11 @@ impl PiSugarConfig {
     }
 
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
-        let mut f = File::open(path)?;
+        let mut options = OpenOptions::new();
+        options.write(true).create(true);
+        let mut f = options.open(path)?;
         let s = serde_json::to_string(self)?;
+        log::info!("Dump config:\n{}", s);
         f.write_all(s.as_bytes())
     }
 }
@@ -923,7 +924,7 @@ impl PiSugarStatus {
             }
 
             // auto shutdown
-            if self.level() < config.auto_shutdown_level {
+            if self.level() <= config.auto_shutdown_level {
                 loop {
                     log::error!("Low battery, will power off...");
                     let _ = execute_shell("/sbin/shutdown --poweroff 0");
@@ -1021,17 +1022,35 @@ impl PiSugarCore {
     }
 
     pub fn new_with_path(config_path: &Path, auto_recovery: bool) -> Result<Self> {
-        if !config_path.is_file() {
+        if config_path.is_dir() {
             return Err(Error::Other("Not a file".to_string()));
         }
 
         match Self::load_config(config_path) {
-            Ok(core) => Ok(core),
+            Ok(core) => {
+                if core
+                    .set_alarm(
+                        core.config.auto_wake_time.into(),
+                        core.config.auto_wake_repeat,
+                    )
+                    .is_ok()
+                {
+                    log::info!("Init alarm success");
+                } else {
+                    log::info!("Init alarm failed")
+                }
+                Ok(core)
+            }
             Err(_) => {
+                log::warn!("Load configuration failed, auto recovery...");
                 if auto_recovery {
                     let config = PiSugarConfig::default();
                     let mut core = Self::new(config)?;
                     core.config_path = Some(config_path.to_string_lossy().to_string());
+                    match core.save_config() {
+                        Ok(_) => log::info!("Auto recovery success"),
+                        Err(e) => log::warn!("Auto recovery failed: {}", e),
+                    }
                     return Ok(core);
                 } else {
                     return Err(Error::Other("Not recoverable".to_string()));
@@ -1040,7 +1059,7 @@ impl PiSugarCore {
         }
     }
 
-    pub fn load_config(path: &Path) -> Result<Self> {
+    fn load_config(path: &Path) -> Result<Self> {
         if path.exists() && path.is_file() {
             let mut config = PiSugarConfig::default();
             if config.load(path).is_ok() {
