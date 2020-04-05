@@ -73,6 +73,13 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                     return err;
                                 }
                             },
+                            "rtc_alarm_enabled" => match core.read_alarm_enabled() {
+                                Ok(enabled) => format!("{}", enabled),
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    return err;
+                                }
+                            },
                             "alarm_type" => format!("{}", core.config().auto_wake_type),
                             "alarm_repeat" => format!("{}", core.config().auto_wake_repeat),
                             "safe_shutdown_level" => {
@@ -180,7 +187,14 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                         return err;
                                     }
                                 }
-                                if let Ok(_) = core.set_alarm(bcd_time.into(), weekday_repeat) {
+                                if let Ok(_) =
+                                    core.set_alarm(bcd_time.clone().into(), weekday_repeat)
+                                {
+                                    core.config_mut().auto_wake_time = bcd_time;
+                                    core.config_mut().auto_wake_repeat = weekday_repeat;
+                                    if let Err(e) = core.save_config() {
+                                        log::error!("{}", e);
+                                    }
                                     return format!("{}: done\n", parts[0]);
                                 }
                             }
@@ -198,6 +212,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     if parts.len() >= 1 {
                         if let Ok(level) = parts[1].parse::<f64>() {
                             core.config_mut().auto_shutdown_level = level;
+                            if let Err(e) = core.save_config() {
+                                log::error!("{}", e);
+                            }
                             return format!("{}: done\n", parts[0]);
                         }
                     }

@@ -509,6 +509,21 @@ impl SD3078 {
         Ok(SD3078Time(bcd_time))
     }
 
+    /// Check alarm enabled
+    pub fn read_alarm_enabled(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x0e)?;
+        if v & 0b0000_0111 == 0 {
+            return Ok(false);
+        }
+
+        let ctr2 = self.i2c.smbus_read_byte(0x10)?;
+        if ctr2 & 0b0000_0010 == 0 {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
     /// Read alarm flag
     pub fn read_alarm_flag(&self) -> Result<bool> {
         // CTR1 - INTDF and INTAF
@@ -1098,6 +1113,10 @@ impl PiSugarCore {
 
     pub fn read_alarm_time(&self) -> Result<SD3078Time> {
         self.status.sd3078.read_alarm_time()
+    }
+
+    pub fn read_alarm_enabled(&self) -> Result<bool> {
+        self.status.sd3078.read_alarm_enabled()
     }
 
     pub fn read_alarm_flag(&self) -> Result<bool> {
