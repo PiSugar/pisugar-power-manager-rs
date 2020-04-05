@@ -219,7 +219,7 @@ impl IP5312 {
             return Err(Error::I2c(I2cError::FeatureNotSupported));
         }
 
-        let v = (high & 0b0011_1111) + low;
+        let v = ((high & 0b0011_1111) << 8) + low;
         let v = (v as f64) * 0.26855 + 2600.0;
         Ok(v / 1000.0)
     }
