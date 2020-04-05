@@ -290,6 +290,10 @@ where
     tokio::spawn(async move {
         while let Some(Ok(buf)) = stream.next().await {
             let req = String::from_utf8_lossy(buf.as_ref()).replace("\n", "");
+            if req.len() == 0 {
+                log::debug!("Request ended");
+                break;
+            }
             let resp = handle_request(core.clone(), req.as_str());
             tx_cloned
                 .send(resp)
