@@ -66,6 +66,13 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                     return err;
                                 }
                             },
+                            "rtc_alarm_time" => match core.read_alarm_time() {
+                                Ok(time) => format!("{}", time),
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    return err;
+                                }
+                            },
                             "alarm_type" => format!("{}", core.config().auto_wake_type),
                             "alarm_repeat" => format!("{}", core.config().auto_wake_repeat),
                             "safe_shutdown_level" => {

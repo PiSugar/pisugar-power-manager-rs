@@ -10,7 +10,7 @@ use std::process::{Command, ExitStatus};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Datelike, Local, LocalResult, ParseError, TimeZone, Timelike};
+use chrono::{DateTime, Datelike, Local, LocalResult, TimeZone, Timelike};
 use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
 use serde::export::Result::Err;
@@ -466,6 +466,21 @@ impl SD3078 {
         self.disable_write()?;
 
         Ok(())
+    }
+
+    /// Read alarm time
+    pub fn read_alarm_time(&self) -> Result<SD3078Time> {
+        let mut bcd_time = [0_u8; 7];
+        self.i2c.block_read(0x07, &mut bcd_time)?;
+
+        // 12hr or 24hr
+        if bcd_time[2] & 0b1000_0000 != 0 {
+            bcd_time[2] &= 0b0111_1111; // 24hr
+        } else if bcd_time[2] & 0b0010_0000 != 0 {
+            bcd_time[2] += 12; // 12hr and pm
+        }
+
+        Ok(SD3078Time(bcd_time))
     }
 
     /// Read alarm flag
@@ -1006,6 +1021,10 @@ impl PiSugarCore {
 
     pub fn set_alarm(&self, t: SD3078Time, weakday_repeat: u8) -> Result<()> {
         self.status.sd3078.set_alarm(t, weakday_repeat)
+    }
+
+    pub fn read_alarm_time(&self) -> Result<SD3078Time> {
+        self.status.sd3078.read_alarm_time()
     }
 
     pub fn read_alarm_flag(&self) -> Result<bool> {
