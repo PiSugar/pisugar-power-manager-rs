@@ -846,7 +846,7 @@ impl PiSugarStatus {
             }
             let k = a / b;
             log::debug!("charging k: {}", k);
-            return k >= 0.000001;
+            return k >= 0.015;
         }
         false
     }
