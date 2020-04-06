@@ -13,7 +13,6 @@
         <div class="battery-model">{{model}}</div>
         <img class="logo" src="~@/assets/logo.svg" alt="">
       </div>
-
       <div class="setting-panel">
         <div class="title">Schedule Wake Up</div>
         <el-row>
@@ -529,7 +528,6 @@
 </style>
 
 <style lang="less">
-
   #wrapper {
     background: linear-gradient(#ffe025, orange);
     width: 100%;
@@ -578,7 +576,6 @@
       opacity: 1;
     }
   }
-  
   .battery-shape{
     position: absolute;
     top: 200px;

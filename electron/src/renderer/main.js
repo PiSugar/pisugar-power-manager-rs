@@ -11,7 +11,7 @@ import 'element-ui/lib/theme-chalk/index.css'
 
 const defaultWsPort = 8081
 const defaultHost = localStorage.getItem('webSocketAddress') || `ws://${window.location.hostname}:${defaultWsPort}`
-const webSocketHost = process.env.NODE_ENV === 'development' ? 'ws://192.168.100.163:8081' : defaultHost
+const webSocketHost = process.env.NODE_ENV === 'development' ? 'ws://192.168.100.201:8081' : defaultHost
 
 axios.get(`http://${window.location.host}/_ws.json`).then(res => {
   const { wsPort } =  res.data
