@@ -103,7 +103,7 @@
       </div>
 
       <div class="rtc-panel">
-        <div class="sys-info"><el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button>  <span class="text">RTC Time : {{rtcTime}}</span></div>
+        <div class="sys-info"><el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button>  <span class="text">RTC Time : {{ rtcTimeDisplayString }}</span></div>
       </div>
 
       <el-dialog title="Repeat" :visible.sync="repeatDialog">
@@ -116,7 +116,7 @@
             <el-checkbox label="Tuesday"></el-checkbox>
             <el-checkbox label="Wednesday"></el-checkbox>
             <el-checkbox label="Thursday"></el-checkbox>
-            <el-checkbox label="Friday"></el-checkbox>
+            <el-checkbox label="Friday"></el-checkbox> 
             <el-checkbox label="Saturday"></el-checkbox>
             <el-checkbox label="Sunday"></el-checkbox>
           </el-row>
@@ -126,7 +126,7 @@
 
       <el-dialog title="Sync Time" :visible.sync="timeDialog">
         <el-row>
-          RTC Time : {{rtcTime}}
+          RTC Time : {{rtcTimeDisplayString}}
         </el-row>
         <br>
         <el-row>
@@ -155,6 +155,7 @@
 </template>
 
 <script>
+  import moment from 'moment'
   export default {
     name: 'index-page',
     debug: true,
@@ -162,6 +163,7 @@
     data () {
       return {
         rtcTime: null,
+        rtcTimeDisplayString: '',
         rtcUpdateTime: new Date().getTime(),
         batteryPercent: '...',
         batteryCharging: false,
@@ -292,7 +294,7 @@
           }
           if (!msg.indexOf('rtc_time: ')) {
             msg = msg.replace('rtc_time: ', '')
-            that.rtcTime = new Date(msg)
+            that.rtcTime = new moment(msg)
             that.rtcUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
@@ -404,11 +406,12 @@
       timeUpdater () {
         const that = this
         if (this.rtcTime) {
-          let timeStamp = this.rtcTime.getTime()
-          let current = new Date().getTime()
-          let offset = current - this.rtcUpdateTime
+          const current = new Date().getTime()
+          const offset = current - this.rtcUpdateTime
           this.rtcUpdateTime = current
-          this.rtcTime = new Date(timeStamp + offset)
+          this.rtcTime = this.rtcTime.add({ milliseconds: offset })
+          this.rtcTimeDisplayString = this.rtcTime.toDate()
+          console.log(offset, this.rtcTime.toDate())
         }
         setTimeout(() => {
           that.timeUpdater()
