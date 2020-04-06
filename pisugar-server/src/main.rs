@@ -61,7 +61,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "battery_v" => core.voltage().to_string(),
                             "battery_i" => core.intensity().to_string(),
                             "battery_charging" => core.charging().to_string(),
-                            "rtc_time" => core.read_time().to_string(),
+                            "rtc_time" => format!("{:?}", core.read_time()),
                             "rtc_time_list" => format!("{}", core.read_raw_time()),
                             "rtc_alarm_flag" => match core.read_alarm_flag() {
                                 Ok(flag) => format!("{}", flag),
@@ -73,7 +73,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "rtc_alarm_time" => match core.read_alarm_time() {
                                 Ok(time) => {
                                     let datetime = time.try_into().unwrap_or(Local::now());
-                                    datetime.to_string()
+                                    format!("{:?}", datetime)
                                 }
                                 Err(e) => {
                                     log::error!("{}", e);
