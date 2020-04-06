@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
@@ -8,6 +9,7 @@ use std::time::Instant;
 
 use bytes::*;
 use chrono::prelude::*;
+use chrono::LocalResult;
 use clap::{App, Arg};
 use futures::prelude::*;
 use futures::SinkExt;
@@ -20,7 +22,6 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio_util::codec::{BytesCodec, Framed};
 
-use chrono::LocalResult;
 use pisugar_core::{
     sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
 };
@@ -60,7 +61,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "battery_v" => core.voltage().to_string(),
                             "battery_i" => core.intensity().to_string(),
                             "battery_charging" => core.charging().to_string(),
-                            "rtc_time" => core.read_time().to_rfc2822(),
+                            "rtc_time" => core.read_time().to_string(),
                             "rtc_time_list" => format!("{}", core.read_raw_time()),
                             "rtc_alarm_flag" => match core.read_alarm_flag() {
                                 Ok(flag) => format!("{}", flag),
@@ -70,7 +71,17 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 }
                             },
                             "rtc_alarm_time" => match core.read_alarm_time() {
-                                Ok(time) => format!("{}", time),
+                                Ok(time) => {
+                                    let datetime = time.try_into().unwrap_or(Local::now());
+                                    datetime.to_string()
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    return err;
+                                }
+                            },
+                            "rtc_alarm_time_list" => match core.read_alarm_time() {
+                                Ok(time) => time.to_string(),
                                 Err(e) => {
                                     log::error!("{}", e);
                                     return err;
