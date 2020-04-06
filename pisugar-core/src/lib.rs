@@ -17,7 +17,7 @@ use serde::export::Result::Err;
 use serde::{Deserialize, Serialize};
 
 /// Time host
-pub const TIME_HOST: &str = "cdn.pisugar.com";
+pub const TIME_HOST: &str = "http://cdn.pisugar.com";
 
 /// I2c poll interval
 pub const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);

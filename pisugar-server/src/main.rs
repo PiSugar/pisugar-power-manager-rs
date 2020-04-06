@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
@@ -8,6 +9,7 @@ use std::time::Instant;
 
 use bytes::*;
 use chrono::prelude::*;
+use chrono::LocalResult;
 use clap::{App, Arg};
 use futures::prelude::*;
 use futures::SinkExt;
@@ -20,7 +22,6 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio_util::codec::{BytesCodec, Framed};
 
-use chrono::LocalResult;
 use pisugar_core::{
     sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
 };
@@ -60,7 +61,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "battery_v" => core.voltage().to_string(),
                             "battery_i" => core.intensity().to_string(),
                             "battery_charging" => core.charging().to_string(),
-                            "rtc_time" => core.read_time().to_rfc2822(),
+                            "rtc_time" => core.read_time().to_string(),
                             "rtc_time_list" => format!("{}", core.read_raw_time()),
                             "rtc_alarm_flag" => match core.read_alarm_flag() {
                                 Ok(flag) => format!("{}", flag),
@@ -70,7 +71,17 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 }
                             },
                             "rtc_alarm_time" => match core.read_alarm_time() {
-                                Ok(time) => format!("{}", time),
+                                Ok(time) => {
+                                    let datetime = time.try_into().unwrap_or(Local::now());
+                                    datetime.to_string()
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    return err;
+                                }
+                            },
+                            "rtc_alarm_time_list" => match core.read_alarm_time() {
+                                Ok(time) => time.to_string(),
                                 Err(e) => {
                                     log::error!("{}", e);
                                     return err;
@@ -175,26 +186,14 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     return format!("{}: done\n", parts[0]);
                 }
                 "rtc_alarm_set" => {
-                    // rtc_alarm_set ss,mm,hh,weekday,dd,MM,yy repeat
+                    // rtc_alarm_set <iso8601 ignore ymd> weekday_repeat
                     if parts.len() >= 3 {
-                        let mut times = [0; 7];
-                        if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
-                            let time_parts: Vec<String> =
-                                parts[1].split(",").map(|s| s.to_string()).collect();
-                            if time_parts.len() == 7 {
-                                for i in 0..7 {
-                                    if let Ok(v) = time_parts[i].parse() {
-                                        times[i] = v;
-                                    } else {
-                                        return err;
-                                    }
-                                }
-                                if let LocalResult::Single(datetime) = Local
-                                    .ymd_opt(2000 + times[6], times[5] as u32, times[4] as u32)
-                                    .and_hms_opt(times[2] as u32, times[1] as u32, times[0] as u32)
-                                {
-                                    let sd3078_time = SD3078Time::from(datetime);
-                                    if core.set_alarm(sd3078_time, weekday_repeat).is_ok() {
+                        if let Ok(datetime) = parts[1].parse::<DateTime<FixedOffset>>() {
+                            let datetime: DateTime<Local> = datetime.into();
+                            let sd3078_time: SD3078Time = datetime.into();
+                            if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
+                                match core.set_alarm(sd3078_time, weekday_repeat) {
+                                    Ok(_) => {
                                         core.config_mut().auto_wake_repeat = weekday_repeat;
                                         core.config_mut().auto_wake_time = sd3078_time.to_dec();
                                         if let Err(e) = core.save_config() {
@@ -202,6 +201,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                         }
                                         return format!("{}: done\n", parts[0]);
                                     }
+                                    Err(e) => log::error!("{}", e),
                                 }
                             }
                         }
