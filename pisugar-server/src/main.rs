@@ -9,7 +9,6 @@ use std::time::Instant;
 
 use bytes::*;
 use chrono::prelude::*;
-use chrono::LocalResult;
 use clap::{App, Arg};
 use futures::prelude::*;
 use futures::SinkExt;

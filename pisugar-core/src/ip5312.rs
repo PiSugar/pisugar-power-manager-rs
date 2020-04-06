@@ -1,0 +1,113 @@
+use rppal::i2c::I2c;
+
+use crate::Error;
+use crate::I2cError;
+use crate::Result;
+
+/// IP5312, pi-3/4 bat chip
+pub struct IP5312 {
+    i2c: I2c,
+}
+
+impl IP5312 {
+    /// Create new IP5312
+    pub fn new(i2c_addr: u16) -> Result<Self> {
+        let mut i2c = I2c::new()?;
+        i2c.set_slave_address(i2c_addr)?;
+        Ok(Self { i2c })
+    }
+
+    /// Read voltage (V)
+    pub fn read_voltage(&self) -> Result<f64> {
+        let low = self.i2c.smbus_read_byte(0xd0)? as u16;
+        let high = self.i2c.smbus_read_byte(0xd1)? as u16;
+
+        if low == 0 && high == 0 {
+            return Err(Error::I2c(I2cError::FeatureNotSupported));
+        }
+
+        let v = ((high & 0b0011_1111) << 8) + low;
+        let v = (v as f64) * 0.26855 + 2600.0;
+        Ok(v / 1000.0)
+    }
+
+    /// Read intensity (A)
+    pub fn read_intensity(&self) -> Result<f64> {
+        let low = self.i2c.smbus_read_byte(0xd2)? as u16;
+        let high = self.i2c.smbus_read_byte(0xd3)? as u16;
+
+        let intensity = if high & 0x20 != 0 {
+            let i = (((high | 0b1100_0000) << 8) + low) as i16;
+            (i as f64) * 2.68554
+        } else {
+            let i = ((high & 0x1f) << 8) + low;
+            (i as f64) * 2.68554
+        };
+        Ok(intensity / 1000.0)
+    }
+
+    /// Shutdown under light load (126mA and 8s)
+    pub fn init_auto_shutdown(&self) -> Result<()> {
+        // threshold intensity, 30*4.3mA = 126mA
+        let mut v = self.i2c.smbus_read_byte(0xc9)?;
+        v &= 0b1100_0000;
+        v |= 30;
+        self.i2c.smbus_write_byte(0xc9, v)?;
+
+        // time, 8s
+        let mut v = self.i2c.smbus_read_byte(0x06)?;
+        v &= 0b0011_1111;
+        self.i2c.smbus_write_byte(0x07, v)?;
+
+        // enable
+        let mut v = self.i2c.smbus_read_byte(0x03)?;
+        v |= 0b0010_0000;
+        self.i2c.smbus_write_byte(0x03, v)?;
+
+        // enable bat low, 2.76-2.84V
+        let mut v = self.i2c.smbus_read_byte(0x13)?;
+        v &= 0b1100_1111;
+        v |= 0b0001_0000;
+        self.i2c.smbus_write_byte(0x13, v)?;
+
+        Ok(())
+    }
+
+    /// Enable gpio1
+    pub fn init_gpio(&self) -> Result<()> {
+        // mfp_ctl0, set l4_sel
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
+        v |= 0b0000_0010;
+        self.i2c.smbus_write_byte(0x52, v)?;
+
+        // gpio1 input
+        let mut v = self.i2c.smbus_read_byte(0x54)?;
+        v |= 0b0000_0010;
+        self.i2c.smbus_write_byte(0x54, v)?;
+
+        Ok(())
+    }
+
+    /// Read gpio tap
+    pub fn read_gpio_tap(&self) -> Result<u8> {
+        let mut v = self.i2c.smbus_read_byte(0x58)?;
+        v &= 0b0000_0010;
+
+        Ok(v)
+    }
+
+    /// Force shutdown
+    pub fn force_shutdown(&self) -> Result<()> {
+        // enable force shutdown
+        let mut t = self.i2c.smbus_read_byte(0x5B)?;
+        t |= 0b0001_0010;
+        self.i2c.smbus_write_byte(0x5B, t)?;
+
+        // force shutdown
+        t = self.i2c.smbus_read_byte(0x5B)?;
+        t &= 0b1110_1111;
+        self.i2c.smbus_write_byte(0x5B, t)?;
+
+        Ok(())
+    }
+}
