@@ -186,26 +186,14 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     return format!("{}: done\n", parts[0]);
                 }
                 "rtc_alarm_set" => {
-                    // rtc_alarm_set ss,mm,hh,weekday,dd,MM,yy repeat
+                    // rtc_alarm_set <iso8601 ignore ymd> weekday_repeat
                     if parts.len() >= 3 {
-                        let mut times = [0; 7];
-                        if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
-                            let time_parts: Vec<String> =
-                                parts[1].split(",").map(|s| s.to_string()).collect();
-                            if time_parts.len() == 7 {
-                                for i in 0..7 {
-                                    if let Ok(v) = time_parts[i].parse() {
-                                        times[i] = v;
-                                    } else {
-                                        return err;
-                                    }
-                                }
-                                if let LocalResult::Single(datetime) = Local
-                                    .ymd_opt(2000 + times[6], times[5] as u32, times[4] as u32)
-                                    .and_hms_opt(times[2] as u32, times[1] as u32, times[0] as u32)
-                                {
-                                    let sd3078_time = SD3078Time::from(datetime);
-                                    if core.set_alarm(sd3078_time, weekday_repeat).is_ok() {
+                        if let Ok(datetime) = parts[1].parse::<DateTime<FixedOffset>>() {
+                            let datetime: DateTime<Local> = datetime.into();
+                            let sd3078_time: SD3078Time = datetime.into();
+                            if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
+                                match core.set_alarm(sd3078_time, weekday_repeat) {
+                                    Ok(_) => {
                                         core.config_mut().auto_wake_repeat = weekday_repeat;
                                         core.config_mut().auto_wake_time = sd3078_time.to_dec();
                                         if let Err(e) = core.save_config() {
@@ -213,6 +201,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                         }
                                         return format!("{}: done\n", parts[0]);
                                     }
+                                    Err(e) => log::error!("{}", e),
                                 }
                             }
                         }
