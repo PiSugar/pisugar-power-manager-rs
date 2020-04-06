@@ -38,9 +38,6 @@ const I2C_ADDR_BAT: u16 = 0x75;
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
 
-const PI_ZERO_IDLE_INTENSITY: f64 = 0.12;
-const PI_PRO_IDLE_INTENSITY: f64 = 0.12;
-
 /// PiSugar error
 #[derive(Debug)]
 pub enum Error {

@@ -4,6 +4,9 @@ use crate::Error;
 use crate::I2cError;
 use crate::Result;
 
+/// Idle intensity
+const PI_PRO_IDLE_INTENSITY: f64 = 0.25;
+
 /// IP5312, pi-3/4 bat chip
 pub struct IP5312 {
     i2c: I2c,
@@ -48,10 +51,18 @@ impl IP5312 {
 
     /// Shutdown under light load (126mA and 8s)
     pub fn init_auto_shutdown(&self) -> Result<()> {
-        // threshold intensity, 30*4.3mA = 126mA
+        let threshold = PI_PRO_IDLE_INTENSITY * 1000;
+        let threshold = (threshold / 4.3) as u64;
+        let threshold = if threshold > 0b0011_1111 {
+            0b0011_1111 as u8
+        } else {
+            threshold as u8
+        };
+
+        // threshold intensity, x*4.3mA = 126mA
         let mut v = self.i2c.smbus_read_byte(0xc9)?;
         v &= 0b1100_0000;
-        v |= 30;
+        v |= threshold;
         self.i2c.smbus_write_byte(0xc9, v)?;
 
         // time, 8s

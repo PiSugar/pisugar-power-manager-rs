@@ -2,6 +2,9 @@ use rppal::i2c::I2c;
 
 use crate::Result;
 
+/// Idle intensity
+const PI_ZERO_IDLE_INTENSITY: f64 = 0.11;
+
 /// IP5209, pi-zero bat chip
 pub struct IP5209 {
     i2c: I2c,
@@ -51,10 +54,18 @@ impl IP5209 {
 
     /// Shutdown under light load (144mA and 8s)
     pub fn init_auto_shutdown(&self) -> Result<()> {
-        // threshold intensity, 9*12mA = 108mA
+        let threshold = PI_ZERO_IDLE_INTENSITY * 1000;
+        let threshold = threshold / 12 as u64;
+        let threshold = if threshold > 0b0001_1111 {
+            0b0001_1111 as u8
+        } else {
+            threshold as u8
+        };
+
+        // threshold intensity, x*12mA = 108mA
         let mut v = self.i2c.smbus_read_byte(0x0c)?;
         v &= 0b0000_0111;
-        v |= 9 << 3;
+        v |= threshold << 3;
         self.i2c.smbus_write_byte(0x0c, v)?;
 
         // time, 8s
