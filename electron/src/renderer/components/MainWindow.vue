@@ -293,7 +293,7 @@
             that.batteryCharging = msg.indexOf('true') > 0
           }
           if (!msg.indexOf('rtc_time: ')) {
-            msg = msg.replace('rtc_time: ', '')
+            msg = msg.replace('rtc_time: ', '').trim()
             that.rtcTime = new Moment(msg)
             that.rtcUpdateTime = new Date().getTime()
           }
@@ -301,7 +301,7 @@
             that.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
-            msg = msg.replace('rtc_alarm_time: ', '')
+            msg = msg.replace('rtc_alarm_time: ', '').trim()
             const alarmTime = new Moment(msg)
             const tempTime = new Date()
             tempTime.setSeconds(alarmTime.second())
