@@ -3,3 +3,8 @@ members = [
     "pisugar-core",
     "pisugar-server"
 ]
+
+[profile.release]
+codegen-units = 1
+opt-level = 'z'
+lto = true
