@@ -155,7 +155,7 @@
 </template>
 
 <script>
-  import moment from 'moment'
+  import Moment from 'moment'
   export default {
     name: 'index-page',
     debug: true,
@@ -294,18 +294,19 @@
           }
           if (!msg.indexOf('rtc_time: ')) {
             msg = msg.replace('rtc_time: ', '')
-            that.rtcTime = new moment(msg)
+            that.rtcTime = new Moment(msg)
             that.rtcUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
             that.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
-            const timeArray = JSON.parse(msg.replace('rtc_alarm_time: ', ''))
+            msg = msg.replace('rtc_alarm_time: ', '')
+            const alarmTime = new Moment(msg)
             const tempTime = new Date()
-            tempTime.setSeconds(timeArray[0])
-            tempTime.setMinutes(timeArray[1])
-            tempTime.setHours(timeArray[2])
+            tempTime.setSeconds(alarmTime.second())
+            tempTime.setMinutes(alarmTime.minute())
+            tempTime.setHours(alarmTime.hour())
             that.timeEditValue = tempTime
           }
           if (!msg.indexOf('alarm_repeat: ')) {
@@ -411,18 +412,18 @@
           this.rtcUpdateTime = current
           this.rtcTime = this.rtcTime.add({ milliseconds: offset })
           this.rtcTimeDisplayString = this.rtcTime.toDate()
-          console.log(offset, this.rtcTime.toDate())
         }
         setTimeout(() => {
           that.timeUpdater()
         }, 1000)
       },
       timeEditChange () {
-        let sec = this.timeEditValue.getSeconds()
-        let min = this.timeEditValue.getMinutes()
-        let hour = this.timeEditValue.getHours()
+        const sec = this.timeEditValue.getSeconds()
+        const min = this.timeEditValue.getMinutes()
+        const hour = this.timeEditValue.getHours()
+        const setTime = new Moment().second(sec).minute(min).hour(hour)
         if (this.timeRepeat === 0) this.timeRepeat = 127
-        this.$socket.send(`rtc_alarm_set ${sec},${min},${hour},0,11,8,19 ${this.timeRepeat}`)
+        this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
       },
       timeRepeat2checkbox () {
         const weekdays = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
