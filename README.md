@@ -88,6 +88,31 @@ RLS configuration of vscode `.vscode/settings.json`
         "rust.target": "arm-unknown-linux-gnueabihf"
     }
 
+### Unix Domain Socket / Webscoket
+
+| Command | Description | Response/Usage |
+| :- | :-: | :-: |
+| get battery             | battery level % | battery: [number] |
+| get battery_i           | BAT current in A | battery_i: [number] |
+| get battery_v           | BAT votage in V | battery_v: [number] |
+| get battery_charging    | charging status  | battery_charging: [true\|false] |
+| get model               | pisugar model | model: PiSugar 2 |
+| get rtc_time            | rtc clock | rtc_time: [ISO8601 time string] |
+| get rtc_alarm_enabled   | rtc wakeup alarm enable | rtc_alarm_enabled: [true\|false] |
+| get rtc_alarm_time      | rtc wakeup alarm time | rtc_alarm_time: [ISO8601 time string] |
+| get alarm_repeat        | rtc wakeup alarm repeat in weekdays (127=1111111) | alarm_repeat: [number] |
+| get button_enable       | custom button enable status | button_enable: [single\|double\|long] [true\|false] |
+| get button_shell        | shell script when button is clicked  | button_shell: [single\|double\|long] [shell] |
+| get safe_shutdown_level | auto shutdown level | safe_shutdown_level: [number] |
+| rtc_pi2rtc | sync time pi => rtc | |
+| rtc_rtc2pi | sync time rtc => pi | |
+| rtc_web | sync time web => rtc & pi | |
+| rtc_alarm_set | set rtc wakeup alarm | rtc_alarm_set: [ISO8601 time string] [repeat] |
+| rtc_alarm_disable | disable rtc wakeup alarm | |
+| set_button_enable | auto shutdown level % | set_button_enable: [single\|double\|long] [0|1] |
+| set_button_shell | auto shutdown level | safe_shutdown_level: [single\|double\|long] [shell] |
+| set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level: 3 |
+
 ## LICENSE
 
 GPL v3
