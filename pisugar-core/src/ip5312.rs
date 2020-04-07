@@ -51,7 +51,7 @@ impl IP5312 {
 
     /// Shutdown under light load (126mA and 8s)
     pub fn init_auto_shutdown(&self) -> Result<()> {
-        let threshold = PI_PRO_IDLE_INTENSITY * 1000;
+        let threshold = PI_PRO_IDLE_INTENSITY * 1000.0;
         let threshold = (threshold / 4.3) as u64;
         let threshold = if threshold > 0b0011_1111 {
             0b0011_1111 as u8
