@@ -80,6 +80,26 @@ Get cross toolchains from https://gnutoolchains.com/raspberry/
 
 Install rust, please refer to https://forge.rust-lang.org/infra/other-installation-methods.html
 
+You might install WSL and follow the linux cross compilation steps.
+
+### Build deb
+
+Build web content
+
+    (cd electron && npm install && npm run build:web)
+
+Build deb with cargo-deb
+
+    cargo install cargo-deb
+
+    # linux
+    cargo deb --target arm-unknown-linux-gnueabihf \
+        --manifest-path=pisugar-server/Cargo.toml
+    
+    # macos
+    cargo deb --target arm-unknown-linux-musleabihf \
+        --manifest-path=pisugar-server/Cargo.toml
+
 ### RLS
 
 RLS configuration of vscode `.vscode/settings.json`

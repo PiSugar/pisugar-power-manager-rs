@@ -23,7 +23,7 @@ let template = [
       click: function (item, focusedWindow) {
         if (focusedWindow) {
           BrowserWindow.getAllWindows().forEach(function (win) {
-              win.close()
+            win.close()
           })
         }
       }
@@ -35,17 +35,17 @@ let template = [
       label: 'Sync Time Pi => RTC',
       click: function () {
         console.log('Sync Time Pi => RTC')
-      },
-    },{
+      }
+    }, {
       label: 'Sync Time RTC => Pi',
       click: function () {
         console.log('Sync Time RTC => Pi')
-      },
-    },{
+      }
+    }, {
       label: 'Sync Time Internet => Pi & RTC',
       click: function () {
         console.log('Sync Time Internet => Pi & RTC')
-      },
+      }
     }]
   },
   {

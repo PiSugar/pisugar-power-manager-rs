@@ -1,0 +1,11 @@
+[Unit]
+Description=PiSugar server
+
+[Service]
+EnvironmentFile=/etc/default/pisugar-server
+ExecStart=/usr/bin/pisugar-server --config=$CONFIG --tcp=$TCP --uds=$UDS --ws=$WS --web=$WEB --http=$HTTP
+ExecReload=/bin/kill -HUP $MAINPID
+Type=simple
+KillMode=process
+Restart=on-failure
+RestartSec=30s

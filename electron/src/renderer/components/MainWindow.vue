@@ -218,7 +218,7 @@
         },
         editShellDialogTitle: '',
         editShellDialog: false,
-        editShellDialogCache: "",
+        editShellDialogCache: '',
         editShellDialogForm: {},
         safeShutdown: 0,
         safeShutdownOpts: [
@@ -252,9 +252,9 @@
             repeatMessage = 'repeat everyday.'
           } else if (repeatString == '1111111') {
             repeatMessage = 'repeat everyday.'
-          } else{
+          } else {
             let repeatArray = []
-            repeatString.split('').map((item, index)=> {
+            repeatString.split('').map((item, index) => {
               item = parseInt(item)
               let days = ['Sun', 'Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon']
               if (item) {
@@ -310,7 +310,7 @@
           }
           if (!msg.indexOf('alarm_repeat: ')) {
             const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
-            that.timeRepeat = alarmRepeat ? alarmRepeat : 127
+            that.timeRepeat = alarmRepeat || 127
             that.timeRepeat2checkbox()
           }
           if (!msg.indexOf('safe_shutdown_level: ')) {
@@ -339,7 +339,7 @@
             if (msg === 'long') {
               that.longTrigger = false
             }
-            setTimeout(()=> {
+            setTimeout(() => {
               that.singleTrigger = true
               that.doubleTrigger = true
               that.longTrigger = true

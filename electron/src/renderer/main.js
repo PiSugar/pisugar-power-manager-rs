@@ -14,11 +14,11 @@ const defaultHost = localStorage.getItem('webSocketAddress') || `ws://${window.l
 const webSocketHost = process.env.NODE_ENV === 'development' ? 'ws://192.168.100.201:8081' : defaultHost
 
 axios.get(`http://${window.location.host}/_ws.json`).then(res => {
-  const { wsPort } =  res.data
+  const { wsPort } = res.data
   if (wsPort) {
     const wsHost = `ws://${window.location.hostname}:${wsPort}`
     if (wsHost !== webSocketHost) {
-      localStorage.setItem('webSocketAddress', )
+      localStorage.setItem('webSocketAddress')
       window.location.reload()
     }
   }
