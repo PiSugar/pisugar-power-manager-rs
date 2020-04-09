@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "prerm"
+deb-systemd-invoke stop pisugar-server.service

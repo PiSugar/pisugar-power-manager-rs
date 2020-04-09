@@ -3,9 +3,14 @@ Description=PiSugar server
 
 [Service]
 EnvironmentFile=/etc/default/pisugar-server
-ExecStart=/usr/bin/pisugar-server --config=$CONFIG --tcp=$TCP --uds=$UDS --ws=$WS --web=$WEB --http=$HTTP
-ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/bin/pisugar-server $OPTS
+ExecReload=/bin/kill $MAINPID && /usr/bin/pisugar-server $OPTS
+ExecStop=/bin/kill $MAINPID
 Type=simple
 KillMode=process
 Restart=on-failure
-RestartSec=30s
+RestartSec=10s
+WorkingDirectory=/etc/pisugar-server
+
+[Install]
+WantedBy=multi-user.target

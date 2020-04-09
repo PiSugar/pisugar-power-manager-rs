@@ -25,7 +25,13 @@ use pisugar_core::{
     sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
 };
 
+/// Websocket info
+const WS_JSON: &str = "_ws.json";
+
+/// Tap event tx
 type EventTx = tokio::sync::watch::Sender<String>;
+
+/// Tap event rx
 type EventRx = tokio::sync::watch::Receiver<String>;
 
 /// Poll pisugar status
@@ -379,18 +385,32 @@ async fn handle_uds_stream(
 }
 
 /// Clean up before exit
-fn clean_up() {
-    let uds_addr = "/tmp/pisugar.socket";
-    let p: &Path = Path::new(uds_addr);
-    if p.exists() {
-        match remove_file(p) {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{}", e);
-                exit(1);
+fn clean_up(uds: Option<String>, web_dir: Option<String>) {
+    if let Some(uds) = uds {
+        let p: &Path = Path::new(uds.as_str());
+        if p.exists() {
+            match remove_file(p) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::warn!("Failed to remove uds file: {}", e);
+                }
             }
         }
     }
+
+    if let Some(web_dir) = web_dir {
+        let p: &Path = Path::new(web_dir.as_str());
+        let p = p.join(WS_JSON);
+        if p.exists() {
+            match remove_file(p) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::warn!("Failed to remove ws json file: {}", e);
+                }
+            }
+        }
+    }
+
     exit(0)
 }
 
@@ -437,7 +457,7 @@ async fn main() -> std::io::Result<()> {
                 .short("u")
                 .long("uds")
                 .value_name("FILE")
-                .help("Unix domain socket file, e.g. /tmp/pisugar.socket"),
+                .help("Unix domain socket file, e.g. /tmp/pisugar.sock"),
         )
         .arg(
             Arg::with_name("ws")
@@ -475,24 +495,33 @@ async fn main() -> std::io::Result<()> {
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());
 
     // CTRL+C signal handling
-    let _ = ctrlc::set_handler(|| {
-        clean_up();
-    });
+    let uds = matches.value_of("uds").and_then(|x| Some(x.to_string()));
+    let web_dir = matches.value_of("web").and_then(|x| Some(x.to_string()));
+    ctrlc::set_handler(move || {
+        clean_up(uds.clone(), web_dir.clone());
+    })
+    .expect("Failed to setup ctrl+c");
 
     // tcp
     if matches.is_present("tcp") {
         let tcp_addr = matches.value_of("tcp").unwrap();
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
-        let mut tcp_listener: TcpListener = TcpListener::bind(tcp_addr).await?;
-        tokio::spawn(async move {
-            log::info!("TCP listening...");
-            while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
-                let core = core_cloned.clone();
-                let _ = handle_tcp_stream(core, stream, event_rx_cloned.clone()).await;
+        match TcpListener::bind(tcp_addr).await {
+            Ok(mut tcp_listener) => {
+                tokio::spawn(async move {
+                    log::info!("TCP listening...");
+                    while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
+                        let core = core_cloned.clone();
+                        let _ = handle_tcp_stream(core, stream, event_rx_cloned.clone()).await;
+                    }
+                    log::info!("TCP stopped");
+                });
             }
-            log::info!("TCP stopped");
-        });
+            Err(e) => {
+                log::warn!("TCP bind error: {}", e);
+            }
+        }
     }
 
     // ws
@@ -500,15 +529,21 @@ async fn main() -> std::io::Result<()> {
         let ws_addr = matches.value_of("ws").unwrap();
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
-        let mut ws_listener = tokio::net::TcpListener::bind(ws_addr).await?;
-        tokio::spawn(async move {
-            log::info!("WS listening...");
-            while let Some(Ok(stream)) = ws_listener.incoming().next().await {
-                let core = core_cloned.clone();
-                let _ = handle_ws_connection(core, stream, event_rx_cloned.clone()).await;
+        match tokio::net::TcpListener::bind(ws_addr).await {
+            Ok(mut ws_listener) => {
+                tokio::spawn(async move {
+                    log::info!("WS listening...");
+                    while let Some(Ok(stream)) = ws_listener.incoming().next().await {
+                        let core = core_cloned.clone();
+                        let _ = handle_ws_connection(core, stream, event_rx_cloned.clone()).await;
+                    }
+                    log::info!("WS stopped");
+                });
             }
-            log::info!("WS stopped");
-        });
+            Err(e) => {
+                log::warn!("WS bind error: {}", e);
+            }
+        }
     }
 
     // uds
@@ -516,15 +551,21 @@ async fn main() -> std::io::Result<()> {
         let uds_addr = matches.value_of("uds").unwrap();
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx;
-        let mut uds_listener = tokio::net::UnixListener::bind(uds_addr)?;
-        tokio::spawn(async move {
-            log::info!("UDS listening...");
-            while let Some(Ok(stream)) = uds_listener.incoming().next().await {
-                let core = core_cloned.clone();
-                let _ = handle_uds_stream(core, stream, event_rx_cloned.clone()).await;
+        match tokio::net::UnixListener::bind(uds_addr) {
+            Ok(mut uds_listener) => {
+                tokio::spawn(async move {
+                    log::info!("UDS listening...");
+                    while let Some(Ok(stream)) = uds_listener.incoming().next().await {
+                        let core = core_cloned.clone();
+                        let _ = handle_uds_stream(core, stream, event_rx_cloned.clone()).await;
+                    }
+                    log::info!("UDS stopped");
+                });
             }
-            log::info!("UDS stopped");
-        });
+            Err(e) => {
+                log::warn!("UDS bind error: {}", e);
+            }
+        }
     }
 
     // http web
