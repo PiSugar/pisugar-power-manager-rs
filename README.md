@@ -82,7 +82,7 @@ Install rust, please refer to https://forge.rust-lang.org/infra/other-installati
 
 You might install WSL and follow the linux cross compilation steps.
 
-### Build deb
+### Build and install deb package
 
 Build web content
 
@@ -100,6 +100,24 @@ Build deb with cargo-deb
     cargo deb --target arm-unknown-linux-musleabihf \
         --manifest-path=pisugar-server/Cargo.toml
 
+Install
+
+    sudo dpkg -i pisugar-server_<version>_<arch>.deb
+
+Systemd service
+
+    # reload daemon
+    sudo systemctl daemon-reload
+    
+    # check status
+    sudo systemctl status pisugar-server
+    
+    # start service
+    sudo systemctl start pisugar-server
+    
+    # stop service
+    sudo systemctl stop pisugar-server
+
 ### RLS
 
 RLS configuration of vscode `.vscode/settings.json`
@@ -108,7 +126,14 @@ RLS configuration of vscode `.vscode/settings.json`
         "rust.target": "arm-unknown-linux-gnueabihf"
     }
 
-### Unix Domain Socket / Webscoket
+### Unix Domain Socket / Webscoket / TCP
+
+Default ports:
+
+    uds     /tmp/pisugar-server.sock
+    tcp     0.0.0.0:8423
+    ws      0.0.0.0:8422
+    http    0.0.0.0:8421    # web only
 
 | Command | Description | Response/Usage |
 | :- | :-: | :-: |
@@ -132,6 +157,13 @@ RLS configuration of vscode `.vscode/settings.json`
 | set_button_enable | auto shutdown level % | set_button_enable: [single\|double\|long] [0|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level: [single\|double\|long] [shell] |
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level: 3 |
+
+Examples:
+
+    nc -U /tmp/pisugar-server.sock
+    get battery
+    get model
+    <ctrl+c to break>
 
 ## LICENSE
 
