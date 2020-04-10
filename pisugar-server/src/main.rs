@@ -589,6 +589,7 @@ async fn main() -> std::io::Result<()> {
                 .write(true)
                 .open(filename)
                 .await?;
+            file.set_len(0).await?;
             file.write_all(content.as_bytes()).await?;
         }
     }

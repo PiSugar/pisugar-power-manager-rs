@@ -152,6 +152,7 @@ impl PiSugarConfig {
         let mut f = options.open(path)?;
         let s = serde_json::to_string_pretty(self)?;
         log::info!("Dump config:\n{}", s);
+        f.set_len(0)?;
         f.write_all(s.as_bytes())
     }
 }
