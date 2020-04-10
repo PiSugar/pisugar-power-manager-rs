@@ -7,12 +7,20 @@ registry = "git://mirrors.ustc.edu.cn/crates.io-index"
 
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
+strip = {path="arm-linux-musleabihf-strip"}
+objcpy = {path="arm-linux-musleabihf-objcopy"}
 
 [target.armv7-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
+strip = {path="arm-linux-musleabihf-strip"}
+objcpy = {path="arm-linux-musleabihf-objcopy"}
 
 [target.arm-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-gcc"
+strip = {path="arm-linux-gnueabihf-strip"}
+objcpy = {path="arm-linux-gnueabihf-objcopy"}
 
 [target.armv7-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-gcc"
+strip = {path="arm-linux-gnueabihf-strip"}
+objcpy = {path="arm-linux-gnueabihf-objcopy"}
