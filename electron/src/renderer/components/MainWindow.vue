@@ -248,9 +248,9 @@
           let repeatString = this.timeRepeat.toString(2)
           repeatString = '0000000'.substring(0, 7 - repeatString.length) + repeatString
           let repeatMessage = ''
-          if (repeatString == '0000000') {
+          if (repeatString === '0000000') {
             repeatMessage = 'repeat everyday.'
-          } else if (repeatString == '1111111') {
+          } else if (repeatString === '1111111') {
             repeatMessage = 'repeat everyday.'
           } else {
             let repeatArray = []
@@ -427,7 +427,7 @@
       timeRepeat2checkbox () {
         const weekdays = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
         const repeatString = this.timeRepeat.toString(2).split('')
-        this.checkRepeat = repeatString.map((i, k) => (i == '1') ? weekdays[k] : null).filter(i => i !== null)
+        this.checkRepeat = repeatString.map((i, k) => (i === '1') ? weekdays[k] : null).filter(i => i !== null)
       },
       checkRepeatAllChange (value) {
         if (value) {
