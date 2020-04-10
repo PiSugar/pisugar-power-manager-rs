@@ -1,0 +1,6 @@
+CONFIG=/etc/pisugar-server/config.json
+UDS=/tmp/pisugar.sock
+TCP=0.0.0.0:8423
+WS=0.0.0.0:8422
+WEB=/usr/share/pisugar-server/web
+HTTP=0.0.0.0:8421

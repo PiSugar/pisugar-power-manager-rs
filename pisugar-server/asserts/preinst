@@ -1,3 +1,0 @@
-#!/bin/sh
-echo "preinst"
-systemctl --system daemon-reload > /dev/null || true

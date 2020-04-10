@@ -3,9 +3,9 @@ Description=PiSugar server
 
 [Service]
 EnvironmentFile=/etc/default/pisugar-server
-ExecStart=/usr/bin/pisugar-server $OPTS
-ExecReload=/bin/kill $MAINPID && /usr/bin/pisugar-server $OPTS
+ExecStart=/usr/bin/pisugar-server --config=$CONFIG --uds=$UDS --tcp=$TCP --ws=$WS --web=$WEB --http=$HTTP
 ExecStop=/bin/kill $MAINPID
+ExecStopPost=/bin/rm $WS
 Type=simple
 KillMode=process
 Restart=on-failure

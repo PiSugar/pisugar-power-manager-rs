@@ -1,1 +1,0 @@
-OPTS="--config /etc/pisugar-server/config.json --uds=/tmp/pisugar.sock --tcp=0.0.0.0:8423 --ws=0.0.0.0:8422 --web=/usr/share/pisugar-server/web --http=0.0.0.0:8421"

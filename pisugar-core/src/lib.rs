@@ -150,7 +150,7 @@ impl PiSugarConfig {
         let mut options = OpenOptions::new();
         options.write(true).create(true);
         let mut f = options.open(path)?;
-        let s = serde_json::to_string(self)?;
+        let s = serde_json::to_string_pretty(self)?;
         log::info!("Dump config:\n{}", s);
         f.write_all(s.as_bytes())
     }

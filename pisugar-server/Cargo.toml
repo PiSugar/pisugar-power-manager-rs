@@ -33,12 +33,12 @@ PiSugar power manager server."""
 depends = "$auto, systemd"
 section = "utility"
 priority = "optional"
-maintainer-scripts = "asserts"
+maintainer-scripts = "pisugar-server/debian"                                    # working dir relatived
 assets = [
-    ["target/release/pisugar-server", "usr/bin/", "755"],
-    ["asserts/pisugar-server.default", "etc/default/pisugar-server", "644"],
-    ["asserts/pisugar-server.service", "lib/systemd/system/", "644"],
-    ["asserts/.keep", "etc/pisugar-server/", "644"],
+    ["target/release/pisugar-server", "usr/bin/", "755"],                       # special
+    ["debian/pisugar-server.default", "etc/default/pisugar-server", "644"],
+    ["debian/pisugar-server.service", "lib/systemd/system/", "644"],
+    ["debian/.keep", "etc/pisugar-server/", "644"],
     ["../electron/dist/web/*", "usr/share/pisugar-server/web/", "644"],
     ["../electron/dist/web/fonts/*", "usr/share/pisugar-server/web/fonts", "644"]
 ]
