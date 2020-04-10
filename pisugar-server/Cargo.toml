@@ -38,7 +38,8 @@ assets = [
     ["target/release/pisugar-server", "usr/bin/", "755"],                       # special
     ["debian/pisugar-server.default", "etc/default/pisugar-server", "644"],
     ["debian/pisugar-server.service", "lib/systemd/system/", "644"],
-    ["debian/.keep", "etc/pisugar-server/", "644"],
+    ["debian/config.json", "etc/pisugar-server/", "644"],
+    ["debian/_ws.json", "usr/share/pisugar-server/web/", "644"],
     ["../electron/dist/web/*", "usr/share/pisugar-server/web/", "644"],
     ["../electron/dist/web/fonts/*", "usr/share/pisugar-server/web/fonts", "644"]
 ]
