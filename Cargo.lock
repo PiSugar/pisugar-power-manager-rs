@@ -624,7 +624,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "pisugar-core"
-version = "0.1.0"
+version = "0.9.0"
 dependencies = [
  "chrono 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -650,7 +650,7 @@ dependencies = [
  "hyper 0.13.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper-staticfile 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "pisugar-core 0.1.0",
+ "pisugar-core 0.9.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tungstenite 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
