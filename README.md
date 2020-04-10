@@ -104,7 +104,7 @@ Install
 
     sudo dpkg -i pisugar-server_<version>_<arch>.deb
 
-Systemd service
+Start systemd service
 
     # reload daemon
     sudo systemctl daemon-reload
