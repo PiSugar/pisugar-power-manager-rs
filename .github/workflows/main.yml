@@ -32,6 +32,19 @@ jobs:
         echo Add other actions to build,
         echo test, and deploy your project.
 
+    # Nodejs
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '12.x'
+
+    # Nodejs dependencies
+    - run: npm install
+      working-directory: electron
+
+    # Nodejs build web
+    - run: npm run build:web
+      working-directory: electron
+
     # Rust target arm-unknown-linux-gnueabihf
     - uses: actions-rs/toolchain@v1
       with:
@@ -39,9 +52,15 @@ jobs:
         target: arm-unknown-linux-gnueabihf
         override: true
 
-    # Rust build
+    # Rust cargo-deb
+    - uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-deb
+        version: latest
+
+    # Rust cargo deb
     - uses: actions-rs/cargo@v1
       with:
         use-cross: true
-        command: build
-        args: --target arm-unknown-linux-gnueabihf
+        command: deb
+        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml
