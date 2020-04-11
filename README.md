@@ -117,6 +117,12 @@ Start systemd service
     
     # stop service
     sudo systemctl stop pisugar-server
+    
+    # disable service
+    sudo systemctl disable pisugar-server
+    
+    # enable service
+    sudo systemctl enable pisugar-server
 
 Now, navigate to `http://x.x.x.x:8421` on your browser and see PiSugar power status.
 
