@@ -31,11 +31,3 @@ jobs:
       run: |
         echo Add other actions to build,
         echo test, and deploy your project.
-
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v1.4.1
-    
-    - name: Build web UI
-      run: cd electron && npm install && npm run build:web
-    
-    
