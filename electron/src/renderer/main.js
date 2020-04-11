@@ -18,7 +18,7 @@ axios.get(`http://${window.location.host}/_ws.json`).then(res => {
   if (wsPort) {
     const wsHost = `ws://${window.location.hostname}:${wsPort}`
     if (wsHost !== webSocketHost) {
-      localStorage.setItem('webSocketAddress')
+      localStorage.setItem('webSocketAddress', wsHost)
       window.location.reload()
     }
   }
