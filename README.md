@@ -167,7 +167,7 @@ Default ports:
 | rtc_web | sync time web => rtc & pi | |
 | rtc_alarm_set | set rtc wakeup alarm | rtc_alarm_set: [ISO8601 time string] [repeat] |
 | rtc_alarm_disable | disable rtc wakeup alarm | |
-| set_button_enable | auto shutdown level % | set_button_enable: [single\|double\|long] [0|1] |
+| set_button_enable | auto shutdown level % | set_button_enable: [single\|double\|long] [0\|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level: [single\|double\|long] [shell] |
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level: 3 |
 
