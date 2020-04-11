@@ -120,6 +120,11 @@ Start systemd service
 
 Now, navigate to `http://x.x.x.x:8421` on your browser and see PiSugar power status.
 
+Configuration files:
+
+    /etc/default/pisugar-server
+    /etc/pisugar-server/config.json
+
 ### RLS
 
 RLS configuration of vscode `.vscode/settings.json`
