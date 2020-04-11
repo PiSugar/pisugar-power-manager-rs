@@ -7,15 +7,12 @@ on:
     branches: [ master ]
 
 jobs:
-  checkout:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-
   nodejs-build:
     runs-on: ubuntu-latest
     needs: checkout
     steps:
+    # Checkout
+    - uses: actions/checkout@v2
     # Nodejs
     - uses: actions/setup-node@v1
       with:
@@ -38,11 +35,17 @@ jobs:
     # Nodejs build web
     - run: npm run build:web
       working-directory: electron
+    - uses: actions/upload-artifact@v1
+      with:
+          name: web
+          path: electron/dist
 
   rust-build:
     runs-on: ubuntu-latest
     needs: checkout
     steps:
+    # Check out
+    - uses: actions/checkout@v2
     # Rust cache
     - name: Rust cargo cache
       uses: actions/cache@v1
@@ -79,15 +82,51 @@ jobs:
         use-cross: true
         command: build
         args: --target arm-unknown-linux-gnueabihf --release
-    - run: |
-        mkdir -p target/arm-unknown-linux-gnueabihf/release
-        cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
+    - uses: actions/upload-artifact@v1
+      with:
+          name: rust-target
+          path: target
 
   deb-packaging:
     runs-on: ubuntu-latest
     needs: [nodejs-build, rust-build]
     steps:
-    # Rust cargo-deb
+    # Checkout
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v1
+      with:
+        name: web
+    - uses: actions/download-artifact@v1
+      with:
+        name: rust-target
+    - run: |
+        mkdir -p target/arm-unknown-linux-gnueabihf/release
+        cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
+    # Rust cache
+    - name: Rust cargo cache
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-rust-cargo
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    # Rust target cache
+    - name: Rust target cache
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-rust-target
+      with:
+        path: target
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    # Rust install cargo-deb
     - uses: actions-rs/install@v0.1
       with:
         crate: cargo-deb
@@ -97,11 +136,6 @@ jobs:
       with:
         command: deb
         args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build --no-strip
-
-  upload-artifact:
-    runs-on: ubuntu-latest
-    needs: deb-packaging
-    steps:
     # Upload artifact
     - uses: actions/upload-artifact@v1
       with:
