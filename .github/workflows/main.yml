@@ -37,6 +37,19 @@ jobs:
       with:
         node-version: '12.x'
 
+    # Nodejs cache
+    - name: Nodejs cache
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
     # Nodejs dependencies
     - run: npm install
       working-directory: electron
@@ -44,6 +57,19 @@ jobs:
     # Nodejs build web
     - run: npm run build:web
       working-directory: electron
+
+    # Rust cache
+    - name: Rust cache
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-rust-cargo
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
 
     # Rust target arm-unknown-linux-gnueabihf
     - uses: actions-rs/toolchain@v1
@@ -68,6 +94,11 @@ jobs:
     # Rust cargo deb
     - uses: actions-rs/cargo@v1
       with:
-        use-cross: true
         command: deb
         args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build
+
+    # Upload artifact
+    - uses: actions/upload-artifact@v1
+      with:
+        name: pisugar-server-deb
+        path: target/arm-unknown-linux-gnueabihf/deb
