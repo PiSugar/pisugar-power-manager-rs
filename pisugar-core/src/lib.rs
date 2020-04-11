@@ -125,14 +125,31 @@ pub fn sys_write_time(dt: DateTime<Local>) {
 /// PiSugar configuration
 #[derive(Default, Serialize, Deserialize)]
 pub struct PiSugarConfig {
-    pub auto_wake_time: [u8; 7],
+    #[serde(default)]
+    pub auto_wake_time: Option<DateTime<Local>>,
+
+    #[serde(default)]
     pub auto_wake_repeat: u8,
+
+    #[serde(default)]
     pub single_tap_enable: bool,
+
+    #[serde(default)]
     pub single_tap_shell: String,
+
+    #[serde(default)]
     pub double_tap_enable: bool,
+
+    #[serde(default)]
     pub double_tap_shell: String,
+
+    #[serde(default)]
     pub long_tap_enable: bool,
+
+    #[serde(default)]
     pub long_tap_shell: String,
+
+    #[serde(default)]
     pub auto_shutdown_level: f64,
 }
 
@@ -526,16 +543,11 @@ impl PiSugarCore {
 
         match Self::load_config(config_path.as_path()) {
             Ok(core) => {
-                if core
-                    .set_alarm(
-                        SD3078Time::from_dec(core.config.auto_wake_time.into()),
-                        core.config.auto_wake_repeat,
-                    )
-                    .is_ok()
-                {
-                    log::info!("Init alarm success");
-                } else {
-                    log::info!("Init alarm failed")
+                if let Some(datetime) = core.config.auto_wake_time {
+                    match core.set_alarm(datetime.into(), core.config.auto_wake_repeat) {
+                        Ok(_) => log::info!("Init alarm success"),
+                        Err(e) => log::warn!("Init alarm failed: {}", e),
+                    }
                 }
                 Ok(core)
             }

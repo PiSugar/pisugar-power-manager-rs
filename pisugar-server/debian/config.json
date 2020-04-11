@@ -1,13 +1,5 @@
 {
-    "auto_wake_time": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-    ],
+    "auto_wake_time": null,
     "auto_wake_repeat": 0,
     "single_tap_enable": false,
     "single_tap_shell": "",

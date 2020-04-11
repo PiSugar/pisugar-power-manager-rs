@@ -77,8 +77,12 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             },
                             "rtc_alarm_time" => match core.read_alarm_time() {
                                 Ok(time) => {
-                                    let datetime = time.try_into().unwrap_or(Local::now());
-                                    format!("{:?}", datetime)
+                                    if let Ok(datetime) = time.try_into() {
+                                        let datetime: DateTime<Local> = datetime;
+                                        format!("{:?}", datetime)
+                                    } else {
+                                        return err;
+                                    }
                                 }
                                 Err(e) => {
                                     log::error!("{}", e);
@@ -200,7 +204,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 match core.set_alarm(sd3078_time, weekday_repeat) {
                                     Ok(_) => {
                                         core.config_mut().auto_wake_repeat = weekday_repeat;
-                                        core.config_mut().auto_wake_time = sd3078_time.to_dec();
+                                        core.config_mut().auto_wake_time = Some(datetime);
                                         if let Err(e) = core.save_config() {
                                             log::warn!("{}", e);
                                         }
