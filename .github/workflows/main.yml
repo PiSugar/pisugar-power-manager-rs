@@ -111,7 +111,7 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: deb
-        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build
+        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build --no-strip
 
     # Upload artifact
     - uses: actions/upload-artifact@v1
