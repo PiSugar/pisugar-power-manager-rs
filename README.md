@@ -103,7 +103,11 @@ Build deb with cargo-deb
 
 Install
 
+    # Install
     sudo dpkg -i pisugar-server_<version>_<arch>.deb
+
+    # Uninstall/Purge
+    sudo dpkg -P pisugar-server
 
 Start systemd service
 
@@ -178,6 +182,10 @@ Examples:
     get battery
     get model
     <ctrl+c to break>
+
+## Release
+
+See https://github.com/PiSugar/pisugar-power-manager-rs/releases
 
 ## LICENSE
 
