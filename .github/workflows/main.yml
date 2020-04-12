@@ -105,12 +105,12 @@ jobs:
     steps:
     # Checkout
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v1
-      with:
-        name: web
-    - uses: actions/download-artifact@v1
-      with:
-        name: rust-target
+    # - uses: actions/download-artifact@v1
+    #   with:
+    #     name: web
+    # - uses: actions/download-artifact@v1
+    #   with:
+    #     name: rust-target
     # Nodejs dist
     - name: Nodejs dist
       uses: actions/cache@v1
