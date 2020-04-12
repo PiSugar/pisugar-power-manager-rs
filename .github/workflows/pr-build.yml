@@ -25,7 +25,7 @@ jobs:
         cache-name: cache-node-npm
       with:
         path: ~/.npm
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Nodjs modules
     - name: Nodejs modules cache
       uses: actions/cache@v1
@@ -33,7 +33,7 @@ jobs:
         cache-name: cache-node-modules
       with:
         path: electron/node_modules
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Nodejs dist
     - name: Nodejs dist cache
       uses: actions/cache@v1
@@ -41,7 +41,7 @@ jobs:
         cache-name: cache-node-dist
       with:
         path: electron/dist
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Nodejs dependencies
     - run: npm install
       working-directory: electron
@@ -62,7 +62,7 @@ jobs:
         cache-name: cache-rust-cargo
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Rust target cache
     - name: Rust target cache
       uses: actions/cache@v1
@@ -70,7 +70,7 @@ jobs:
         cache-name: cache-rust-target
       with:
         path: target
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Rust target arm-unknown-linux-gnueabihf
     - uses: actions-rs/toolchain@v1
       with:
@@ -99,7 +99,7 @@ jobs:
         cache-name: cache-node-dist
       with:
         path: electron/dist
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Rust cargo cache
     - name: Rust cargo cache
       uses: actions/cache@v1
@@ -107,7 +107,7 @@ jobs:
         cache-name: cache-rust-cargo
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Rust target cache
     - name: Rust target cache
       uses: actions/cache@v1
@@ -115,7 +115,7 @@ jobs:
         cache-name: cache-rust-target
       with:
         path: target
-        key: ${{ runner.os }}-cache-${{ env.cache-name }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Now, correct the build directory
     - run: |
         mkdir -p target/arm-unknown-linux-gnueabihf/release
