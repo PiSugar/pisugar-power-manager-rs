@@ -49,11 +49,6 @@ jobs:
     # Nodejs build web
     - run: npm run build:web
       working-directory: electron
-    # Upload stage result
-    - uses: actions/upload-artifact@v1
-      with:
-          name: pisugar-server-web
-          path: electron/dist
 
   rust-build:
     runs-on: ubuntu-latest
@@ -91,11 +86,6 @@ jobs:
         use-cross: true
         command: build
         args: --target arm-unknown-linux-gnueabihf --release
-    # Upload stage result
-    - uses: actions/upload-artifact@v1
-      with:
-          name: pisugar-server
-          path: target
 
   deb-packaging:
     runs-on: ubuntu-latest
