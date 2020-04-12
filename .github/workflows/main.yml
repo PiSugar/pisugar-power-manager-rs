@@ -11,13 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     # Checkout
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
     # Nodejs
-    - uses: actions/setup-node@v1
+    - name: Setup Nodejs
+      uses: actions/setup-node@v1
       with:
         node-version: '12.x'
     # Nodejs cache
-    - name: Nodejs cache
+    - name: Nodejs npm cache
       uses: actions/cache@v1
       env:
         cache-name: cache-node-modules
@@ -29,7 +31,7 @@ jobs:
           ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Nodejs dist
-    - name: Nodejs dist
+    - name: Nodejs dist cache
       uses: actions/cache@v1
       env:
         cache-name: cache-node-dist
@@ -47,16 +49,17 @@ jobs:
     - run: npm run build:web
       working-directory: electron
     # Upload stage result
-    # - uses: actions/upload-artifact@v1
-    #   with:
-    #       name: web
-    #       path: electron/dist
+    - uses: actions/upload-artifact@v1
+      with:
+          name: pisugar-server-web
+          path: electron/dist
 
   rust-build:
     runs-on: ubuntu-latest
     steps:
     # Check out
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
     # Rust cache
     - name: Rust cargo cache
       uses: actions/cache@v1
@@ -94,10 +97,10 @@ jobs:
         command: build
         args: --target arm-unknown-linux-gnueabihf --release
     # Upload stage result
-    # - uses: actions/upload-artifact@v1
-    #   with:
-    #       name: rust-target
-    #       path: target
+    - uses: actions/upload-artifact@v1
+      with:
+          name: pisugar-server
+          path: target/release/pisugar-server
 
   deb-packaging:
     runs-on: ubuntu-latest
@@ -105,14 +108,8 @@ jobs:
     steps:
     # Checkout
     - uses: actions/checkout@v2
-    # - uses: actions/download-artifact@v1
-    #   with:
-    #     name: web
-    # - uses: actions/download-artifact@v1
-    #   with:
-    #     name: rust-target
     # Nodejs dist
-    - name: Nodejs dist
+    - name: Nodejs dist cache
       uses: actions/cache@v1
       env:
         cache-name: cache-node-dist
@@ -152,7 +149,8 @@ jobs:
         mkdir -p target/arm-unknown-linux-gnueabihf/release
         cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
     # Rust install cargo-deb
-    - uses: actions-rs/install@v0.1
+    - name: Install cargo-deb
+      uses: actions-rs/install@v0.1
       with:
         crate: cargo-deb
         version: latest
