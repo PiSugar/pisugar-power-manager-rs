@@ -23,10 +23,10 @@ jobs:
         cache-name: cache-node-modules
       with:
         path: ~/.npm
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Nodejs dist
     - name: Nodejs dist
@@ -35,10 +35,10 @@ jobs:
         cache-name: cache-node-dist
       with:
         path: electron/dist
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Nodejs dependencies
     - run: npm install
@@ -47,10 +47,10 @@ jobs:
     - run: npm run build:web
       working-directory: electron
     # Upload stage result
-    - uses: actions/upload-artifact@v1
-      with:
-          name: web
-          path: electron/dist
+    # - uses: actions/upload-artifact@v1
+    #   with:
+    #       name: web
+    #       path: electron/dist
 
   rust-build:
     runs-on: ubuntu-latest
@@ -64,10 +64,10 @@ jobs:
         cache-name: cache-rust-cargo
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Rust target cache
     - name: Rust target cache
@@ -76,10 +76,10 @@ jobs:
         cache-name: cache-rust-target
       with:
         path: target
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Rust target arm-unknown-linux-gnueabihf
     - uses: actions-rs/toolchain@v1
@@ -94,10 +94,10 @@ jobs:
         command: build
         args: --target arm-unknown-linux-gnueabihf --release
     # Upload stage result
-    - uses: actions/upload-artifact@v1
-      with:
-          name: rust-target
-          path: target
+    # - uses: actions/upload-artifact@v1
+    #   with:
+    #       name: rust-target
+    #       path: target
 
   deb-packaging:
     runs-on: ubuntu-latest
@@ -118,10 +118,10 @@ jobs:
         cache-name: cache-node-dist
       with:
         path: electron/dist
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Rust cache
     - name: Rust cargo cache
@@ -130,10 +130,10 @@ jobs:
         cache-name: cache-rust-cargo
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Rust target cache
     - name: Rust target cache
@@ -142,10 +142,10 @@ jobs:
         cache-name: cache-rust-target
       with:
         path: target
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
           ${{ runner.os }}-
     # Now, correct the build directory
     - run: |
