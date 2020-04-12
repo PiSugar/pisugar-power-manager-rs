@@ -22,9 +22,21 @@ jobs:
     - name: Nodejs npm cache
       uses: actions/cache@v1
       env:
-        cache-name: cache-node-modules
+        cache-name: cache-node-npm
       with:
         path: ~/.npm
+        key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.cache-name }}-
+          ${{ runner.os }}-cache-
+          ${{ runner.os }}-
+    # Nodjs modules
+    - name: Nodejs modules cache
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-node-modules2
+      with:
+        path: electron/node_modules
         key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
           ${{ runner.os }}-cache-${{ env.cache-name }}-
@@ -100,7 +112,7 @@ jobs:
     - uses: actions/upload-artifact@v1
       with:
           name: pisugar-server
-          path: target/release/pisugar-server
+          path: target
 
   deb-packaging:
     runs-on: ubuntu-latest
