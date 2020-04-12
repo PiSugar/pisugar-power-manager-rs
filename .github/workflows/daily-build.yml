@@ -58,6 +58,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: master
+    - run: sed -e "/.*replace-with.*//g" -i .cargo/config
     # Rust cache
     - name: Rust cargo cache
       uses: actions/cache@v1
@@ -96,6 +97,7 @@ jobs:
       uses: actions/checkout@v2
       with:
           ref: master
+    - run: sed -e "/.*replace-with.*//g" -i .cargo/config
     # Nodejs dist
     - name: Nodejs dist cache
       uses: actions/cache@v1
