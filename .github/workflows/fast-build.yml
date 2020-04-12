@@ -2,6 +2,8 @@ name: Fast build on master branch
 
 
 on:
+  push:
+    branches: [ master ]
   schedule:
     - cron: '*/5 * * * *'
 
