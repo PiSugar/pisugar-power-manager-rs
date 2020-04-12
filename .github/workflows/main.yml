@@ -9,7 +9,6 @@ on:
 jobs:
   nodejs-build:
     runs-on: ubuntu-latest
-    needs: checkout
     steps:
     # Checkout
     - uses: actions/checkout@v2
@@ -42,7 +41,6 @@ jobs:
 
   rust-build:
     runs-on: ubuntu-latest
-    needs: checkout
     steps:
     # Check out
     - uses: actions/checkout@v2
