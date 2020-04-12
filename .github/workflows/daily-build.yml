@@ -1,10 +1,9 @@
-name: CI
+name: Daily build on master branch
+
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  schedule:
+    - cron: '0 2 * * *'
 
 jobs:
   nodejs-build:
@@ -13,6 +12,8 @@ jobs:
     # Checkout
     - name: Checkout
       uses: actions/checkout@v2
+      with:
+        ref: master
     # Nodejs
     - name: Setup Nodejs
       uses: actions/setup-node@v1
@@ -60,6 +61,8 @@ jobs:
     # Check out
     - name: Checkout
       uses: actions/checkout@v2
+      with:
+        ref: master
     # Rust cache
     - name: Rust cargo cache
       uses: actions/cache@v1
@@ -107,7 +110,10 @@ jobs:
     needs: [nodejs-build, rust-build]
     steps:
     # Checkout
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+          ref: master
     # Nodejs dist
     - name: Nodejs dist cache
       uses: actions/cache@v1
