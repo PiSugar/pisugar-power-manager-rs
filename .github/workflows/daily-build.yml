@@ -146,7 +146,8 @@ jobs:
         command: deb
         args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build --no-strip
     # Upload artifact
-    - uses: actions/upload-artifact@v1
+    - name: Checkout
+      uses: actions/upload-artifact@v1
       with:
         name: pisugar-server-deb
         path: target/arm-unknown-linux-gnueabihf/debian
