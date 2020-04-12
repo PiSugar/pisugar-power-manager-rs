@@ -1,6 +1,7 @@
 # pisugar-power-manager-rs
 
-<img src="https://travis-ci.com/PiSugar/pisugar-power-manager-rs.svg?branch=master">
+![Latest master](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/Fast%20build%20on%20master%20branch/badge.svg?branch=master)
+![Latest PR](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/PR%20build%20on%20master%20branch/badge.svg)
 
 <p align="center">
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
@@ -95,7 +96,7 @@ Build deb with cargo-deb
     # linux
     cargo deb --target arm-unknown-linux-gnueabihf \
         --manifest-path=pisugar-server/Cargo.toml
-    
+
     # macos
     cargo deb --target arm-unknown-linux-musleabihf \
         --manifest-path=pisugar-server/Cargo.toml
@@ -108,19 +109,19 @@ Start systemd service
 
     # reload daemon
     sudo systemctl daemon-reload
-    
+
     # check status
     sudo systemctl status pisugar-server
-    
+
     # start service
     sudo systemctl start pisugar-server
-    
+
     # stop service
     sudo systemctl stop pisugar-server
-    
+
     # disable service
     sudo systemctl disable pisugar-server
-    
+
     # enable service
     sudo systemctl enable pisugar-server
 
