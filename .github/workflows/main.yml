@@ -28,12 +28,25 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
+    # Nodejs dist
+    - name: Nodejs dist
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-node-dist
+      with:
+        path: electron/dist
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
     # Nodejs dependencies
     - run: npm install
       working-directory: electron
     # Nodejs build web
     - run: npm run build:web
       working-directory: electron
+    # Upload stage result
     - uses: actions/upload-artifact@v1
       with:
           name: web
@@ -80,6 +93,7 @@ jobs:
         use-cross: true
         command: build
         args: --target arm-unknown-linux-gnueabihf --release
+    # Upload stage result
     - uses: actions/upload-artifact@v1
       with:
           name: rust-target
@@ -97,9 +111,18 @@ jobs:
     - uses: actions/download-artifact@v1
       with:
         name: rust-target
-    - run: |
-        mkdir -p target/arm-unknown-linux-gnueabihf/release
-        cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
+    # Nodejs dist
+    - name: Nodejs dist
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-node-dist
+      with:
+        path: electron/dist
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
     # Rust cache
     - name: Rust cargo cache
       uses: actions/cache@v1
@@ -124,6 +147,10 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
+    # Now, correct the build directory
+    - run: |
+        mkdir -p target/arm-unknown-linux-gnueabihf/release
+        cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
     # Rust install cargo-deb
     - uses: actions-rs/install@v0.1
       with:
