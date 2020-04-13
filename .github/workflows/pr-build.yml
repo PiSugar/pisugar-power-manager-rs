@@ -1,4 +1,4 @@
-name: PR build on master branch
+name: PR build on master
 
 on:
   push:

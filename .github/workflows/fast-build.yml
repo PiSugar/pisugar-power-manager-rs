@@ -1,5 +1,5 @@
-name: Fast build on master branch
-
+# Hourly build, cache not allowed
+name: Hourly build on master
 
 on:
   push:
