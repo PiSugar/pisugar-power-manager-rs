@@ -1,7 +1,7 @@
 # pisugar-power-manager-rs
 
-![Latest master](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/Fast%20build%20on%20master%20branch/badge.svg?branch=master)
-![Latest PR](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/PR%20build%20on%20master%20branch/badge.svg)
+![Latest master](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/Hourly%20build%20on%20master/badge.svg?branch=master)
+![Latest PR](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/PR%20build%20on%20master/badge.svg)
 
 <p align="center">
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
