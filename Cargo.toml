@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "pisugar-core",
-    "pisugar-server"
+    "pisugar-server",
+    "pisugar-poweroff"
 ]
 
 [profile.release]

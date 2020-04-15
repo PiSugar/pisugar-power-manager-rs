@@ -671,4 +671,17 @@ impl PiSugarCore {
     pub fn config_mut(&mut self) -> &mut PiSugarConfig {
         &mut self.config
     }
+
+    pub fn force_shutdown(&self) -> Result<()> {
+        // exec 30 sync before shutdown
+        for _ in 0..30 {
+            let _ = execute_shell("sync");
+        }
+
+        if self.status.mode() == MODEL_V2_PRO {
+            self.status.ip5312.force_shutdown()
+        } else {
+            self.status.ip5209.force_shutdown()
+        }
+    }
 }

@@ -126,11 +126,16 @@ jobs:
       with:
         crate: cargo-deb
         version: latest
-    # Rust cargo deb
+    # Rust cargo deb - pisugar-server
     - uses: actions-rs/cargo@v1
       with:
         command: deb
         args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build --no-strip
+    # Rust cargo deb - pisugar-poweroff
+    - uses: actions-rs/cargo@v1
+      with:
+        command: deb
+        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-poweroff/Cargo.toml --no-build --no-strip
     # Upload artifact
     - name: Checkout
       uses: actions/upload-artifact@v1

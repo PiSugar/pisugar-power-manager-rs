@@ -1,0 +1,2 @@
+#!/bin/sh
+deb-systemd-invoke stop pisugar-poweroff.service

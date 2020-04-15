@@ -1,0 +1,30 @@
+[package]
+name = "pisugar-poweroff"
+version = "0.1.0"
+authors = ["PiSugar"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "2"
+pisugar-core = { path = "../pisugar-core" }
+
+
+[[bin]]
+name = "pisugar-poweroff"
+
+[package.metadata.deb]
+license-file = ["../LICENSE", "0"]
+copyright = "2020, PiSugar team"
+extended-description = """\
+PiSugar poweroff."""
+depends = "$auto, systemd"
+section = "utility"
+priority = "optional"
+maintainer-scripts = "pisugar-poweroff/debian"                                  # working dir relatived
+assets = [
+    ["target/release/pisugar-poweroff", "usr/bin/", "755"],                      # special
+    ["debian/pisugar-poweroff.default", "etc/default/pisugar-poweroff", "644"],
+    ["debian/pisugar-poweroff.service", "lib/systemd/system/", "644"]
+]

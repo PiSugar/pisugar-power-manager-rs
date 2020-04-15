@@ -109,4 +109,14 @@ impl IP5209 {
         let v = self.i2c.smbus_read_byte(0x55)?;
         Ok(v)
     }
+
+    /// Force shutdown
+    pub fn force_shutdown(&self) -> Result<()> {
+        // force shutdown
+        let mut t = self.i2c.smbus_read_byte(0x01)?;
+        t &= 0b1111_1011;
+        self.i2c.smbus_write_byte(0x01, t)?;
+
+        Ok(())
+    }
 }

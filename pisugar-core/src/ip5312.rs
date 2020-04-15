@@ -110,14 +110,9 @@ impl IP5312 {
     /// Force shutdown
     pub fn force_shutdown(&self) -> Result<()> {
         // enable force shutdown
-        let mut t = self.i2c.smbus_read_byte(0x5B)?;
-        t |= 0b0001_0010;
-        self.i2c.smbus_write_byte(0x5B, t)?;
-
-        // force shutdown
-        t = self.i2c.smbus_read_byte(0x5B)?;
-        t &= 0b1110_1111;
-        self.i2c.smbus_write_byte(0x5B, t)?;
+        let mut t = self.i2c.smbus_read_byte(0x01)?;
+        t &= 0b1111_1011;
+        self.i2c.smbus_write_byte(0x01, t)?;
 
         Ok(())
     }

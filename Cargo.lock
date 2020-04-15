@@ -636,6 +636,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pisugar-poweroff"
+version = "0.1.0"
+dependencies = [
+ "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pisugar-core 1.0.0",
+]
+
+[[package]]
 name = "pisugar-server"
 version = "1.0.0"
 dependencies = [

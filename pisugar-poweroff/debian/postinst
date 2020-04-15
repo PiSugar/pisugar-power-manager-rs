@@ -1,0 +1,7 @@
+#!/bin/sh
+deb-systemd-helper unmask pisugar-poweroff.service >/dev/null || true
+if deb-systemd-helper --quiet was-enabled pisugar-poweroff.service; then
+  deb-systemd-helper enable pisugar-poweroff.service >/dev/null || true
+else
+  deb-systemd-helper update-state pisugar-poweroff.service >/dev/null || true
+fi

@@ -19,6 +19,12 @@ On raspberry pi
 
 `Interfacing Options -> I2C -> Yes`
 
+## Modules
+
+1. pisugar-core: Core libary
+2. pisugar-server: Http/tcp/uds server that provide PiSugar battery status
+3. pisugar-poweroff: Systemd service that shut down PiSugar battery
+
 ## Compilation
 
 CPU architecture of raspberry pi is different from your linux/windows PC or macbook, there are two ways of compiling the code:
@@ -94,22 +100,22 @@ Build deb with cargo-deb
     cargo install cargo-deb
 
     # linux
-    cargo deb --target arm-unknown-linux-gnueabihf \
-        --manifest-path=pisugar-server/Cargo.toml
+    cargo deb --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml
+    cargo deb --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-poweroff/Cargo.toml
 
     # macos
-    cargo deb --target arm-unknown-linux-musleabihf \
-        --manifest-path=pisugar-server/Cargo.toml
+    cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
+    cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
 
 Install
 
     # Install
-    sudo dpkg -i pisugar-server_<version>_<arch>.deb
+    sudo dpkg -i pisugar-xxx_<version>_<arch>.deb
 
     # Uninstall/Purge
-    sudo dpkg -P pisugar-server
+    sudo dpkg -P pisugar-xxx
 
-Start systemd service
+Commands of controlling pisugar-server systemd service
 
     # reload daemon
     sudo systemctl daemon-reload
@@ -129,12 +135,18 @@ Start systemd service
     # enable service
     sudo systemctl enable pisugar-server
 
+ (pisugar-poweroff run once just before linux poweroff)
+
 Now, navigate to `http://x.x.x.x:8421` on your browser and see PiSugar power status.
 
-Configuration files:
+Configuration files of pisugar-server
 
     /etc/default/pisugar-server
     /etc/pisugar-server/config.json
+
+Configuration files of pisugar-poweroff
+
+    /etc/default/pisugar-poweroff
 
 ### RLS
 

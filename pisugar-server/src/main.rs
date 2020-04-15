@@ -280,6 +280,17 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     }
                     return err;
                 }
+                "force_shutdown" => {
+                    match core.force_shutdown() {
+                        Ok(_) => {
+                            return format!("{}: done\n", parts[0]);
+                        }
+                        Err(e) => {
+                            log::error!("{}", e);
+                        }
+                    }
+                    return err;
+                }
                 _ => return err,
             }
         };
