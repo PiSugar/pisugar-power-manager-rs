@@ -150,8 +150,8 @@ Configuration files of pisugar-poweroff
 
 To reconfigure after installation
 
-    sudo dpkg-reconfig pisugar-server
-    sudo dpkg-reconfig pisugar-poweroff
+    sudo dpkg-reconfigure pisugar-server
+    sudo dpkg-reconfigure pisugar-poweroff
 
 To preconfigure before installation
 
