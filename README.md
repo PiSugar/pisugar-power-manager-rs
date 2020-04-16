@@ -95,9 +95,9 @@ Build web content
 
     (cd electron && npm install && npm run build:web)
 
-Build deb with cargo-deb
+Build deb with cargo-deb (need latest cargo-deb that support templates)
 
-    cargo install cargo-deb
+    cargo install --git https://github.com/mmstick/cargo-deb.git
 
     # linux
     cargo deb --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml
@@ -147,6 +147,16 @@ Configuration files of pisugar-server
 Configuration files of pisugar-poweroff
 
     /etc/default/pisugar-poweroff
+
+To reconfigure after installation
+
+    sudo dpkg-reconfig pisugar-server
+    sudo dpkg-reconfig pisugar-poweroff
+
+To preconfigure before installation
+
+    sudo dpkg-preconfigure pisugar-server_<ver>_<arch>.deb
+    sudo dpkg-preconfigure pisugar-poweroff_<ver>_<arch>.deb
 
 ### RLS
 

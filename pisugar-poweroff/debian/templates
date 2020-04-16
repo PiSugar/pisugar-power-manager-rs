@@ -1,5 +1,5 @@
 Template: pisugar-poweroff/countdown
 Type: select
-Choices: 0, 3, 6, 9
+Choices: 0, 3, 10, 30, 60
 Default: 3
-Description: PiSugar poweroff countdown seconds.
+Description: PiSugar poweroff countdown seconds, e.g. 3 seconds.

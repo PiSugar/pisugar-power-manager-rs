@@ -7,14 +7,14 @@ Description: PiSugar server listening address (choose 127.0.0.1 to prohibit publ
 Template: pisugar-server/web
 Type: boolean
 Default: true
-Description: enable/disable http server on port 8421, and websocket on port 8422.
+Description: Enable http server on port 8421, and websocket on port 8422.
 
 Template: pisugar-server/tcp
 Type: boolean
 Default: true
-Description: enable/disable tcp server on port 8423.
+Description: Enable tcp server on port 8423.
 
 Template: pisugar-server/uds
 Type: boolean
 Default: true
-Description: enable/disable uds server on /tmp/pisugar-server.sock.
+Description: Enable uds server on /tmp/pisugar-server.sock.

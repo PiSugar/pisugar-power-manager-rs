@@ -8,18 +8,18 @@ if [ -e /usr/share/debconf/confmodule ]; then
   db_get pisugar-server/address
   ADDR="$RET"
 
-  db_get pisugar-server/http
-  if [ "$RET" == "true" ]; then
+  db_get pisugar-server/web
+  if test "x$RET" = "xtrue"; then
     OPTS="$OPTS --web /usr/share/pisugar-server/web --http $ADDR:8421 --ws $ADDR:8422 "
   fi
 
   db_get pisugar-server/tcp
-  if [ "$RET" == "true" ]; then
+  if test "x$RET" = "xtrue"; then
     OPTS="$OPTS --tcp $ADDR:8423"
   fi
 
   db_get pisugar-server/uds
-  if [ "$RET" == "true" ]; then
+  if test "x$RET" = "xtrue"; then
     OPTS="$OPTS --uds /tmp/pisugar-server.sock"
   fi
 
