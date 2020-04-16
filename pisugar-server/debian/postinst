@@ -1,4 +1,31 @@
 #!/bin/sh
+
+if [ -e /usr/share/debconf/confmodule ]; then
+  OPTS="--config config.json"
+
+  . /usr/share/debconf/confmodule
+
+  db_get pisugar-server/address
+  ADDR="$RET"
+
+  db_get pisugar-server/http
+  if [ "$RET" == "true" ]; then
+    OPTS="$OPTS --web /usr/share/pisugar-server/web --http $ADDR:8421 --ws $ADDR:8422 "
+  fi
+
+  db_get pisugar-server/tcp
+  if [ "$RET" == "true" ]; then
+    OPTS="$OPTS --tcp $ADDR:8423"
+  fi
+
+  db_get pisugar-server/uds
+  if [ "$RET" == "true" ]; then
+    OPTS="$OPTS --uds /tmp/pisugar-server.sock"
+  fi
+
+  echo "OPTS=$OPTS" >/etc/default/pisugar-server
+fi
+
 deb-systemd-helper unmask pisugar-server.service >/dev/null || true
 if deb-systemd-helper --quiet was-enabled pisugar-server.service; then
   deb-systemd-helper enable pisugar-server.service >/dev/null || true

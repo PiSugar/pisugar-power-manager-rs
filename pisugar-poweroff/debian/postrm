@@ -7,4 +7,14 @@ if [ "$1" = "remove" ]; then
   if [ -x "/usr/bin/deb-systemd-helper" ]; then
     deb-systemd-helper mask pisugar-poweroff.service >/dev/null
   fi
+
+  if [ -e /usr/share/debconf/confmodule ]; then
+    . /usr/share/debconf/confmodule
+    db_purge
+  fi
+fi
+
+if [ "$1" = "purge" -a -e /usr/share/debconf/confmodule ]; then
+  . /usr/share/debconf/confmodule
+  db_purge
 fi

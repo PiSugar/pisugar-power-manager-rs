@@ -1,0 +1,15 @@
+#!/bin/sh -e
+
+. /usr/share/debconf/confmodule
+
+db_input medium pisugar-server/address || true
+db_go
+
+db_input medium pisugar-server/http || true
+db_go
+
+db_input medium pisugar-server/tcp || true
+db_go
+
+db_input medium pisugar-server/uds || true
+db_go

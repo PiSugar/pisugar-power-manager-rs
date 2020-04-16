@@ -1,4 +1,12 @@
 #!/bin/sh
+
+if [ -e /usr/share/debconf/confmodule ]; then
+  . /usr/share/debconf/confmodule
+  db_get pisugar-poweroff/countdown
+  OPTS="--countdown $RET"
+  echo "OPTS=$OPTS" > /etc/default/pisugar-poweroff
+fi
+
 deb-systemd-helper unmask pisugar-poweroff.service >/dev/null || true
 if deb-systemd-helper --quiet was-enabled pisugar-poweroff.service; then
   deb-systemd-helper enable pisugar-poweroff.service >/dev/null || true

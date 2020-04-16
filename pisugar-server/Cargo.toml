@@ -6,7 +6,8 @@ edition = "2018"
 
 [dependencies]
 log = "0.4.8"
-env_logger = "0.7"
+syslog = "5"
+libc = "0.2"
 clap = "2"
 bytes = "0.5.4"
 ctrlc = "3.1.4"

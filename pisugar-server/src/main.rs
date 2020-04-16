@@ -21,9 +21,11 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio_util::codec::{BytesCodec, Framed};
 
+use log::LevelFilter;
 use pisugar_core::{
     sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
 };
+use syslog::{BasicLogger, Facility, Formatter3164};
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -447,8 +449,6 @@ async fn serve_http(http_addr: SocketAddr, web_dir: String) {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init();
-
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -458,28 +458,28 @@ async fn main() -> std::io::Result<()> {
                 .short("c")
                 .long("config")
                 .value_name("FILE")
-                .help("Config file in json format, e.g. /etc/pisugar.json"),
+                .help("Config file in json format, e.g. /etc/pisugar-server.json"),
         )
         .arg(
             Arg::with_name("tcp")
                 .short("t")
                 .long("tcp")
                 .value_name("ADDR")
-                .help("Tcp listen address, e.g. 0.0.0.0:8082"),
+                .help("Tcp listen address, e.g. 0.0.0.0:8423"),
         )
         .arg(
             Arg::with_name("uds")
                 .short("u")
                 .long("uds")
                 .value_name("FILE")
-                .help("Unix domain socket file, e.g. /tmp/pisugar.sock"),
+                .help("Unix domain socket file, e.g. /tmp/pisugar-server.sock"),
         )
         .arg(
             Arg::with_name("ws")
                 .short("w")
                 .long("ws")
                 .value_name("ADDR")
-                .help("Websocket listen address, e.g. 0.0.0.0:8081"),
+                .help("Websocket listen address, e.g. 0.0.0.0:8422"),
         )
         .arg(
             Arg::with_name("web")
@@ -493,9 +493,32 @@ async fn main() -> std::io::Result<()> {
                 .long("http")
                 .value_name("ADDR")
                 .default_value("0.0.0.0:8080")
-                .help("Http server listen address, e.g. 0.0.0.0:8080"),
+                .help("Http server listen address, e.g. 0.0.0.0:8421"),
+        )
+        .arg(
+            Arg::with_name("debug")
+                .short("d")
+                .long("debug")
+                .takes_value(false)
+                .help("Debug output"),
         )
         .get_matches();
+
+    // logging
+    let pid = unsafe { libc::getpid() };
+    let formatter = Formatter3164 {
+        facility: Facility::LOG_USER,
+        hostname: None,
+        process: env!("CARGO_PKG_NAME").into(),
+        pid: pid,
+    };
+    let logger = syslog::unix(formatter).expect("Could not connect to syslog");
+    log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
+        .map(|_| match matches.is_present("debug") {
+            true => log::set_max_level(LevelFilter::Info),
+            false => log::set_max_level(LevelFilter::Info),
+        })
+        .expect("Failed to set logger");
 
     // core
     let core = if matches.is_present("config") {

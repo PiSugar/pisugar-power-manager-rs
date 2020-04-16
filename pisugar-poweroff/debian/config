@@ -1,0 +1,6 @@
+#!/bin/sh -e
+
+. /usr/share/debconf/confmodule
+
+db_input medium pisugar-poweroff/countdown || true
+db_go
