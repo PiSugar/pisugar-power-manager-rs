@@ -68,7 +68,7 @@ impl IP5312 {
         // time, 8s
         let mut v = self.i2c.smbus_read_byte(0x06)?;
         v &= 0b0011_1111;
-        self.i2c.smbus_write_byte(0x07, v)?;
+        self.i2c.smbus_write_byte(0x06, v)?;
 
         // enable
         let mut v = self.i2c.smbus_read_byte(0x03)?;
