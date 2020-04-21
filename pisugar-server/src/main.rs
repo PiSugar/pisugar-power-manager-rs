@@ -23,9 +23,11 @@ use tokio_util::codec::{BytesCodec, Framed};
 
 use log::LevelFilter;
 use pisugar_core::{
-    sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
+    notify_shutdown_soon, sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time,
+    I2C_READ_INTERVAL, TIME_HOST,
 };
 use syslog::{BasicLogger, Facility, Formatter3164};
+use tokio::time::Duration;
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -108,6 +110,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "alarm_repeat" => format!("{}", core.config().auto_wake_repeat),
                             "safe_shutdown_level" => {
                                 format!("{}", core.config().auto_shutdown_level)
+                            }
+                            "safe_shutdown_delay" => {
+                                format!("{}", core.config().auto_shutdown_delay)
                             }
                             "button_enable" => {
                                 if parts.len() > 2 {
@@ -228,7 +233,25 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "set_safe_shutdown_level" => {
                     if parts.len() >= 1 {
                         if let Ok(level) = parts[1].parse::<f64>() {
+                            // level between 0-30
+                            let level = if level < 0.0 { 0.0 } else { level };
+                            let level = if level > 30.0 { 30.0 } else { level };
                             core.config_mut().auto_shutdown_level = level;
+                            if let Err(e) = core.save_config() {
+                                log::error!("{}", e);
+                            }
+                            return format!("{}: done\n", parts[0]);
+                        }
+                    }
+                    return err;
+                }
+                "set_safe_shutdown_delay" => {
+                    if parts.len() >= 1 {
+                        if let Ok(delay) = parts[1].parse::<f64>() {
+                            // delay between 0-30
+                            let delay = if delay < 0.0 { 0.0 } else { delay };
+                            let delay = if delay > 120.0 { 120.0 } else { delay };
+                            core.config_mut().auto_shutdown_delay = delay;
                             if let Err(e) = core.save_config() {
                                 log::error!("{}", e);
                             }
@@ -635,9 +658,35 @@ async fn main() -> std::io::Result<()> {
     // polling
     let core_cloned = core.clone();
     let mut interval = tokio::time::interval(I2C_READ_INTERVAL);
+    let mut notify_at = tokio::time::Instant::now();
     loop {
         interval.tick().await;
         let mut core = core_cloned.lock().expect("unexpected lock failed");
         poll_pisugar_status(&mut core, &event_tx);
+
+        // check low battery and notify shutdown soon
+        let now = tokio::time::Instant::now();
+        let level = core.level();
+        let auto_shutdown_level = core.config().auto_shutdown_level;
+        let message = "Low battery, shutdown soon...";
+        if level < auto_shutdown_level + 1.0 {
+            // urgent, every 3s
+            if notify_at + Duration::from_secs(3) < now {
+                notify_shutdown_soon(message);
+                notify_at = now;
+            }
+        } else if level < auto_shutdown_level + 2.0 {
+            // warn, every 10s
+            if notify_at + Duration::from_secs(10) < now {
+                notify_shutdown_soon(message);
+                notify_at = now;
+            }
+        } else if level < auto_shutdown_level + 3.0 {
+            // info, every 30s
+            if notify_at + Duration::from_secs(30) < now {
+                notify_shutdown_soon(message);
+                notify_at = now;
+            }
+        }
     }
 }

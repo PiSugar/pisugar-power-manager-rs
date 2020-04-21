@@ -151,6 +151,9 @@ pub struct PiSugarConfig {
 
     #[serde(default)]
     pub auto_shutdown_level: f64,
+
+    #[serde(default)]
+    pub auto_shutdown_delay: f64,
 }
 
 impl PiSugarConfig {
@@ -439,10 +442,20 @@ impl PiSugarStatus {
             // auto shutdown
             log::debug!("Battery level: {}", self.level());
             if self.level() <= config.auto_shutdown_level {
+                let begin_at = std::time::Instant::now();
                 loop {
-                    log::error!("Low battery, will power off...");
-                    let _ = execute_shell("/sbin/shutdown --poweroff 0");
-                    thread::sleep(std::time::Duration::from_millis(3000));
+                    let now = std::time::Instant::now();
+                    let seconds = now.duration_since(begin_at).as_millis() as f64;
+                    let remains = config.auto_shutdown_delay - seconds;
+                    let remains = if remains < 0.0 { 0.0 } else { remains };
+                    let message = format!("Low battery, will power off after {} seconds", remains);
+                    log::error!("{}", message);
+                    notify_shutdown_soon(message.as_str());
+
+                    if remains <= 0.0 {
+                        let _ = execute_shell("/sbin/shutdown --poweroff 0");
+                    }
+                    thread::sleep(std::time::Duration::from_millis(1000));
                 }
             }
 
@@ -516,6 +529,12 @@ fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
     let args = ["-c", shell];
     let mut child = Command::new("/bin/sh").args(&args).spawn()?;
     child.wait()
+}
+
+/// Notify shutdown with message
+pub fn notify_shutdown_soon(message: &str) {
+    let shell = format!("/usr/bin/wall -n '{}'", message);
+    let _ = execute_shell(shell.as_str());
 }
 
 /// Core
