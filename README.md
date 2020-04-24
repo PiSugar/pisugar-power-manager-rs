@@ -189,6 +189,7 @@ Default ports:
 | get button_enable       | custom button enable status | button_enable: [single\|double\|long] [true\|false] |
 | get button_shell        | shell script when button is clicked  | button_shell: [single\|double\|long] [shell] |
 | get safe_shutdown_level | auto shutdown level | safe_shutdown_level: [number] |
+| get safe_shutdown_delay | auto shutdown delay | safe_shutdown_delay: [number] |
 | rtc_pi2rtc | sync time pi => rtc | |
 | rtc_rtc2pi | sync time rtc => pi | |
 | rtc_web | sync time web => rtc & pi | |
@@ -197,6 +198,7 @@ Default ports:
 | set_button_enable | auto shutdown level % | set_button_enable: [single\|double\|long] [0\|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level: [single\|double\|long] [shell] |
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level: 3 |
+| set_safe_shutdown_delay | set auto shutdown delay % | safe_shutdown_delay: 30|
 
 Examples:
 
