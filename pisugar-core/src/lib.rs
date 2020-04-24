@@ -7,7 +7,6 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
-use std::thread;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Datelike, Local, Timelike};
@@ -15,13 +14,13 @@ use rppal::i2c::Error as I2cError;
 use serde::export::Result::Err;
 use serde::{Deserialize, Serialize};
 
-mod ip5209;
-mod ip5312;
-mod sd3078;
-
 pub use ip5209::IP5209;
 pub use ip5312::IP5312;
 pub use sd3078::*;
+
+mod ip5209;
+mod ip5312;
+mod sd3078;
 
 /// Time host
 pub const TIME_HOST: &str = "http://cdn.pisugar.com";
@@ -438,26 +437,7 @@ impl PiSugarStatus {
                     self.update_intensity(i, now)
                 }
             }
-
-            // auto shutdown
             log::debug!("Battery level: {}", self.level());
-            if self.level() <= config.auto_shutdown_level {
-                let begin_at = std::time::Instant::now();
-                loop {
-                    let now = std::time::Instant::now();
-                    let seconds = now.duration_since(begin_at).as_millis() as f64;
-                    let remains = config.auto_shutdown_delay - seconds;
-                    let remains = if remains < 0.0 { 0.0 } else { remains };
-                    let message = format!("Low battery, will power off after {} seconds", remains);
-                    log::error!("{}", message);
-                    notify_shutdown_soon(message.as_str());
-
-                    if remains <= 0.0 {
-                        let _ = execute_shell("/sbin/shutdown --poweroff 0");
-                    }
-                    thread::sleep(std::time::Duration::from_millis(1000));
-                }
-            }
 
             // rtc battery charging
             if (self.sd3078.read_battery_low_flag().ok() == Some(true))
@@ -525,7 +505,7 @@ fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
 }
 
 /// Execute shell with sh
-fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
+pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
     let args = ["-c", shell];
     let mut child = Command::new("/bin/sh").args(&args).spawn()?;
     child.wait()

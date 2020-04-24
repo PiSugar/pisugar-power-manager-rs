@@ -16,18 +16,18 @@ use futures_channel::mpsc::unbounded;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Client;
 use hyper::Server;
+use log::LevelFilter;
+use syslog::{BasicLogger, Facility, Formatter3164};
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
+use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
 
-use log::LevelFilter;
 use pisugar_core::{
-    notify_shutdown_soon, sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time,
+    execute_shell, notify_shutdown_soon, sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time,
     I2C_READ_INTERVAL, TIME_HOST,
 };
-use syslog::{BasicLogger, Facility, Formatter3164};
-use tokio::time::Duration;
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -340,18 +340,16 @@ where
     let mut tx_cloned = tx.clone();
     tokio::spawn(async move {
         while let Some(Ok(buf)) = stream.next().await {
-            let req = String::from_utf8_lossy(buf.as_ref())
-                .replace("\r", "")
-                .replace("\n", "");
-            if req.len() == 0 {
-                log::debug!("Request ended");
-                break;
+            let reqs = String::from_utf8_lossy(buf.as_ref());
+            for req in reqs.split("\n") {
+                let req = req.replace("\r", "");
+                if req.len() == 0 {
+                    log::debug!("Request ended");
+                    return;
+                }
+                let resp = handle_request(core.clone(), req.as_str());
+                tx_cloned.send(resp).await.expect("Channel failed");
             }
-            let resp = handle_request(core.clone(), req.as_str());
-            tx_cloned
-                .send(resp)
-                .await
-                .expect("Unexpected channel failed");
         }
     });
 
@@ -538,7 +536,7 @@ async fn main() -> std::io::Result<()> {
     let logger = syslog::unix(formatter).expect("Could not connect to syslog");
     log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
         .map(|_| match matches.is_present("debug") {
-            true => log::set_max_level(LevelFilter::Info),
+            true => log::set_max_level(LevelFilter::Debug),
             false => log::set_max_level(LevelFilter::Info),
         })
         .expect("Failed to set logger");
@@ -659,34 +657,43 @@ async fn main() -> std::io::Result<()> {
     let core_cloned = core.clone();
     let mut interval = tokio::time::interval(I2C_READ_INTERVAL);
     let mut notify_at = tokio::time::Instant::now();
+    let mut shutdown_at = tokio::time::Instant::now();
     loop {
         interval.tick().await;
+        log::debug!("Polling");
         let mut core = core_cloned.lock().expect("unexpected lock failed");
         poll_pisugar_status(&mut core, &event_tx);
 
-        // check low battery and notify shutdown soon
-        let now = tokio::time::Instant::now();
-        let level = core.level();
-        let auto_shutdown_level = core.config().auto_shutdown_level;
-        let message = "Low battery, shutdown soon...";
-        if level < auto_shutdown_level + 1.0 {
-            // urgent, every 3s
-            if notify_at + Duration::from_secs(3) < now {
-                notify_shutdown_soon(message);
+        // auto shutdown
+        if core.level() <= core.config().auto_shutdown_level {
+            let now = tokio::time::Instant::now();
+            let seconds = now.duration_since(shutdown_at).as_millis() as f64;
+            let remains = core.config().auto_shutdown_delay - seconds;
+            let remains = if remains < 0.0 { 0.0 } else { remains };
+
+            let should_notify = if remains <= 0.0 {
+                false
+            } else if remains < 30.0 {
+                notify_at + Duration::from_secs(1) < now
+            } else if remains < 60.0 {
+                notify_at + Duration::from_secs(5) < now
+            } else if remains < 120.0 {
+                notify_at + Duration::from_secs(10) < now
+            } else {
+                false
+            };
+
+            if should_notify {
+                let message = format!("Low battery, will power off after {} seconds", remains);
+                notify_shutdown_soon(message.as_str());
                 notify_at = now;
             }
-        } else if level < auto_shutdown_level + 2.0 {
-            // warn, every 10s
-            if notify_at + Duration::from_secs(10) < now {
-                notify_shutdown_soon(message);
-                notify_at = now;
+
+            if remains <= 0.0 {
+                let _ = execute_shell("/sbin/shutdown --poweroff 0");
             }
-        } else if level < auto_shutdown_level + 3.0 {
-            // info, every 30s
-            if notify_at + Duration::from_secs(30) < now {
-                notify_shutdown_soon(message);
-                notify_at = now;
-            }
+        } else {
+            shutdown_at = tokio::time::Instant::now();
         }
     }
 }
