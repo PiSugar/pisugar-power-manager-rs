@@ -7,5 +7,6 @@
     "double_tap_shell": "",
     "long_tap_enable": false,
     "long_tap_shell": "",
-    "auto_shutdown_level": 0.0
+    "auto_shutdown_level": 0.0,
+    "auto_shutdown_delay": 0.0
 }
