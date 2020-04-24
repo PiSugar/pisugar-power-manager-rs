@@ -345,19 +345,26 @@ where
                 let req = req.replace("\r", "");
                 if req.len() == 0 {
                     log::debug!("Request ended");
+                    tx_cloned.send(None).await.expect("Channel failed");
                     return;
                 }
                 let resp = handle_request(core.clone(), req.as_str());
-                tx_cloned.send(resp).await.expect("Channel failed");
+                tx_cloned.send(Some(resp)).await.expect("Channel failed");
             }
         }
     });
 
     // button event
-    tokio::spawn(event_rx.map(Ok).forward(tx));
+    tokio::spawn(event_rx.map(|event| Ok(Some(event))).forward(tx));
 
     // send back
-    tokio::spawn(rx.map(|s| Ok(Bytes::from(s))).forward(sink));
+    tokio::spawn(
+        rx.map(|s| match s {
+            Some(s) => Ok(Bytes::from(s)),
+            None => Err(io::ErrorKind::Other.into()),
+        })
+        .forward(sink),
+    );
 
     Ok(())
 }
