@@ -341,17 +341,19 @@ where
     tokio::spawn(async move {
         while let Some(Ok(buf)) = stream.next().await {
             let reqs = String::from_utf8_lossy(buf.as_ref());
+            let reqs = reqs.trim_end_matches("\n");
             for req in reqs.split("\n") {
+                log::debug!("Req: {}", req);
                 let req = req.replace("\r", "");
-                if req.len() == 0 {
-                    log::debug!("Request ended");
-                    tx_cloned.send(None).await.expect("Channel failed");
-                    return;
-                }
                 let resp = handle_request(core.clone(), req.as_str());
+                log::debug!("Resp: {}", resp);
                 tx_cloned.send(Some(resp)).await.expect("Channel failed");
             }
         }
+        // delay for 100 millis
+        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tx_cloned.send(None).await.expect("Channel failed");
+        log::debug!("Stream close");
     });
 
     // button event
@@ -360,8 +362,14 @@ where
     // send back
     tokio::spawn(
         rx.map(|s| match s {
-            Some(s) => Ok(Bytes::from(s)),
-            None => Err(io::ErrorKind::Other.into()),
+            Some(s) => {
+                log::debug!("Sink send: {}", s);
+                Ok(Bytes::from(s))
+            }
+            None => {
+                log::debug!("Sink close");
+                Err(io::ErrorKind::Other.into())
+            }
         })
         .forward(sink),
     );
@@ -392,7 +400,7 @@ async fn handle_ws_connection(
         .await?;
     log::info!("WS connection established");
 
-    let (tx, rx) = unbounded::<String>();
+    let (tx, rx) = unbounded();
     let (sink, mut stream) = ws_stream.split();
 
     // handle request
@@ -401,20 +409,34 @@ async fn handle_ws_connection(
         while let Some(Ok(msg)) = stream.next().await {
             if let Ok(msg) = msg.to_text() {
                 let req = msg.replace("\n", "");
+                log::debug!("Req: {}", req);
                 let resp = handle_request(core.clone(), req.as_str());
-                tx_cloned
-                    .send(resp)
-                    .await
-                    .expect("Unexpected channel failed");
+                log::debug!("Resp: {}", resp);
+                tx_cloned.send(Some(resp)).await.expect("Channel failed");
             }
         }
+        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tx_cloned.send(None).await.expect("Channel failed");
+        log::debug!("WS stream close")
     });
 
     // button event
-    tokio::spawn(event_rx.map(Ok).forward(tx));
+    tokio::spawn(event_rx.map(|e| Ok(Some(e))).forward(tx));
 
     // send back
-    tokio::spawn(rx.map(|s| Ok(s.into())).forward(sink));
+    tokio::spawn(
+        rx.map(|s| match s {
+            Some(s) => {
+                log::debug!("WS sink send: {}", s);
+                Ok(s.into())
+            }
+            None => {
+                log::debug!("WS sink close");
+                Err(tokio_tungstenite::tungstenite::Error::AlreadyClosed)
+            }
+        })
+        .forward(sink),
+    );
 
     Ok(())
 }
