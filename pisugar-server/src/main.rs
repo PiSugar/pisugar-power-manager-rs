@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::env;
 use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
@@ -24,6 +25,7 @@ use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
 
+use env_logger::Env;
 use pisugar_core::{
     execute_shell, notify_shutdown_soon, sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time,
     I2C_READ_INTERVAL, TIME_HOST,
@@ -497,6 +499,33 @@ async fn serve_http(http_addr: SocketAddr, web_dir: String) {
     }
 }
 
+/// Init logging
+fn init_logging(debug: bool, syslog: bool) {
+    if syslog {
+        // logging
+        let pid = unsafe { libc::getpid() };
+        let formatter = Formatter3164 {
+            facility: Facility::LOG_USER,
+            hostname: None,
+            process: env!("CARGO_PKG_NAME").into(),
+            pid: pid,
+        };
+        let logger = syslog::unix(formatter).expect("Could not connect to syslog");
+        log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
+            .map(|_| match debug {
+                true => log::set_max_level(LevelFilter::Debug),
+                false => log::set_max_level(LevelFilter::Info),
+            })
+            .expect("Failed to init syslog");
+    } else {
+        if debug {
+            env_logger::from_env(Env::default().default_filter_or("debug")).init();
+        } else {
+            env_logger::from_env(Env::default().default_filter_or("info")).init();
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -552,23 +581,19 @@ async fn main() -> std::io::Result<()> {
                 .takes_value(false)
                 .help("Debug output"),
         )
+        .arg(
+            Arg::with_name("syslog")
+                .short("s")
+                .long("syslog")
+                .takes_value(false)
+                .help("Log to syslog"),
+        )
         .get_matches();
 
-    // logging
-    let pid = unsafe { libc::getpid() };
-    let formatter = Formatter3164 {
-        facility: Facility::LOG_USER,
-        hostname: None,
-        process: env!("CARGO_PKG_NAME").into(),
-        pid: pid,
-    };
-    let logger = syslog::unix(formatter).expect("Could not connect to syslog");
-    log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
-        .map(|_| match matches.is_present("debug") {
-            true => log::set_max_level(LevelFilter::Debug),
-            false => log::set_max_level(LevelFilter::Info),
-        })
-        .expect("Failed to set logger");
+    // init logging
+    let debug = matches.is_present("debug");
+    let syslog = matches.is_present("syslog");
+    init_logging(debug, syslog);
 
     // core
     let core = if matches.is_present("config") {

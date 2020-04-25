@@ -1,1 +1,1 @@
-OPTS="--config config.json --uds /tmp/pisugar-server.sock --tcp 0.0.0.0:8423 --ws 0.0.0.0:8422 --web /usr/share/pisugar-server/web --http 0.0.0.0:8421"
+OPTS="--syslog --config config.json --uds /tmp/pisugar-server.sock --tcp 0.0.0.0:8423 --ws 0.0.0.0:8422 --web /usr/share/pisugar-server/web --http 0.0.0.0:8421"
