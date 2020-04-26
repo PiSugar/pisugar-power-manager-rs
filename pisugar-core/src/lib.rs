@@ -69,19 +69,23 @@ impl Display for Error {
 /// PiSugar result
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Battery voltage threshold, (low, high, percentage at low, percentage at high)
-type BatteryThreshold = (f64, f64, f64, f64);
+/// Battery voltage threshold, (low, percentage at low)
+type BatteryThreshold = (f64, f64);
 
 /// Battery voltage to percentage level
 fn convert_battery_voltage_to_level(voltage: f64, battery_curve: &[BatteryThreshold]) -> f64 {
-    if voltage > 5.5 {
-        return 100.0;
-    }
-    for threshold in battery_curve {
-        if voltage >= threshold.0 {
-            let percentage = (voltage - threshold.0) / (threshold.1 - threshold.0);
-            let level = threshold.2 + percentage * (threshold.3 - threshold.2);
-            return level;
+    for i in 0..battery_curve.len() {
+        let v_low = battery_curve[i].0;
+        let l_low = battery_curve[i].1;
+        if voltage >= v_low {
+            if i == 0 {
+                return l_low;
+            } else {
+                let v_high = battery_curve[i - 1].0;
+                let l_high = battery_curve[i - 1].1;
+                let percent = (voltage - v_low) / (v_high - v_low);
+                return l_low + percent * (l_high - l_low);
+            }
         }
     }
     0.0
