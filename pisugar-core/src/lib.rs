@@ -72,27 +72,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Battery voltage threshold, (low, high, percentage at low, percentage at high)
 type BatteryThreshold = (f64, f64, f64, f64);
 
-/// Battery threshold curve
-const BATTERY_CURVE: [BatteryThreshold; 11] = [
-    (4.16, 5.5, 100.0, 100.0),
-    (4.05, 4.16, 87.5, 100.0),
-    (4.00, 4.05, 75.0, 87.5),
-    (3.92, 4.00, 62.5, 75.0),
-    (3.86, 3.92, 50.0, 62.5),
-    (3.79, 3.86, 37.5, 50.0),
-    (3.66, 3.79, 25.0, 37.5),
-    (3.52, 3.66, 12.5, 25.0),
-    (3.49, 3.52, 6.2, 12.5),
-    (3.1, 3.49, 0.0, 6.2),
-    (0.0, 3.1, 0.0, 0.0),
-];
-
 /// Battery voltage to percentage level
-fn convert_battery_voltage_to_level(voltage: f64) -> f64 {
+fn convert_battery_voltage_to_level(voltage: f64, battery_curve: &[BatteryThreshold]) -> f64 {
     if voltage > 5.5 {
         return 100.0;
     }
-    for threshold in &BATTERY_CURVE {
+    for threshold in battery_curve {
         if voltage >= threshold.0 {
             let percentage = (voltage - threshold.0) / (threshold.1 - threshold.0);
             let level = threshold.2 + percentage * (threshold.3 - threshold.2);
@@ -193,11 +178,12 @@ pub struct PiSugarStatus {
 
 impl PiSugarStatus {
     pub fn new() -> Result<Self> {
-        let mut level_records = VecDeque::with_capacity(10);
+        let mut level_records = VecDeque::with_capacity(30); // 3s records
 
         let mut model = String::from(MODEL_V2);
         let mut voltage = 0.0;
         let mut intensity = 0.0;
+        let mut level = 100.0;
 
         let ip5209 = IP5209::new(I2C_ADDR_BAT)?;
         let ip5312 = IP5312::new(I2C_ADDR_BAT)?;
@@ -208,6 +194,7 @@ impl PiSugarStatus {
             model = String::from(MODEL_V2_PRO);
             voltage = v;
             intensity = ip5312.read_intensity().unwrap_or(0.0);
+            level = IP5312::parse_voltage_level(voltage);
 
             if ip5312.init_gpio().is_ok() {
                 log::info!("Init GPIO success");
@@ -225,6 +212,7 @@ impl PiSugarStatus {
             model = String::from(MODEL_V2);
             voltage = v;
             intensity = ip5209.read_intensity().unwrap_or(0.0);
+            level = IP5209::parse_voltage_level(voltage);
 
             if ip5209.init_gpio().is_ok() {
                 log::info!("Init GPIO success");
@@ -241,12 +229,7 @@ impl PiSugarStatus {
             log::error!("PiSugar not found");
         }
 
-        // battery level, default 100
-        let level = if voltage > 0.0 {
-            convert_battery_voltage_to_level(voltage)
-        } else {
-            100.0
-        };
+        // battery level records
         for _ in 0..level_records.capacity() {
             level_records.push_back(level);
         }
@@ -290,7 +273,13 @@ impl PiSugarStatus {
     pub fn update_voltage(&mut self, voltage: f64, now: Instant) {
         self.updated_at = now;
         self.voltage = voltage;
-        self.level = convert_battery_voltage_to_level(voltage);
+
+        if self.model == MODEL_V2_PRO {
+            self.level = IP5312::parse_voltage_level(voltage);
+        } else {
+            self.level = IP5209::parse_voltage_level(voltage);
+        }
+
         self.level_records.pop_front();
         self.level_records.push_back(self.level);
     }

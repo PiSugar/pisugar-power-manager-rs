@@ -1,8 +1,23 @@
 use rppal::i2c::I2c;
 
-use crate::Error;
-use crate::I2cError;
 use crate::Result;
+use crate::{convert_battery_voltage_to_level, I2cError};
+use crate::{BatteryThreshold, Error};
+
+/// Battery threshold curve
+pub const BATTERY_CURVE: [BatteryThreshold; 11] = [
+    (4.16, 5.5, 100.0, 100.0),
+    (4.05, 4.16, 95.0, 100.0),
+    (3.90, 4.05, 88.0, 95.0),
+    (3.80, 3.90, 77.0, 88.0),
+    (3.70, 3.80, 65.0, 77.0),
+    (3.62, 3.70, 55.0, 65.0),
+    (3.58, 3.62, 49.0, 55.0),
+    (3.49, 3.58, 25.6, 49.0),
+    (3.32, 3.49, 4.5, 25.6),
+    (3.1, 3.32, 0.0, 4.5),
+    (0.0, 3.1, 0.0, 0.0),
+];
 
 /// Idle intensity
 const PI_PRO_IDLE_INTENSITY: f64 = 0.25;
@@ -32,6 +47,16 @@ impl IP5312 {
         let v = ((high & 0b0011_1111) << 8) + low;
         let v = (v as f64) * 0.26855 + 2600.0;
         Ok(v / 1000.0)
+    }
+
+    /// Parse level(%)
+    pub fn parse_voltage_level(voltage: f64) -> f64 {
+        let level = if voltage > 0.0 {
+            convert_battery_voltage_to_level(voltage, &BATTERY_CURVE)
+        } else {
+            100.0
+        };
+        level
     }
 
     /// Read intensity (A)
