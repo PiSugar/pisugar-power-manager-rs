@@ -25,7 +25,7 @@ mod sd3078;
 /// Time host
 pub const TIME_HOST: &str = "http://cdn.pisugar.com";
 
-/// I2c poll interval
+/// I2c poll interval, no more than 1s
 pub const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// RTC address, SD3078
@@ -172,6 +172,7 @@ pub struct PiSugarStatus {
     sd3078: SD3078,
     model: String,
     voltage: f64,
+    voltages: VecDeque<f64>,
     intensity: f64,
     level: f64,
     level_records: VecDeque<f64>,
@@ -183,6 +184,7 @@ pub struct PiSugarStatus {
 impl PiSugarStatus {
     pub fn new() -> Result<Self> {
         let mut level_records = VecDeque::with_capacity(30); // 3s records
+        let mut voltages = VecDeque::with_capacity(1000 / I2C_READ_INTERVAL.as_millis() as usize); // 1s voltages
 
         let mut model = String::from(MODEL_V2);
         let mut voltage = 0.0;
@@ -238,6 +240,11 @@ impl PiSugarStatus {
             level_records.push_back(level);
         }
 
+        // voltages
+        for _ in 0..voltages.capacity() {
+            voltages.push_back(voltage);
+        }
+
         let rtc_now = match sd3078.read_time() {
             Ok(t) => t.try_into().unwrap_or(Local::now()),
             Err(_) => Local::now(),
@@ -249,6 +256,7 @@ impl PiSugarStatus {
             sd3078,
             model,
             voltage,
+            voltages,
             intensity,
             level,
             level_records,
@@ -276,12 +284,16 @@ impl PiSugarStatus {
     /// Update battery voltage
     pub fn update_voltage(&mut self, voltage: f64, now: Instant) {
         self.updated_at = now;
-        self.voltage = voltage;
+
+        let old_voltage = self.voltages.pop_front().unwrap();
+        self.voltages.push_back(voltage);
+        let voltage_sum = self.voltage * self.voltages.capacity() as f64 - old_voltage + voltage;
+        self.voltage = voltage_sum / self.voltages.capacity() as f64;
 
         if self.model == MODEL_V2_PRO {
-            self.level = IP5312::parse_voltage_level(voltage);
+            self.level = IP5312::parse_voltage_level(self.voltage);
         } else {
-            self.level = IP5209::parse_voltage_level(voltage);
+            self.level = IP5209::parse_voltage_level(self.voltage);
         }
 
         self.level_records.pop_front();
