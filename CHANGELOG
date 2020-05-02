@@ -1,0 +1,17 @@
+v1.2.0
+Improvements:
+1. Smooth battery status
+2. Add pisugar-server syslog option(--syslog)
+3. Add pisugar-server debug option(--debug)
+4. Add pisugar-server safe shutdown delay
+
+Bug fix:
+1. Fix RTC alarm time
+
+
+v1.1.0
+Add pisugar-poweroff module
+
+
+v1.0.0
+First release

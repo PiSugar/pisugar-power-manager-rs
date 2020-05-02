@@ -198,7 +198,10 @@ impl SD3078 {
         if bcd_time[2] & 0b1000_0000 != 0 {
             bcd_time[2] &= 0b0111_1111; // 24hr
         } else if bcd_time[2] & 0b0010_0000 != 0 {
-            bcd_time[2] += 12; // 12hr and pm
+            bcd_time[2] &= 0b0001_1111; // 12hr and pm
+            let hour = bcd_to_dec(bcd_time[2]);
+            let hour = hour + 12;
+            bcd_time[2] = dec_to_bcd(hour);
         }
 
         Ok(SD3078Time(bcd_time))
@@ -222,12 +225,8 @@ impl SD3078 {
         let mut bcd_time = [0_u8; 7];
         self.i2c.block_read(0x07, &mut bcd_time)?;
 
-        // 12hr or 24hr
-        if bcd_time[2] & 0b1000_0000 != 0 {
-            bcd_time[2] &= 0b0111_1111; // 24hr
-        } else if bcd_time[2] & 0b0010_0000 != 0 {
-            bcd_time[2] += 12; // 12hr and pm
-        }
+        // always 24hr
+        bcd_time[2] &= 0b0011_1111;
 
         Ok(SD3078Time(bcd_time))
     }

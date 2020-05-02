@@ -207,6 +207,10 @@ Examples:
     get model
     <ctrl+c to break>
 
+Or
+
+    echo "get battery" | nc -q 0 127.0.0.1 8423
+
 ## Release
 
 See https://github.com/PiSugar/pisugar-power-manager-rs/releases
