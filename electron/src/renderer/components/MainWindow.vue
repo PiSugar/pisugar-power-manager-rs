@@ -98,6 +98,14 @@
                     :value="item.value">
             </el-option>
           </el-select>
+          <el-select v-if="safeShutdown" v-model="safeShutdownDelay" placeholder="Please Select" :disabled="!socketConnect" @change="safeShutdownDelayChange">
+            <el-option
+                    v-for="item in safeShutdownDelayOpts"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value">
+            </el-option>
+          </el-select>
         </el-row>
       </div>
 
@@ -227,6 +235,13 @@
           { label: '<= 3%', value: 3 },
           { label: '<= 5%', value: 5 }
         ],
+        safeShutdownDelay: 0,
+        safeShutdownDelayOpts: Array(121).fill(0).map((i, k) => {
+          return {
+            label: k ? `${k} seconds delay` : `immediately`,
+            value: k
+          }
+        }),
         timeDialog: false
       }
     },
@@ -316,6 +331,9 @@
           if (!msg.indexOf('safe_shutdown_level: ')) {
             that.safeShutdown = parseInt(msg.replace('safe_shutdown_level: ', ''))
           }
+          if (!msg.indexOf('safe_shutdown_delay: ')) {
+            that.safeShutdownDelay = parseInt(msg.replace('safe_shutdown_delay: ', ''))
+          }
           if (!msg.indexOf('button_enable')) {
             let msgArr = msg.split(' ')
             that.buttonFuncForm[msgArr[1]].enable = (msgArr[2].trim() === 'true')
@@ -364,6 +382,7 @@
             this.$socket.send('get button_shell double')
             this.$socket.send('get button_shell long')
             this.$socket.send('get safe_shutdown_level')
+            this.$socket.send('get safe_shutdown_delay')
           }
           this.socketConnect = true
           this.$socket.send('get battery')
@@ -464,6 +483,9 @@
       },
       safeShutdownChange () {
         this.$socket.send(`set_safe_shutdown_level ${this.safeShutdown}`)
+      },
+      safeShutdownDelayChange () {
+        this.$socket.send(`set_safe_shutdown_delay ${this.safeShutdownDelay}`)
       },
       alarmOptionValueChange () {
         if (this.alarmOptionValue) {
