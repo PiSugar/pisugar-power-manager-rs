@@ -114,9 +114,6 @@
       </div>
 
       <el-dialog title="Repeat" :visible.sync="repeatDialog">
-        <el-row>
-          <el-checkbox v-model="checkRepeatAll" @change="checkRepeatAllChange">Everyday</el-checkbox>
-        </el-row>
         <el-checkbox-group v-model="checkRepeat" @change="checkRepeatChange">
           <el-row>
             <el-checkbox label="Monday"></el-checkbox>
@@ -126,6 +123,10 @@
             <el-checkbox label="Friday"></el-checkbox> 
             <el-checkbox label="Saturday"></el-checkbox>
             <el-checkbox label="Sunday"></el-checkbox>
+          </el-row>
+          <el-row class="mt20">
+            <el-button size="mini" @click="checkRepeatAll">Check All</el-button>
+            <el-button size="mini" @click="uncheckRepeatAll">Clear All</el-button>
           </el-row>
         </el-checkbox-group>
         <br>
@@ -185,7 +186,6 @@
         timeEditValue: new Date(2019, 8, 1, 18, 40, 30),
         timeRepeat: parseInt(0, 2),
         checkRepeat: [],
-        checkRepeatAll: false,
         repeatDialog: false,
         singleTrigger: true,
         doubleTrigger: true,
@@ -231,9 +231,9 @@
         safeShutdown: 0,
         safeShutdownOpts: [
           { label: 'Disabled', value: 0 },
-          { label: '<= 1%', value: 1 },
-          { label: '<= 3%', value: 3 },
-          { label: '<= 5%', value: 5 }
+          { label: 'Battery <= 1%', value: 1 },
+          { label: 'Battery <= 3%', value: 3 },
+          { label: 'Battery <= 5%', value: 5 }
         ],
         safeShutdownDelay: 0,
         safeShutdownDelayOpts: Array(121).fill(0).map((i, k) => {
@@ -263,9 +263,7 @@
           let repeatString = this.timeRepeat.toString(2)
           repeatString = '0000000'.substring(0, 7 - repeatString.length) + repeatString
           let repeatMessage = ''
-          if (repeatString === '0000000') {
-            repeatMessage = 'repeat everyday.'
-          } else if (repeatString === '1111111') {
+          if (repeatString === '1111111') {
             repeatMessage = 'repeat everyday.'
           } else {
             let repeatArray = []
@@ -325,7 +323,8 @@
           }
           if (!msg.indexOf('alarm_repeat: ')) {
             const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
-            that.timeRepeat = alarmRepeat || 127
+            that.timeRepeat = alarmRepeat
+            if (!that.timeRepeat) that.alarmOptionValue = 0 
             that.timeRepeat2checkbox()
           }
           if (!msg.indexOf('safe_shutdown_level: ')) {
@@ -440,7 +439,6 @@
         const min = this.timeEditValue.getMinutes()
         const hour = this.timeEditValue.getHours()
         const setTime = new Moment().second(sec).minute(min).hour(hour)
-        if (this.timeRepeat === 0) this.timeRepeat = 127
         this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
       },
       timeRepeat2checkbox () {
@@ -448,17 +446,19 @@
         const repeatString = this.timeRepeat.toString(2).split('')
         this.checkRepeat = repeatString.map((i, k) => (i === '1') ? weekdays[k] : null).filter(i => i !== null)
       },
-      checkRepeatAllChange (value) {
-        if (value) {
-          this.checkRepeat = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
-          this.checkRepeatChange()
-        }
+      checkRepeatAll () {
+        this.checkRepeat = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
+        this.checkRepeatChange()
+      },
+      uncheckRepeatAll () {
+        this.checkRepeat = []
+        this.checkRepeatChange()
       },
       checkRepeatChange () {
         const weekdays = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
         const repeatArray = weekdays.map(i => this.checkRepeat.indexOf(i) >= 0 ? 1 : 0)
-        this.checkRepeatAll = repeatArray.filter(i => i).length === 7
         this.timeRepeat = parseInt(repeatArray.join(''), 2)
+        this.alarmOptionValue = this.timeRepeat ? 1 : 0
         this.timeEditChange()
       },
       buttonFuncChange (type) {
@@ -489,9 +489,13 @@
       },
       alarmOptionValueChange () {
         if (this.alarmOptionValue) {
-          this.timeEditChange()
+          this.timeRepeat = 127
+          this.timeRepeat2checkbox()
+          this.checkRepeatChange()
         } else {
           this.$socket.send('rtc_alarm_disable')
+          this.$socket.send('get rtc_alarm_enabled')
+          this.$socket.send('get rtc_alarm_time')
         }
       }
     }
@@ -546,6 +550,9 @@
   }
   .el-checkbox{
     width: 100px;
+  }
+  .mt20{
+    margin-top: 20px;
   }
 </style>
 
