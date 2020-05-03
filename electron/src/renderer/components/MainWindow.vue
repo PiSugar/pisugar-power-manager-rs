@@ -4,7 +4,7 @@
       <div class="battery-info">
         <div :class="{'show': batteryCharging}" class="charge-tag">
           <img class="flash" src="~@/assets/flash.svg" alt="">
-          <p>Charging</p>
+          <p>{{$t("charging")}}</p>
         </div>
         <div class="battery-shape">
           <div class="battery-content" :class="batteryColor" :style="'width:'+batteryPercent+'%'"></div>
@@ -12,9 +12,13 @@
         <div class="battery-level">{{batteryPercent}}%</div>
         <div class="battery-model">{{model}}</div>
         <img class="logo" src="~@/assets/logo.svg" alt="">
+        <div class="website"><a href="http://www.pisugar.com" target="_blank">www.pisugar.com</a></div>
       </div>
       <div class="setting-panel">
-        <div class="title">Schedule Wake Up</div>
+        <div class="language">
+          <el-link type="info" @click="languageDialog = true">Language: {{locale}}</el-link>
+        </div>
+        <div class="title">{{$t('wakeUpFeature')}}</div>
         <el-row>
           <el-select v-model="alarmOptionValue" placeholder="Select" :disabled="!socketConnect" @change="alarmOptionValueChange">
             <el-option
@@ -34,15 +38,15 @@
                   @change="timeEditChange"
                   placeholder="select anytime">
           </el-time-picker>
-          <el-button v-if="alarmOptionValue === 1" :disabled="!socketConnect" @click="repeatDialog = true">Repeat</el-button>
+          <el-button v-if="alarmOptionValue === 1" :disabled="!socketConnect" @click="repeatDialog = true">{{$t('repeat')}}</el-button>
         </el-row>
         <el-row>
           <p class="desc">{{alarmMessage}}</p>
         </el-row>
-        <div class="title">Custom Button Function</div>
+        <div class="title">{{$t('buttonFunction')}}</div>
         <el-row>
           <el-form ref="buttonFuncFormSingle" :model="buttonFuncForm.single" label-width="90px">
-            <el-form-item label="Single Tap">
+            <el-form-item :label="$t('singleTapLabel')">
               <el-select v-model="buttonFuncForm.single.func" placeholder="Select" :disabled="!socketConnect" @change="buttonFuncChange('single')">
                 <el-option
                         v-for="item in buttonFuncForm.single.options"
@@ -51,14 +55,14 @@
                         :value="item.value">
                 </el-option>
               </el-select>
-              <el-button v-if="buttonFuncForm.single.func === 1" @click="openShellEdit('single')" :disabled="!socketConnect">Edit</el-button>
-              <span class="tag-span"><el-tag :type="singleTrigger?'success':''">Triggered</el-tag></span>
+              <el-button v-if="buttonFuncForm.single.func === 1" @click="openShellEdit('single')" :disabled="!socketConnect">{{$t('edit')}}</el-button>
+              <span class="tag-span"><el-tag :type="singleTrigger?'success':''">{{$t('triggered')}}</el-tag></span>
             </el-form-item>
           </el-form>
         </el-row>
         <el-row>
           <el-form ref="buttonFuncFormDouble" :model="buttonFuncForm.double" label-width="90px">
-            <el-form-item label="Double Tap">
+            <el-form-item :label="$t('doubleTapLabel')">
               <el-select v-model="buttonFuncForm.double.func" placeholder="Select" :disabled="!socketConnect" @change="buttonFuncChange('double')">
                 <el-option
                         v-for="item in buttonFuncForm.double.options"
@@ -67,14 +71,14 @@
                         :value="item.value">
                 </el-option>
               </el-select>
-              <el-button v-if="buttonFuncForm.double.func === 1" @click="openShellEdit('double')" :disabled="!socketConnect">Edit</el-button>
-              <span class="tag-span"><el-tag :type="doubleTrigger?'success':''">Triggered</el-tag></span>
+              <el-button v-if="buttonFuncForm.double.func === 1" @click="openShellEdit('double')" :disabled="!socketConnect">{{$t('edit')}}</el-button>
+              <span class="tag-span"><el-tag :type="doubleTrigger?'success':''">{{$t('triggered')}}</el-tag></span>
             </el-form-item>
           </el-form>
         </el-row>
         <el-row>
           <el-form ref="buttonFuncFormLong" :model="buttonFuncForm.long" label-width="90px">
-            <el-form-item label="Long Tap">
+            <el-form-item :label="$t('longTapLabel')">
               <el-select v-model="buttonFuncForm.long.func" placeholder="Select" :disabled="!socketConnect" @change="buttonFuncChange('long')">
                 <el-option
                         v-for="item in buttonFuncForm.long.options"
@@ -83,12 +87,12 @@
                         :value="item.value">
                 </el-option>
               </el-select>
-              <el-button v-if="buttonFuncForm.long.func === 1" @click="openShellEdit('long')" :disabled="!socketConnect">Edit</el-button>
-              <span class="tag-span"><el-tag :type="longTrigger?'success':''">Triggered</el-tag></span>
+              <el-button v-if="buttonFuncForm.long.func === 1" @click="openShellEdit('long')" :disabled="!socketConnect">{{$t('edit')}}</el-button>
+              <span class="tag-span"><el-tag :type="longTrigger?'success':''">{{$t('triggered')}}</el-tag></span>
             </el-form-item>
           </el-form>
         </el-row>
-        <div class="title">Safe Shutdown</div>
+        <div class="title">{{$t('safeShutdown')}}</div>
         <el-row>
           <el-select v-model="safeShutdown" placeholder="Please Select" :disabled="!socketConnect" @change="safeShutdownChange">
             <el-option
@@ -110,31 +114,31 @@
       </div>
 
       <div class="rtc-panel">
-        <div class="sys-info"><el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button>  <span class="text">RTC Time : {{ rtcTimeDisplayString }}</span></div>
+        <div class="sys-info"><el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button> <span class="text">{{$t('rtcTime')}} : {{ rtcTimeDisplayString }}</span></div>
       </div>
 
-      <el-dialog title="Repeat" :visible.sync="repeatDialog">
+      <el-dialog :title="$t('repeat')" :visible.sync="repeatDialog">
         <el-checkbox-group v-model="checkRepeat" @change="checkRepeatChange">
           <el-row>
-            <el-checkbox label="Monday"></el-checkbox>
-            <el-checkbox label="Tuesday"></el-checkbox>
-            <el-checkbox label="Wednesday"></el-checkbox>
-            <el-checkbox label="Thursday"></el-checkbox>
-            <el-checkbox label="Friday"></el-checkbox> 
-            <el-checkbox label="Saturday"></el-checkbox>
-            <el-checkbox label="Sunday"></el-checkbox>
+            <el-checkbox label="Monday">{{$t('weekDay.Monday')}}</el-checkbox>
+            <el-checkbox label="Tuesday">{{$t('weekDay.Tuesday')}}</el-checkbox>
+            <el-checkbox label="Wednesday">{{$t('weekDay.Wednesday')}}</el-checkbox>
+            <el-checkbox label="Thursday">{{$t('weekDay.Thursday')}}</el-checkbox>
+            <el-checkbox label="Friday">{{$t('weekDay.Friday')}}</el-checkbox> 
+            <el-checkbox label="Saturday">{{$t('weekDay.Saturday')}}</el-checkbox>
+            <el-checkbox label="Sunday">{{$t('weekDay.Sunday')}}</el-checkbox>
           </el-row>
           <el-row class="mt20">
-            <el-button size="mini" @click="checkRepeatAll">Check All</el-button>
-            <el-button size="mini" @click="uncheckRepeatAll">Clear All</el-button>
+            <el-button size="mini" @click="checkRepeatAll">{{$t('checkAll')}}</el-button>
+            <el-button size="mini" @click="uncheckRepeatAll">{{$t('clearAll')}}</el-button>
           </el-row>
         </el-checkbox-group>
         <br>
       </el-dialog>
 
-      <el-dialog title="Sync Time" :visible.sync="timeDialog">
+      <el-dialog :title="$t('syncTime')" :visible.sync="timeDialog">
         <el-row>
-          RTC Time : {{rtcTimeDisplayString}}
+          {{$t('rtcTime')}}: {{rtcTimeDisplayString}}
         </el-row>
         <br>
         <el-row>
@@ -148,14 +152,35 @@
         <el-row>
           <el-form :model="editShellDialogForm">
             <el-form-item label="Shell" label-width="50px">
-              <el-input v-model="editShellDialogCache" autocomplete="off" placeholder="Input shell script here..."></el-input>
+              <el-input v-model="editShellDialogCache" autocomplete="off" :placeholder="$t('shellPlaceholder')"></el-input>
             </el-form-item>
           </el-form>
         </el-row>
         <br>
         <div slot="footer" class="dialog-footer">
-          <el-button @click="closeShellEdit">Cancel</el-button>
-          <el-button type="primary" @click="buttonFuncChange(editShellDialogForm.type)">Confirm</el-button>
+          <el-button @click="closeShellEdit">{{$t('cancel')}}</el-button>
+          <el-button type="primary" @click="buttonFuncChange(editShellDialogForm.type)">{{$t('confirm')}}</el-button>
+        </div>
+      </el-dialog>
+
+      <el-dialog :title="$t('selectLanguage')" :visible.sync="languageDialog">
+        <el-row>
+          <el-form>
+            <el-form-item :label="$t('language')" label-width="100px">
+              <el-select v-model="locale" placeholder="Select" @change="languageChange">
+                <el-option
+                        v-for="item in languageOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value">
+                </el-option>
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </el-row>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="languageDialog = false">{{$t('cancel')}}</el-button>
+          <el-button type="primary" @click="languageConfirm">{{$t('confirm')}}</el-button>
         </div>
       </el-dialog>
     </div>
@@ -164,6 +189,7 @@
 
 <script>
   import Moment from 'moment'
+  import { localeOptions } from '../locale'
   export default {
     name: 'index-page',
     debug: true,
@@ -178,8 +204,8 @@
         socketConnect: false,
         model: '...',
         alarmOption: [
-          { label: 'Disabled', value: 0 },
-          { label: 'Enabled', value: 1 }
+          { label: this.$t('disabled'), value: 0 },
+          { label: this.$t('enabled'), value: 1 }
           // { label: 'CircleSet', value: 2 }
         ],
         alarmOptionValue: 0,
@@ -197,8 +223,8 @@
             func: 0,
             shell: '',
             options: [
-              { label: 'None', value: 0 },
-              { label: 'Custom Shell', value: 1 }
+              { label: this.$t('none'), value: 0 },
+              { label: this.$t('customShell'), value: 1 }
             ]
           },
           double: {
@@ -207,9 +233,9 @@
             func: 0,
             shell: '',
             options: [
-              { label: 'None', value: 0 },
-              { label: 'Shutdown', value: 2 },
-              { label: 'Custom Shell', value: 1 }
+              { label: this.$t('none'), value: 0 },
+              { label: this.$t('shutdown'), value: 2 },
+              { label: this.$t('customShell'), value: 1 }
             ]
           },
           long: {
@@ -218,9 +244,9 @@
             func: 0,
             shell: '',
             options: [
-              { label: 'None', value: 0 },
-              { label: 'Shutdown', value: 2 },
-              { label: 'Custom Shell', value: 1 }
+              { label: this.$t('none'), value: 0 },
+              { label: this.$t('shutdown'), value: 2 },
+              { label: this.$t('customShell'), value: 1 }
             ]
           }
         },
@@ -230,19 +256,22 @@
         editShellDialogForm: {},
         safeShutdown: 0,
         safeShutdownOpts: [
-          { label: 'Disabled', value: 0 },
-          { label: 'Battery <= 1%', value: 1 },
-          { label: 'Battery <= 3%', value: 3 },
-          { label: 'Battery <= 5%', value: 5 }
+          { label: this.$t('disabled'), value: 0 },
+          { label: `${this.$t('batteryLevel')} <= 1%`, value: 1 },
+          { label: `${this.$t('batteryLevel')} <= 3%`, value: 3 },
+          { label: `${this.$t('batteryLevel')} <= 5%`, value: 5 }
         ],
         safeShutdownDelay: 0,
         safeShutdownDelayOpts: Array(121).fill(0).map((i, k) => {
           return {
-            label: k ? `${k} seconds delay` : `immediately`,
+            label: k ? `${k} ${this.$t('secondsDelay')}` : `${this.$t('immediately')}`,
             value: k
           }
         }),
-        timeDialog: false
+        timeDialog: false,
+        locale: 'en',
+        languageDialog: false,
+        languageOptions: localeOptions
       }
     },
     mounted () {
@@ -251,6 +280,8 @@
       setTimeout(() => {
         that.timeUpdater()
       }, 1000)
+      this.locale = this.$i18n.locale
+      console.log(this.$i18n.locale)
     },
     computed: {
       batteryColor () {
@@ -264,21 +295,22 @@
           repeatString = '0000000'.substring(0, 7 - repeatString.length) + repeatString
           let repeatMessage = ''
           if (repeatString === '1111111') {
-            repeatMessage = 'repeat everyday.'
+            repeatMessage = this.$t('repeatEveryday')
           } else {
             let repeatArray = []
             repeatString.split('').map((item, index) => {
               item = parseInt(item)
-              let days = ['Sun', 'Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon']
+              let days = ['Sun', 'Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon'].reverse()
               if (item) {
-                repeatArray.push(days[index])
+                repeatArray.push(this.$t(`weekDayShort.${days[index]}`))
               }
             })
-            repeatMessage = `repeat on ${repeatArray.join(', ')}.`
+            repeatMessage = `${this.$t('repeatOn')} ${repeatArray.join(', ')}`
           }
-          return `Schedule wake up at ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
+          
+          return `${this.$t('wakeUpDesc')} ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
         } else {
-          return 'Schedule wake up off.'
+          return `${this.$t('wakeUpOffDesc')}`
         }
       }
     },
@@ -324,7 +356,7 @@
           if (!msg.indexOf('alarm_repeat: ')) {
             const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
             that.timeRepeat = alarmRepeat
-            if (!that.timeRepeat) that.alarmOptionValue = 0 
+            if (!that.timeRepeat) that.alarmOptionValue = 0
             that.timeRepeat2checkbox()
           }
           if (!msg.indexOf('safe_shutdown_level: ')) {
@@ -473,7 +505,7 @@
         this.editShellDialog = false
       },
       openShellEdit (type) {
-        this.editShellDialogTitle = `Shell to execute for ${type} tap`
+        this.editShellDialogTitle = this.$t(`shellModalTitle.${type}`)
         this.editShellDialogForm = this.buttonFuncForm[type]
         this.editShellDialog = true
         this.editShellDialogCache = this.editShellDialogForm.shell
@@ -497,6 +529,22 @@
           this.$socket.send('get rtc_alarm_enabled')
           this.$socket.send('get rtc_alarm_time')
         }
+      },
+      languageChange (value) {
+        this.locale = value
+      },
+      languageConfirm () {
+        // this.$i18n.locale = this.locale
+        if (this.$i18n.locale === this.locale) {
+          this.languageDialog = false
+          return
+        }
+        try {
+          localStorage.setItem('locale', this.locale)
+        } catch (e) {
+          console.warn(e)
+        }
+        window.location.reload()
       }
     }
   }
@@ -615,6 +663,7 @@
     background-color: #fff;
     border-radius: 6px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
+    transition: all 0.5s ease-in-out;
     &:before{
       display: block;
       position: absolute;
@@ -641,6 +690,9 @@
       &.yellow{
         background-color: #ffd100;
       }
+    }
+    &:hover{
+      transform: scale(1.03);
     }
   }
   
@@ -670,9 +722,23 @@
   .logo{
     position: absolute;
     width: 140px;
-    bottom: 50px;
+    bottom: 60px;
     left: 50%;
     margin-left: -85px;
+  }
+  
+  .website{
+    position: absolute;
+    width: 140px;
+    bottom: 40px;
+    left: 50%;
+    margin-left: -85px;
+    text-align: center;
+    a{
+      color: white;
+      text-decoration: none;
+      opacity: 0.8;
+    }
   }
 
   .setting-panel{
@@ -681,15 +747,21 @@
     right: 20px;
     width: 550px;
     height: 470px;
-    padding: 0 30px;
+    padding: 10px 30px 0;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
+    .language{
+      position: absolute;
+      top: 10px;
+      right: 16px;
+      opacity: 0.6;
+    }
     .title{
       font-size: 18px;
       font-weight: bold;
       color: #1f3f6b;
-      margin: 20px 0;
+      margin: 20px 0 12px;
     }
     .desc{
       color: #a2a6b8;
