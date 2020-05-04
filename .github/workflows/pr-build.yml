@@ -97,5 +97,5 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: pisugar-server-deb
+        name: pisugar-debs
         path: target/arm-unknown-linux-gnueabihf/debian
