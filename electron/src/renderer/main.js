@@ -42,6 +42,7 @@ Vue.use(VueNativeSock, webSocketHost, {
 let userLocale = navigator.language
 try {
   userLocale = localStorage.getItem('locale')
+  userLocale = userLocale == null ? navigator.language : userLocale;
 } catch(e) {
   console.warn(e)
 }
