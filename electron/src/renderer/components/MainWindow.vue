@@ -637,7 +637,8 @@
     height: 30px;
     margin-left: -75px;
     color: orange;
-    padding: 3px 40px;
+    padding-top: 3px;
+    padding-left: 40px;
     background-color: #fff;
     border-radius: 15px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
