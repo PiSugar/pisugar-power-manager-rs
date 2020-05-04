@@ -551,7 +551,10 @@
 </script>
 
 <style>
-  @import url('https://fonts.googleapis.com/css?family=Source+Sans+Pro');
+  @font-face{
+    font-family: 'Source Sans Pro';
+    src: url('~@/assets/source_sans_pro.woff2')
+  }
   @keyframes show-once {
     0% {
       opacity: 0;
@@ -569,7 +572,7 @@
     padding: 0;
   }
   body {
-    font-family: 'Source Sans Pro', sans-serif;
+    font-family: 'Source Sans Pro', '微软雅黑', sans-serif;
     position: fixed;
     background-color: orange;
     text-align: center;
