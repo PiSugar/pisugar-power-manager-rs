@@ -7,6 +7,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Datelike, Local, Timelike};
@@ -285,9 +286,12 @@ impl PiSugarStatus {
     pub fn update_voltage(&mut self, voltage: f64, now: Instant) {
         self.updated_at = now;
 
-        let old_voltage = self.voltages.pop_front().unwrap();
+        self.voltages.pop_front();
         self.voltages.push_back(voltage);
-        let voltage_sum = self.voltage * self.voltages.capacity() as f64 - old_voltage + voltage;
+        let mut voltage_sum = 0.0;
+        for x in &self.voltages {
+            voltage_sum += x;
+        }
         self.voltage = voltage_sum / self.voltages.capacity() as f64;
 
         if self.model == MODEL_V2_PRO {
@@ -340,7 +344,7 @@ impl PiSugarStatus {
             }
             let k = a / b;
             log::debug!("charging k: {}", k);
-            return k >= 0.015;
+            return k >= 0.005;
         }
         false
     }
@@ -384,21 +388,21 @@ impl PiSugarStatus {
             let script = match tap_type {
                 TapType::Single => {
                     if config.single_tap_enable {
-                        Some(config.single_tap_shell.as_str())
+                        Some(config.single_tap_shell.clone())
                     } else {
                         None
                     }
                 }
                 TapType::Double => {
                     if config.double_tap_enable {
-                        Some(config.double_tap_shell.as_str())
+                        Some(config.double_tap_shell.clone())
                     } else {
                         None
                     }
                 }
                 TapType::Long => {
                     if config.long_tap_enable {
-                        Some(config.long_tap_shell.as_str())
+                        Some(config.long_tap_shell.clone())
                     } else {
                         None
                     }
@@ -406,10 +410,10 @@ impl PiSugarStatus {
             };
             if let Some(script) = script {
                 log::debug!("execute script \"{}\"", script);
-                match execute_shell(script) {
+                thread::spawn(move || match execute_shell(script.as_str()) {
                     Ok(r) => log::debug!("script ok, code: {:?}", r.code()),
                     Err(e) => log::error!("{}", e),
-                }
+                });
             }
 
             return Ok(Some(tap_type));

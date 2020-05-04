@@ -28,3 +28,6 @@ assets = [
     ["debian/pisugar-poweroff.default", "etc/default/pisugar-poweroff", "644"],
     ["debian/pisugar-poweroff.service", "lib/systemd/system/", "644"]
 ]
+conf-files = [
+    "/etc/default/pisugar-poweroff"
+]

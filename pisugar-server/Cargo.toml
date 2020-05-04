@@ -45,3 +45,7 @@ assets = [
     ["../electron/dist/web/*", "usr/share/pisugar-server/web/", "644"],
     ["../electron/dist/web/fonts/*", "usr/share/pisugar-server/web/fonts", "644"]
 ]
+conf-files = [
+    "/etc/default/pisugar-server",
+    "/etc/pisugar-server/config.json"
+]
