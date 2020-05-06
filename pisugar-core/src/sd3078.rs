@@ -304,8 +304,8 @@ impl SD3078 {
         ctr2 &= 0b1101_1111;
         self.i2c.smbus_write_byte(0x10, ctr2)?;
 
-        // alarm allows hour/minus/second
-        self.i2c.smbus_write_byte(0x0e, 0b0000_0111)?;
+        // alarm allows weekday, hour/minus/second
+        self.i2c.smbus_write_byte(0x0e, 0b0000_1111)?;
 
         self.disable_write()?;
 

@@ -474,12 +474,12 @@
         this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
       },
       timeRepeat2checkbox () {
-        const weekdays = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
+        const weekdays = ['Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Sunday']
         const repeatString = this.timeRepeat.toString(2).split('')
         this.checkRepeat = repeatString.map((i, k) => (i === '1') ? weekdays[k] : null).filter(i => i !== null)
       },
       checkRepeatAll () {
-        this.checkRepeat = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
+        this.checkRepeat = ['Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Sunday']
         this.checkRepeatChange()
       },
       uncheckRepeatAll () {
@@ -487,7 +487,7 @@
         this.checkRepeatChange()
       },
       checkRepeatChange () {
-        const weekdays = ['Sunday', 'Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday']
+        const weekdays = ['Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Sunday']
         const repeatArray = weekdays.map(i => this.checkRepeat.indexOf(i) >= 0 ? 1 : 0)
         this.timeRepeat = parseInt(repeatArray.join(''), 2)
         this.alarmOptionValue = this.timeRepeat ? 1 : 0
