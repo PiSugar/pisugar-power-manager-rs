@@ -11,7 +11,7 @@ import 'element-ui/lib/theme-chalk/index.css'
 import locale from 'element-ui/lib/locale/lang/en'
 import { messages, localeOptions } from './locale'
 
-const defaultWsPort = 8081
+const defaultWsPort = 8422
 const defaultHost = localStorage.getItem('webSocketAddress') || `ws://${window.location.hostname}:${defaultWsPort}`
 const webSocketHost = process.env.NODE_ENV === 'development' ? 'ws://192.168.100.201:8422' : defaultHost
 
@@ -33,7 +33,7 @@ Vue.webSocketAddress = webSocketHost
 Vue.http = Vue.prototype.$http = axios
 Vue.config.productionTip = false
 Vue.use(ElementUI, { locale })
-Vue.use(VueI18n);
+Vue.use(VueI18n)
 Vue.use(VueNativeSock, webSocketHost, {
   reconnection: true,
   reconnectionDelay: 3000
@@ -42,13 +42,13 @@ Vue.use(VueNativeSock, webSocketHost, {
 let userLocale = navigator.language
 try {
   userLocale = localStorage.getItem('locale')
-  userLocale = userLocale == null ? navigator.language : userLocale;
-} catch(e) {
+  userLocale = userLocale == null ? navigator.language : userLocale
+} catch (e) {
   console.warn(e)
 }
 
 const i18n = new VueI18n({
-  locale: localeOptions.map(i => i.value).indexOf(userLocale) >=0 ? userLocale : 'en-US',
+  locale: localeOptions.map(i => i.value).indexOf(userLocale) >= 0 ? userLocale : 'en-US',
   messages
 })
 

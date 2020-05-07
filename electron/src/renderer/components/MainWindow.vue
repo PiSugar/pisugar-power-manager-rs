@@ -118,21 +118,19 @@
       </div>
 
       <el-dialog :title="$t('repeat')" :visible.sync="repeatDialog">
-        <el-checkbox-group v-model="checkRepeat" @change="checkRepeatChange">
-          <el-row>
-            <el-checkbox label="Monday">{{$t('weekDay.Monday')}}</el-checkbox>
-            <el-checkbox label="Tuesday">{{$t('weekDay.Tuesday')}}</el-checkbox>
-            <el-checkbox label="Wednesday">{{$t('weekDay.Wednesday')}}</el-checkbox>
-            <el-checkbox label="Thursday">{{$t('weekDay.Thursday')}}</el-checkbox>
-            <el-checkbox label="Friday">{{$t('weekDay.Friday')}}</el-checkbox> 
-            <el-checkbox label="Saturday">{{$t('weekDay.Saturday')}}</el-checkbox>
-            <el-checkbox label="Sunday">{{$t('weekDay.Sunday')}}</el-checkbox>
-          </el-row>
-          <el-row class="mt20">
-            <el-button size="mini" @click="checkRepeatAll">{{$t('checkAll')}}</el-button>
-            <el-button size="mini" @click="uncheckRepeatAll">{{$t('clearAll')}}</el-button>
-          </el-row>
-        </el-checkbox-group>
+        <el-row>
+          <el-checkbox v-model="alarmRepeatSun">{{$t('weekDay.Sunday')}}</el-checkbox>
+          <el-checkbox v-model="alarmRepeatMon">{{$t('weekDay.Monday')}}</el-checkbox>
+          <el-checkbox v-model="alarmRepeatTue">{{$t('weekDay.Tuesday')}}</el-checkbox>
+          <el-checkbox v-model="alarmRepeatWed">{{$t('weekDay.Wednesday')}}</el-checkbox>
+          <el-checkbox v-model="alarmRepeatThu">{{$t('weekDay.Thursday')}}</el-checkbox>
+          <el-checkbox v-model="alarmRepeatFri">{{$t('weekDay.Friday')}}</el-checkbox>
+          <el-checkbox v-model="alarmRepeatSat">{{$t('weekDay.Saturday')}}</el-checkbox>
+        </el-row>
+        <el-row class="mt20">
+          <el-button size="mini" @click="checkRepeatAll">{{$t('checkAll')}}</el-button>
+          <el-button size="mini" @click="uncheckRepeatAll">{{$t('clearAll')}}</el-button>
+        </el-row>
         <br>
       </el-dialog>
 
@@ -210,8 +208,7 @@
         ],
         alarmOptionValue: 0,
         timeEditValue: new Date(2019, 8, 1, 18, 40, 30),
-        timeRepeat: parseInt(0, 2),
-        checkRepeat: [],
+        timeRepeat: 0,
         repeatDialog: false,
         singleTrigger: true,
         doubleTrigger: true,
@@ -274,6 +271,7 @@
         languageOptions: localeOptions
       }
     },
+
     mounted () {
       const that = this
       this.createWebSocketClient()
@@ -283,38 +281,127 @@
       this.locale = this.$i18n.locale
       console.log(this.$i18n.locale)
     },
+
     computed: {
       batteryColor () {
         if (this.batteryPercent < 10) return 'red'
         if (this.batteryPercent < 30) return 'yellow'
         return 'green'
       },
+      alarmRepeatSun: {
+        get () {
+          return this.getBit(this.timeRepeat, 0)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 0, v)
+        }
+      },
+      alarmRepeatMon: {
+        get () {
+          return this.getBit(this.timeRepeat, 1)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 1, v)
+        }
+      },
+      alarmRepeatTue: {
+        get () {
+          return this.getBit(this.timeRepeat, 2)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 2, v)
+        }
+      },
+      alarmRepeatWed: {
+        get () {
+          return this.getBit(this.timeRepeat, 3)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 3, v)
+        }
+      },
+      alarmRepeatThu: {
+        get () {
+          return this.getBit(this.timeRepeat, 4)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 4, v)
+        }
+      },
+      alarmRepeatFri: {
+        get () {
+          return this.getBit(this.timeRepeat, 5)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 5, v)
+        }
+      },
+      alarmRepeatSat: {
+        get () {
+          return this.getBit(this.timeRepeat, 6)
+        },
+        set (v) {
+          this.timeRepeat = this.setBit(this.timeRepeat, 6, v)
+        }
+      },
       alarmMessage () {
         if (this.alarmOptionValue === 1) {
-          let repeatString = this.timeRepeat.toString(2)
-          repeatString = '0000000'.substring(0, 7 - repeatString.length) + repeatString
           let repeatMessage = ''
-          if (repeatString === '1111111') {
+          if (this.timeRepeat === 127) {
             repeatMessage = this.$t('repeatEveryday')
           } else {
             let repeatArray = []
-            repeatString.split('').map((item, index) => {
-              item = parseInt(item)
-              let days = ['Sun', 'Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon'].reverse()
-              if (item) {
-                repeatArray.push(this.$t(`weekDayShort.${days[index]}`))
+            let days = ['Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon', 'Sun'].reverse()
+            for (let i = 0; i < 7; i++) {
+              if (this.getBit(this.timeRepeat, i)) {
+                repeatArray.push(this.$t(`weekDayShort.${days[i]}`))
               }
-            })
+            }
             repeatMessage = `${this.$t('repeatOn')} ${repeatArray.join(', ')}`
           }
-          
           return `${this.$t('wakeUpDesc')} ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
         } else {
           return `${this.$t('wakeUpOffDesc')}`
         }
       }
     },
+
+    watch: {
+      alarmOptionValue: function (val) {
+        if (val) {
+          if (this.timeRepeat === 0) {
+            this.timeRepeat = 127
+          }
+        } else {
+          this.timeRepeat = 0
+          this.$socket.send('rtc_alarm_disable')
+          this.$socket.send('get rtc_alarm_enabled')
+          this.$socket.send('get rtc_alarm_time')
+        }
+      },
+
+      timeRepeat: function (val) {
+        if (val === 0) {
+          this.alarmOptionValue = 0
+        } else {
+          this.alarmOptionValue = 1
+        }
+
+        this.setRtcAlarm()
+      }
+    },
+
     methods: {
+      getBit (n, pos) {
+        return (n & (1 << pos)) > 0
+      },
+      setBit (n, pos, v) {
+        if (v) {
+          return n | (1 << pos)
+        } else {
+          return n & (~(1 << pos))
+        }
+      },
       createWebSocketClient () {
         const that = this
         this.$socket.onopen = function () {
@@ -357,7 +444,7 @@
             const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
             that.timeRepeat = alarmRepeat
             if (!that.timeRepeat) that.alarmOptionValue = 0
-            that.timeRepeat2checkbox()
+            // that.timeRepeat2checkbox()
           }
           if (!msg.indexOf('safe_shutdown_level: ')) {
             that.safeShutdown = parseInt(msg.replace('safe_shutdown_level: ', ''))
@@ -467,31 +554,13 @@
         }, 1000)
       },
       timeEditChange () {
-        const sec = this.timeEditValue.getSeconds()
-        const min = this.timeEditValue.getMinutes()
-        const hour = this.timeEditValue.getHours()
-        const setTime = new Moment().second(sec).minute(min).hour(hour)
-        this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
-      },
-      timeRepeat2checkbox () {
-        const weekdays = ['Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Sunday']
-        const repeatString = this.timeRepeat.toString(2).split('')
-        this.checkRepeat = repeatString.map((i, k) => (i === '1') ? weekdays[k] : null).filter(i => i !== null)
+        this.setRtcAlarm()
       },
       checkRepeatAll () {
-        this.checkRepeat = ['Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Sunday']
-        this.checkRepeatChange()
+        this.timeRepeat = 127
       },
       uncheckRepeatAll () {
-        this.checkRepeat = []
-        this.checkRepeatChange()
-      },
-      checkRepeatChange () {
-        const weekdays = ['Saturday', 'Friday', 'Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Sunday']
-        const repeatArray = weekdays.map(i => this.checkRepeat.indexOf(i) >= 0 ? 1 : 0)
-        this.timeRepeat = parseInt(repeatArray.join(''), 2)
-        this.alarmOptionValue = this.timeRepeat ? 1 : 0
-        this.timeEditChange()
+        this.timeRepeat = 0
       },
       buttonFuncChange (type) {
         let button = this.buttonFuncForm[type]
@@ -521,9 +590,9 @@
       },
       alarmOptionValueChange () {
         if (this.alarmOptionValue) {
-          this.timeRepeat = 127
-          this.timeRepeat2checkbox()
-          this.checkRepeatChange()
+          if (this.timeRepeat === 0) {
+            this.timeRepeat = 127
+          }
         } else {
           this.$socket.send('rtc_alarm_disable')
           this.$socket.send('get rtc_alarm_enabled')
@@ -545,6 +614,13 @@
           console.warn(e)
         }
         window.location.reload()
+      },
+      setRtcAlarm () {
+        const sec = this.timeEditValue.getSeconds()
+        const min = this.timeEditValue.getMinutes()
+        const hour = this.timeEditValue.getHours()
+        const setTime = new Moment().second(sec).minute(min).hour(hour)
+        this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
       }
     }
   }
