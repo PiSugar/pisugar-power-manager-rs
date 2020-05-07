@@ -29,7 +29,7 @@ fn main() {
 
     let config = PiSugarConfig::default();
     let core = PiSugarCore::new(config).unwrap();
-    loop {
+    for _ in 0..3 {
         let _ = core.force_shutdown();
         sleep(Duration::from_millis(10));
     }

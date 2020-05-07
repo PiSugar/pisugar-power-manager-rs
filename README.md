@@ -95,6 +95,10 @@ Build web content
 
     (cd electron && npm install && npm run build:web)
 
+Try other mirrors when electron could not be downloaded
+
+    ELECTRON_MIRROR="https://npm.taobao.org/mirrors/electron/" npm install
+
 Build deb with cargo-deb (need latest cargo-deb that support templates)
 
     cargo install --git https://github.com/mmstick/cargo-deb.git
