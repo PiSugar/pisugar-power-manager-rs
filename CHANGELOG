@@ -1,3 +1,9 @@
+v1.4.0
+Bug fix:
+1. Fix RTC repeat
+2. Fix poweroff bug
+
+
 v1.3.0
 Improvements:
 1. Support i18n
