@@ -1,0 +1,84 @@
+name: "pre-release"
+
+on:
+  push:
+    branches:
+      - "master"
+
+jobs:
+  pre-release:
+    name: "Pre Release"
+    runs-on: "ubuntu-latest"
+    steps:
+    # Checkout
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: master
+
+    # Nodejs
+    - name: Setup Nodejs
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12.x'
+    # Nodejs dependencies
+    - run: npm install
+      working-directory: electron
+    # Nodejs build web
+    - run: npm run build:web
+      working-directory: electron
+
+    # Fix cargo config
+    - run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+    # Rust target arm-unknown-linux-gnueabihf
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: arm-unknown-linux-gnueabihf
+        override: true
+    # Rust cross build
+    - uses: actions-rs/cargo@v1
+      with:
+        use-cross: true
+        command: build
+        args: --target arm-unknown-linux-gnueabihf --release
+
+    # Cargo deb
+    # Now, correct the build directory
+    - run: |
+        mkdir -p target/arm-unknown-linux-gnueabihf/release
+        cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
+    # Rust install cargo-deb
+    - name: Install cargo-deb
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-deb
+        version: latest
+    # Rust cargo deb - pisugar-server
+    - uses: actions-rs/cargo@v1
+      with:
+        command: deb
+        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build --no-strip
+    # Rust cargo deb - pisugar-poweroff
+    - uses: actions-rs/cargo@v1
+      with:
+        command: deb
+        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-poweroff/Cargo.toml --no-build --no-strip
+
+    # Upload artifact
+    - name: Checkout
+      uses: actions/upload-artifact@v1
+      with:
+        name: pisugar-server-deb
+        path: target/arm-unknown-linux-gnueabihf/debian
+
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          LICENSE
+          CHANGELOG
+          target/arm-unknown-linux-gnueabihf/debian/*
