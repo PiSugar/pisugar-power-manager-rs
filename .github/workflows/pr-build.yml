@@ -75,7 +75,9 @@ jobs:
           wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
           tar -xvf arm-linux-musleabihf-cross.tgz
         fi
-        export PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH"
+        echo ::set-env name=PATH::$(pwd)/arm-linux-musleabihf-cross/bin:$PATH
+    - name: Test env
+      run: echo $PATH
     # Rust target arm-unknown-linux-musleabihf
     - name: Rust add arm-unknown-linux-musleabihf target
       uses: actions-rs/toolchain@v1
@@ -91,15 +93,11 @@ jobs:
         version: latest
     # Rust cargo deb - pisugar-server
     - uses: actions-rs/cargo@v1
-      env:
-        PATH: arm-unknown-linux-musleabihf/bin:$PATH
       with:
         command: deb
         args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
     # Rust cargo deb - pisugar-poweroff
     - uses: actions-rs/cargo@v1
-      env:
-        PATH: arm-unknown-linux-musleabihf/bin:$PATH
       with:
         command: deb
         args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
