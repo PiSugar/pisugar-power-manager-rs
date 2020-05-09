@@ -11,9 +11,9 @@ jobs:
     steps:
     - name: "Upload to QiNiu"
       env:
-        QINUE_BUCKET: ${{ secrets.QINUE_BUCKET }}
-        QINUE_AK: ${{ secrets.QINUE_AK }}
-        QINUE_SK: ${{ secrets.QINUE_SK }}
+        QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
+        QINIU_AK: ${{ secrets.QINIU_AK }}
+        QINIU_SK: ${{ secrets.QINIU_SK }}
       run: |
         sudo apt-get update
         sudo apt-get install -y unzip

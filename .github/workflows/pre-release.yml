@@ -79,33 +79,3 @@ jobs:
         title: "Development Build"
         files: |
           target/arm-unknown-linux-musleabihf/debian/*
-
-    - name: "Upload to QiNiu"
-      env:
-        QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
-        QINIU_AK: ${{ secrets.QINIU_AK }}
-        QINIU_SK: ${{ secrets.QINIU_SK }}
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y unzip
-
-        if [ $(uname -m) == 'x86_64' ]; then
-          wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
-          unzip qshell-linux-x64-v2.4.1.zip
-          mv qshell-linux-x64-v2.4.1 qshell
-        else
-          wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
-          unzip qshell-linux-x86-v2.4.1.zip
-          mv qshell-linux-x86-v2.4.1 qshell
-        fi
-        chmod +x qshell
-        ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
-
-        curl https://api.github.com/repos/PiSugar/pisugar-power-manager-rs/releases/latest > latest
-
-        sudo apt-get install -y jq
-        for url in $(jq '.assets[].browser_download_url' latest); do
-          url=$(echo $url | awk -F '"' '{print $2}')
-          filename=${url##*/}
-          ./qshell sync ${url} ${QINIU_BUCKET} -k ${filename}
-        done
