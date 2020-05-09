@@ -29,7 +29,7 @@ jobs:
           mv qshell-linux-x86-v2.4.1 qshell
         fi
         chmod +x qshell
-        qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
+        ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
         curl https://api.github.com/repos/PiSugar/pisugar-power-manager-rs/releases/latest > latest
 
@@ -37,5 +37,5 @@ jobs:
         for url in $(jq '.assets[].browser_download_url' latest); do
           url=$(echo $url | awk -F '"' '{print $2}')
           filename=${url##*/}
-          qshell sync ${url} ${QINIU_BUCKET} ${filename}
+          ./qshell sync ${url} ${QINIU_BUCKET} ${filename}
         done
