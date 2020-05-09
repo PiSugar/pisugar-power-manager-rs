@@ -84,9 +84,9 @@ jobs:
 
     - name: "Upload to QiNiu"
       env:
-        QINUE_BUCKET: ${{ secrets.QINUE_BUCKET }}
-        QINUE_AK: ${{ secrets.QINUE_AK }}
-        QINUE_SK: ${{ secrets.QINUE_SK }}
+        QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
+        QINIU_AK: ${{ secrets.QINIU_AK }}
+        QINIU_SK: ${{ secrets.QINIU_SK }}
       run: |
         sudo apt-get install -y openjdk-11-jre
         if [ $(uname -m) == 'x86_64' ]; then
@@ -103,5 +103,5 @@ jobs:
           url=$(echo $url | awk -F '"' '{print $2}')
           filename=${url##*/}
           wget -O ${filename} ${url}
-          ./qsuits -process=qupload -path=${filename} -s -ak=${QINUE_AK} -sk=${QINUE_SK} -bucket=${QINUE_BUCKET} -key=${filename}
+          ./qsuits -process=qupload -path=${filename} -s -ak=${QINIU_AK} -sk=${QINIU_SK} -bucket=${QINIU_BUCKET} -key=${filename}
         done
