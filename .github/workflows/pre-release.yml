@@ -88,6 +88,7 @@ jobs:
         QINIU_AK: ${{ secrets.QINIU_AK }}
         QINIU_SK: ${{ secrets.QINIU_SK }}
       run: |
+        sudo apt-get update
         sudo apt-get install -y openjdk-11-jre
         if [ $(uname -m) == 'x86_64' ]; then
           wget -O qsuits http://devtools.qiniu.com/qsuits_linux_amd64
