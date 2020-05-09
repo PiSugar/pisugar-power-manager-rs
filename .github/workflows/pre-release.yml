@@ -63,8 +63,8 @@ jobs:
         command: deb
         args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
 
-    # Upload artifact
-    - name: Checkout
+    # Upload artifacts
+    - name: Upload artifacts
       uses: actions/upload-artifact@v1
       with:
         name: pisugar-server-deb
@@ -78,8 +78,6 @@ jobs:
         prerelease: true
         title: "Development Build"
         files: |
-          LICENSE
-          CHANGELOG
           target/arm-unknown-linux-musleabihf/debian/*
 
     - name: "Upload to QiNiu"
@@ -89,13 +87,20 @@ jobs:
         QINIU_SK: ${{ secrets.QINIU_SK }}
       run: |
         sudo apt-get update
+        sudo apt-get install -y unzip
         sudo apt-get install -y openjdk-11-jre
+
         if [ $(uname -m) == 'x86_64' ]; then
-          wget -O qsuits http://devtools.qiniu.com/qsuits_linux_amd64
+          wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
+          unzip qshell-linux-x64-v2.4.1.zip
+          mv qshell-linux-x64-v2.4.1 qshell
         else
-          wget -O qsuits http://devtools.qiniu.com/qsuits_linux_386
+          wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
+          unzip qshell-linux-x86-v2.4.1.zip
+          mv qshell-linux-x86-v2.4.1 qshell
         fi
-        chmod +x qsuits
+        chmod +x qshell
+        qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
         curl https://api.github.com/repos/PiSugar/pisugar-power-manager-rs/releases/latest > latest
 
@@ -103,6 +108,5 @@ jobs:
         for url in $(jq '.assets[].browser_download_url' latest); do
           url=$(echo $url | awk -F '"' '{print $2}')
           filename=${url##*/}
-          wget -O ${filename} ${url}
-          ./qsuits -process=qupload -path=${filename} -s -ak=${QINIU_AK} -sk=${QINIU_SK} -bucket=${QINIU_BUCKET} -key=${filename}
+          qshell sync ${url} ${QINIU_BUCKET} ${filename}
         done
