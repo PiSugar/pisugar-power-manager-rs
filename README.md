@@ -45,7 +45,7 @@ Build
 
     cargo build --release
 
-### Cross compilation - macos
+### Cross compilation - macos (musl)
 
 Install cross compiler utils
 
@@ -63,23 +63,27 @@ Build
     cargo build --target arm-unknown-linux-musleabihf --release     # armv6
     cargo build --target armv7-unknown-linux-musleabihf --release   # armv7
 
-### Cross compilation - linux/ubuntu
+### Cross compilation - linux/ubuntu (musl)
 
-Install cross compiler utils
+Install cross compiler utils (prebuilt musl toolchain on x86_64 or i686)
 
-    sudo apt-get install gcc-arm-linux-gnueabihf
+    wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
+    tar -xvf arm-linux-musleabihf-cross.tgz
 
 Install rust and arm/armv7 target
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup update
-    rustup target add arm-unknown-linux-gnueabihf       # armv6
-    rustup target add armv7-unknown-linux-gnueabihf     # armv7
+    rustup target add arm-unknown-linux-musleabihf       # armv6
+    rustup target add armv7-unknown-linux-musleabihf     # armv7
 
 Build
 
-    cargo build --target arm-unknown-linux-gnueabihf --release      # armv6
-    cargo build --target armv7-unknown-linux-gnueabihf --release    # armv7
+    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
+        cargo build --target arm-unknown-linux-musleabihf --release      # armv6
+
+    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
+        cargo build --target armv7-unknown-linux-musleabihf --release    # armv7
 
 ### Cross compilation - windows
 
@@ -87,7 +91,7 @@ Get cross toolchains from https://gnutoolchains.com/raspberry/
 
 Install rust, please refer to https://forge.rust-lang.org/infra/other-installation-methods.html
 
-You might install WSL and follow the linux cross compilation steps.
+Install WSL and follow the linux cross compilation steps.
 
 ### Build and install deb package
 
@@ -104,8 +108,11 @@ Build deb with cargo-deb (need latest cargo-deb that support templates)
     cargo install --git https://github.com/mmstick/cargo-deb.git
 
     # linux
-    cargo deb --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml
-    cargo deb --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-poweroff/Cargo.toml
+    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
+        cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
+
+    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
+    cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
 
     # macos
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
@@ -167,7 +174,7 @@ To preconfigure before installation
 RLS configuration of vscode `.vscode/settings.json`
 
     {
-        "rust.target": "arm-unknown-linux-gnueabihf"
+        "rust.target": "arm-unknown-linux-musleabihf"
     }
 
 ### Unix Domain Socket / Webscoket / TCP
