@@ -88,7 +88,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y unzip
-        sudo apt-get install -y openjdk-11-jre
 
         if [ $(uname -m) == 'x86_64' ]; then
           wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
@@ -108,5 +107,5 @@ jobs:
         for url in $(jq '.assets[].browser_download_url' latest); do
           url=$(echo $url | awk -F '"' '{print $2}')
           filename=${url##*/}
-          ./qshell sync ${url} ${QINIU_BUCKET} ${filename}
+          ./qshell sync ${url} ${QINIU_BUCKET} -k ${filename}
         done
