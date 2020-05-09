@@ -91,11 +91,15 @@ jobs:
         version: latest
     # Rust cargo deb - pisugar-server
     - uses: actions-rs/cargo@v1
+      env:
+        PATH: arm-unknown-linux-musleabihf/bin:$PATH
       with:
         command: deb
         args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
     # Rust cargo deb - pisugar-poweroff
     - uses: actions-rs/cargo@v1
+      env:
+        PATH: arm-unknown-linux-musleabihf/bin:$PATH
       with:
         command: deb
         args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
