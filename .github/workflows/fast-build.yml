@@ -2,10 +2,8 @@
 name: Hourly build on master
 
 on:
-  push:
-    branches: [ master ]
   schedule:
-    - cron: '0 */1 * * *'
+    - cron: '0 */6 * * *'
 
 jobs:
   build-all:
@@ -16,6 +14,8 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: master
+    - name: Fix cargo config
+      run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
     # Nodejs
     - name: Setup Nodejs
@@ -29,28 +29,23 @@ jobs:
     - run: npm run build:web
       working-directory: electron
 
-    # Fix cargo config
-    - run: sed -e "s/.*replace-with.*//g" -i .cargo/config
-    # Rust target arm-unknown-linux-gnueabihf
-    - uses: actions-rs/toolchain@v1
+    # Rust musl cross toolchain
+    - name: Rust musl cross toolchain
+      run: |
+        if ! test -d arm-linux-musleabihf-cross/bin; then
+          wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
+          tar -xvf arm-linux-musleabihf-cross.tgz
+        fi
+        echo ::set-env name=PATH::$(pwd)/arm-linux-musleabihf-cross/bin:$PATH
+    # Rust target arm-unknown-linux-musleabihf
+    - name: Rust add arm-unknown-linux-musleabihf target
+      uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-        target: arm-unknown-linux-gnueabihf
+        target: arm-unknown-linux-musleabihf
         override: true
-    # Rust cross build
-    - uses: actions-rs/cargo@v1
-      with:
-        use-cross: true
-        command: build
-        args: --target arm-unknown-linux-gnueabihf --release
-
-    # Cargo deb
-    # Now, correct the build directory
-    - run: |
-        mkdir -p target/arm-unknown-linux-gnueabihf/release
-        cp -rf target/release/* target/arm-unknown-linux-gnueabihf/release/
     # Rust install cargo-deb
-    - name: Install cargo-deb
+    - name: Rust install cargo-deb
       uses: actions-rs/install@v0.1
       with:
         crate: cargo-deb
@@ -59,15 +54,16 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: deb
-        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-server/Cargo.toml --no-build --no-strip
+        args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
     # Rust cargo deb - pisugar-poweroff
     - uses: actions-rs/cargo@v1
       with:
         command: deb
-        args: --target arm-unknown-linux-gnueabihf --manifest-path=pisugar-poweroff/Cargo.toml --no-build --no-strip
+        args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
+
     # Upload artifact
     - name: Checkout
       uses: actions/upload-artifact@v1
       with:
         name: pisugar-server-deb
-        path: target/arm-unknown-linux-gnueabihf/debian
+        path: target/arm-unknown-linux-musleabihf/debian

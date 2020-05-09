@@ -76,8 +76,6 @@ jobs:
           tar -xvf arm-linux-musleabihf-cross.tgz
         fi
         echo ::set-env name=PATH::$(pwd)/arm-linux-musleabihf-cross/bin:$PATH
-    - name: Test env
-      run: echo $PATH
     # Rust target arm-unknown-linux-musleabihf
     - name: Rust add arm-unknown-linux-musleabihf target
       uses: actions-rs/toolchain@v1
@@ -91,6 +89,7 @@ jobs:
       with:
         crate: cargo-deb
         version: latest
+        use-tool-cache: true
     # Rust cargo deb - pisugar-server
     - uses: actions-rs/cargo@v1
       with:
