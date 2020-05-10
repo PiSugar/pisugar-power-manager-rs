@@ -76,6 +76,11 @@ Install cross compiler utils (prebuilt musl toolchain on x86_64 or i686)
     wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
     tar -xvf arm-linux-musleabihf-cross.tgz
 
+Move the toolchain into `/opt`, and add it into `PATH`
+
+    sudo mv arm-linux-musleabihf-cross /opt/
+    echo 'PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+
 Install rust and arm/armv7 target
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -85,17 +90,10 @@ Install rust and arm/armv7 target
 
 Build
 
-    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
-        cargo build --target arm-unknown-linux-musleabihf --release      # armv6
-
-    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
-        cargo build --target armv7-unknown-linux-musleabihf --release    # armv7
+    cargo build --target arm-unknown-linux-musleabihf --release      # armv6
+    cargo build --target armv7-unknown-linux-musleabihf --release    # armv7
 
 ### Cross compilation - windows
-
-Get cross toolchains from https://gnutoolchains.com/raspberry/
-
-Install rust, please refer to https://forge.rust-lang.org/infra/other-installation-methods.html
 
 Install WSL and follow the linux cross compilation steps.
 
