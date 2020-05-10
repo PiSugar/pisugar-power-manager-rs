@@ -107,3 +107,31 @@ jobs:
       with:
         name: pisugar-debs
         path: target/arm-unknown-linux-musleabihf/debian
+
+    # Upload QiNiu nightly
+    - name: "Upload to QiNiu"
+      env:
+        QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
+        QINIU_AK: ${{ secrets.QINIU_AK }}
+        QINIU_SK: ${{ secrets.QINIU_SK }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unzip
+
+        if [ $(uname -m) == 'x86_64' ]; then
+          wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
+          unzip qshell-linux-x64-v2.4.1.zip
+          mv qshell-linux-x64-v2.4.1 qshell
+        else
+          wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
+          unzip qshell-linux-x86-v2.4.1.zip
+          mv qshell-linux-x86-v2.4.1 qshell
+        fi
+        chmod +x qshell
+        ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
+
+        for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
+          filename=${f##*/}
+          key=nightly/${filename}
+          qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
+        done
