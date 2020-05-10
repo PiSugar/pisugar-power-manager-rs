@@ -78,6 +78,7 @@ jobs:
         draft: true
         files: |
           target/arm-unknown-linux-musleabihf/debian/*
+          scripts/*
 
     # Upload QiNiu nightly
     - name: "Upload to QiNiu"
@@ -102,6 +103,11 @@ jobs:
         ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
         for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
+          filename=${f##*/}
+          key=nightly/${filename}
+          ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
+        done
+        for f in $(find scripts -name '*.sh' ); do
           filename=${f##*/}
           key=nightly/${filename}
           ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
