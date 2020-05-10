@@ -36,5 +36,6 @@ jobs:
         for url in $(jq '.assets[].browser_download_url' latest); do
           url=$(echo $url | awk -F '"' '{print $2}')
           filename=${url##*/}
-          ./qshell sync ${url} ${QINIU_BUCKET} -k "release/${filename}"
+          wget -O ${filename} ${url}
+          ./qshell rput --overwrite ${QINIU_BUCKET} release/${filename} ${filename}
         done
