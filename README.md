@@ -11,6 +11,12 @@
 
 PiSugar power manager in rust language.
 
+## Install
+
+These packages are hosted in QiNiu CDN.
+
+    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
+
 ## Enable I2C interface
 
 On raspberry pi
