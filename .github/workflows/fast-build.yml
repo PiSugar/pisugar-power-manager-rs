@@ -68,6 +68,18 @@ jobs:
         name: pisugar-server-deb
         path: target/arm-unknown-linux-musleabihf/debian
 
+    # Development Release
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        title: "Development Build"
+        prerelease: true
+        draft: false
+        files: |
+          target/arm-unknown-linux-musleabihf/debian/*
+          scripts/*
+
     # Upload QiNiu nightly
     - name: "Upload to QiNiu"
       env:
