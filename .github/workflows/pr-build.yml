@@ -133,5 +133,5 @@ jobs:
         for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
           filename=${f##*/}
           key=nightly/${filename}
-          qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
+          ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
         done
