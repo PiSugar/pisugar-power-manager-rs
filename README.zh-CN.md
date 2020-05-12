@@ -7,107 +7,107 @@
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
 </p>
 
-## Management program for PiSugar 2
+## PiSugar 2 电池管理程序
 
-PiSugar power manager in rust language.
+采用 Rust 编写的 PiSugar 2 电池管理程序。
 
-## Install
+## 安装
 
-These packages are hosted in QiNiu CDN.
+安装包托管在七牛云。
 
     curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
 
-## Enable I2C interface
+## 开启 I2C 功能
 
-On raspberry pi
+树莓派上
 
     sudo raspi-config
 
 `Interfacing Options -> I2C -> Yes`
 
-## Modules
+## 模块划分
 
-1. pisugar-core: Core library
-2. pisugar-server: Http/tcp/uds server that provide PiSugar battery status
-3. pisugar-poweroff: Systemd service that shut down PiSugar battery
+1. pisugar-core: 核心库
+2. pisugar-server: Http/tcp/uds 服务器
+3. pisugar-poweroff: Systemd 关机服务
 
-## Compilation
+## 编译
 
-CPU architecture of raspberry pi is different from your linux/windows PC or macbook, there are two ways of compiling the code:
+树莓派的 CPU 指令集与 linux/windows pc 或 macbook 的不同，有两种方式进行编译：
 
-1. directly on raspberry pi
-2. cross compilation
+1. 树莓派上编译
+2. 交叉编译
 
-If you need more about rust cross compilation, please refer to https://dev.to/h_ajsf/cross-compiling-rust-for-raspberry-pi-4iai .
+更加详细的说明，见 https://dev.to/h_ajsf/cross-compiling-rust-for-raspberry-pi-4iai .
 
-### On raspberry pi
+### 树莓派上编译
 
-Install rust
+安装 Rust
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup update
 
-Build
+编译
 
     cargo build --release
 
-### Cross compilation - macos (musl)
+### 交叉编译 - macos (musl)
 
-Install cross compiler utils
+安装交叉编译工具
 
     brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-arm-hf
 
-Install rust and armv6(zero/zerow) or armv7(3b/3b+) target
+安装 Rust armv6(zero/zerow) 或 armv7(3b/3b+) 目标工具
 
     brew install rustup-init
     rustup update
     rustup target add arm-unknown-linux-musleabihf      # armv6
     rustup target add armv7-unknown-linux-musleabihf    # armv7
 
-Build
+编译
 
     cargo build --target arm-unknown-linux-musleabihf --release     # armv6
     cargo build --target armv7-unknown-linux-musleabihf --release   # armv7
 
-### Cross compilation - linux/ubuntu (musl)
+### 交叉编译 - linux/ubuntu (musl)
 
-Install cross compiler utils (prebuilt musl toolchain on x86_64 or i686)
+安装交叉编译工具 (预编译的 musl x86_64 或 i686 工具链)
 
     wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
     tar -xvf arm-linux-musleabihf-cross.tgz
 
-Move the toolchain into `/opt`, and add it into `PATH`
+放到 `/opt`, 并加入 `PATH`
 
     sudo mv arm-linux-musleabihf-cross /opt/
     echo 'PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
 
-Install rust and arm/armv7 target
+安装 Rust arm/armv7 目标工具
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup update
     rustup target add arm-unknown-linux-musleabihf       # armv6
     rustup target add armv7-unknown-linux-musleabihf     # armv7
 
-Build
+编译
 
     cargo build --target arm-unknown-linux-musleabihf --release      # armv6
     cargo build --target armv7-unknown-linux-musleabihf --release    # armv7
 
-### Cross compilation - windows
+### 交叉编译 - windows
 
-Install WSL and follow the linux cross compilation steps.
+使用 WSL 并按照 linux 的交叉编译设置。
 
-### Build and install deb package
+### 编译和安装 deb 包
 
-Build web content
+编译前端 web
 
     (cd electron && npm install && npm run build:web)
 
-Try other mirrors when electron could not be downloaded
+Election 下载失败时，尝试镜像服务器
 
     ELECTRON_MIRROR="https://npm.taobao.org/mirrors/electron/" npm install
 
-Build deb with cargo-deb (need latest cargo-deb that support templates)
+使用 cargo-deb (需要最新的 cargo-deb)
 
     cargo install --git https://github.com/mmstick/cargo-deb.git
 
@@ -122,7 +122,7 @@ Build deb with cargo-deb (need latest cargo-deb that support templates)
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
 
-Install
+安装
 
     # Install
     sudo dpkg -i pisugar-xxx_<version>_<arch>.deb
@@ -130,7 +130,7 @@ Install
     # Uninstall/Purge
     sudo dpkg -P pisugar-xxx
 
-Commands of controlling pisugar-server systemd service
+控制 pisugar-server systemd 服务的命令
 
     # reload daemon
     sudo systemctl daemon-reload
@@ -150,32 +150,32 @@ Commands of controlling pisugar-server systemd service
     # enable service
     sudo systemctl enable pisugar-server
 
- (pisugar-poweroff run once just before linux poweroff)
+ (pisugar-poweroff 在系统 poweroff 前执行一次，关闭芯片)
 
-Now, navigate to `http://x.x.x.x:8421` on your browser and see PiSugar power status.
+在浏览器访问 `http://x.x.x.x:8421`，并查看 PiSugar 2 电池状态。
 
-Configuration files of pisugar-server
+pisugar-server 的配置文件
 
     /etc/default/pisugar-server
     /etc/pisugar-server/config.json
 
-Configuration files of pisugar-poweroff
+pisugar-poweroff 的配置文件
 
     /etc/default/pisugar-poweroff
 
-To reconfigure after installation
+如果要在安装后重新配置
 
     sudo dpkg-reconfigure pisugar-server
     sudo dpkg-reconfigure pisugar-poweroff
 
-To preconfigure before installation
+在安装前进行配置
 
     sudo dpkg-preconfigure pisugar-server_<ver>_<arch>.deb
     sudo dpkg-preconfigure pisugar-poweroff_<ver>_<arch>.deb
 
-### RLS
+### vscode RLS 配置
 
-RLS configuration of vscode `.vscode/settings.json`
+vscode RLS 配置 `.vscode/settings.json`
 
     {
         "rust.target": "arm-unknown-linux-musleabihf"
@@ -183,7 +183,7 @@ RLS configuration of vscode `.vscode/settings.json`
 
 ### Unix Domain Socket / Webscoket / TCP
 
-Default ports:
+默认端口列表:
 
     uds     /tmp/pisugar-server.sock
     tcp     0.0.0.0:8423
@@ -215,20 +215,20 @@ Default ports:
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level: 3 |
 | set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay: 30|
 
-Examples:
+示例：
 
     nc -U /tmp/pisugar-server.sock
     get battery
     get model
     <ctrl+c to break>
 
-Or
+或
 
     echo "get battery" | nc -q 0 127.0.0.1 8423
 
-## Release
+## 版本发布
 
-See https://github.com/PiSugar/pisugar-power-manager-rs/releases
+查看 https://github.com/PiSugar/pisugar-power-manager-rs/releases
 
 ## LICENSE
 
