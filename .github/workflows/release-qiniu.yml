@@ -37,5 +37,9 @@ jobs:
           url=$(echo $url | awk -F '"' '{print $2}')
           filename=${url##*/}
           wget -O ${filename} ${url}
-          ./qshell rput --overwrite ${QINIU_BUCKET} release/${filename} ${filename}
+          mimetype=application/octet-stream
+          if (echo "$filename" | grep '.*.sh$'); then
+            mimetype=text/plain
+          fi
+          ./qshell rput --overwrite --mimetype ${mimetype} ${QINIU_BUCKET} release/${filename} ${filename}
         done

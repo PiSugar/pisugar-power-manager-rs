@@ -1,6 +1,6 @@
 [package]
 name = "pisugar-server"
-version = "1.4.0"
+version = "1.4.1"
 authors = ["PiSugar"]
 edition = "2018"
 
