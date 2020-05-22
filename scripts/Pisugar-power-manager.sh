@@ -3,8 +3,8 @@ set -e
 
 echo=$(which echo)
 
-package_server="pisugar-server_1.4.0_armhf.deb"
-package_poweroff="pisugar-poweroff_1.4.0_armhf.deb"
+package_server="pisugar-server_1.4.1_armhf.deb"
+package_poweroff="pisugar-poweroff_1.4.1_armhf.deb"
 local_host="`hostname --fqdn`"
 local_ip=$(ip addr |grep inet |grep -v inet6 |grep wlan0|awk '{print $2}' |awk -F "/" '{print $1}')
 

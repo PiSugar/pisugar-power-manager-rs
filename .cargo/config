@@ -5,6 +5,9 @@ replace-with = "ustc"
 [source.ustc]
 registry = "git://mirrors.ustc.edu.cn/crates.io-index"
 
+[build]
+target = "arm-unknown-linux-musleabihf"
+
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
 strip = {path="arm-linux-musleabihf-strip"}
