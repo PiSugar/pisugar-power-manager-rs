@@ -80,4 +80,4 @@ rm -f /tmp/${package_poweroff}
 
 $echo -e "Now navigate to \033[1;34mhttp://${local_ip}:8421\033[0m on your browser to see PiSugar power management"
 $echo -e "If you have any question,please feel free to contact us."
-$echo -e "\033[1;34mContact us at https://www.PiSugar.com\033[0m"
+$echo -e "\033[1;34mContact us at https://www.pisugar.com\033[0m"
