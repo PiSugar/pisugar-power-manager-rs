@@ -123,6 +123,16 @@ impl IP5312 {
         Ok(())
     }
 
+    /// Init boost intensity, 0x3f*50ma, 3A
+    pub fn init_boost_intensity(&self) -> Result<()> {
+        let mut v = self.i2c.smbus_read_byte(0x30)?;
+        v &= 0b1100_0000;
+        v |= 0x3f;
+        self.i2c.smbus_write_byte(0x30, v)?;
+
+        Ok(())
+    }
+
     /// Read gpio tap
     pub fn read_gpio_tap(&self) -> Result<u8> {
         let mut v = self.i2c.smbus_read_byte(0x58)?;

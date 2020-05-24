@@ -214,6 +214,12 @@ impl PiSugarStatus {
             } else {
                 log::error!("Init auto shutdown failed");
             }
+
+            if ip5312.init_boost_intensity().is_ok() {
+                log::info!("Init boost intensity success");
+            } else {
+                log::error!("Init boost intensity failed");
+            }
         } else if let Ok(v) = ip5209.read_voltage() {
             log::info!("PiSugar with IP5209");
             model = String::from(MODEL_V2);
