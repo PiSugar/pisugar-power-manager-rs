@@ -17,6 +17,19 @@
 
     curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
 
+安装脚本使用方式：
+
+    Install pisugar power manager tools.
+
+    USAGE: Pisugar-power-manager.sh [OPTIONS]
+
+    OPTIONS:
+        -h|--help       Print this usage.
+        -v|--version    Install a specified version, default: 1.4.0
+        -c|--channel    Choose nightly or release channel, default: release
+
+    For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
+
 ## 开启 I2C 功能
 
 树莓派上

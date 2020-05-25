@@ -17,6 +17,19 @@ These packages are hosted in QiNiu CDN.
 
     curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
 
+Install script usage
+
+    Install pisugar power manager tools.
+
+    USAGE: Pisugar-power-manager.sh [OPTIONS]
+
+    OPTIONS:
+        -h|--help       Print this usage.
+        -v|--version    Install a specified version, default: 1.4.0
+        -c|--channel    Choose nightly or release channel, default: release
+
+    For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
+
 ## Enable I2C interface
 
 On raspberry pi
