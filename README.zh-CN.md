@@ -95,7 +95,8 @@
 放到 `/opt`, 并加入 `PATH`
 
     sudo mv arm-linux-musleabihf-cross /opt/
-    echo 'PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+    echo 'export PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+    source ~/.bashrc
 
 安装 Rust arm/armv7 目标工具
 

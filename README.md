@@ -95,7 +95,8 @@ Install cross compiler utils (prebuilt musl toolchain on x86_64 or i686)
 Move the toolchain into `/opt`, and add it into `PATH`
 
     sudo mv arm-linux-musleabihf-cross /opt/
-    echo 'PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+    echo 'export PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+    source ~/.bashrc
 
 Install rust and arm/armv7 target
 
