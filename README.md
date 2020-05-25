@@ -17,6 +17,11 @@ These packages are hosted in QiNiu CDN.
 
     curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
 
+or
+
+    wget http://cdn.pisugar.com/release/Pisugar-power-manager.sh
+    bash Pisugar-power-manager.sh -c release
+
 Install script usage
 
     Install pisugar power manager tools.
@@ -50,8 +55,6 @@ CPU architecture of raspberry pi is different from your linux/windows PC or macb
 
 1. directly on raspberry pi
 2. cross compilation
-
-If you need more about rust cross compilation, please refer to https://dev.to/h_ajsf/cross-compiling-rust-for-raspberry-pi-4iai .
 
 ### On raspberry pi
 

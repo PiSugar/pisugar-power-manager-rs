@@ -17,6 +17,11 @@
 
     curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
 
+或
+
+    wget http://cdn.pisugar.com/release/Pisugar-power-manager.sh
+    bash Pisugar-power-manager.sh -c release
+
 安装脚本使用方式：
 
     Install pisugar power manager tools.
@@ -50,8 +55,6 @@
 
 1. 树莓派上编译
 2. 交叉编译
-
-更加详细的说明，见 https://dev.to/h_ajsf/cross-compiling-rust-for-raspberry-pi-4iai .
 
 ### 树莓派上编译
 
