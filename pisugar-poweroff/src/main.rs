@@ -28,9 +28,12 @@ fn main() {
     eprint!("0...\n");
 
     let config = PiSugarConfig::default();
-    let core = PiSugarCore::new(config).unwrap();
-    for _ in 0..3 {
-        let _ = core.force_shutdown();
-        sleep(Duration::from_millis(10));
+    if let Ok(core) = PiSugarCore::new(config) {
+        for _ in 0..3 {
+            let _ = core.force_shutdown();
+            sleep(Duration::from_millis(10));
+        }
+    } else {
+        eprintln!("Failed to connect PiSugar");
     }
 }
