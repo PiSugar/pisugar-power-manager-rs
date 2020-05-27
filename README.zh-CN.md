@@ -56,6 +56,8 @@
 1. 树莓派上编译
 2. 交叉编译
 
+注意：如果有 cargo 报告网络问题，移除 .cargo/config 的 `replace-with=...` 配置项。
+
 ### 树莓派上编译
 
 安装 Rust

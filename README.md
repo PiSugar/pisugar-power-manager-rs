@@ -56,6 +56,8 @@ CPU architecture of raspberry pi is different from your linux/windows PC or macb
 1. directly on raspberry pi
 2. cross compilation
 
+NOTE: Remove `replace-with=...` in .cargo/config if cargo reports `warning: spurious network error`.
+
 ### On raspberry pi
 
 Install rust
