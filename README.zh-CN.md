@@ -15,7 +15,7 @@
 
 安装包托管在七牛云。
 
-    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
+    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo bash
 
 或
 

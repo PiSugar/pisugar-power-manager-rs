@@ -15,7 +15,7 @@ PiSugar power manager in rust language.
 
 These packages are hosted in QiNiu CDN.
 
-    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo sh
+    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo bash
 
 or
 
