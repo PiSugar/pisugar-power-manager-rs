@@ -1,13 +1,13 @@
+use std::convert::{TryFrom, TryInto};
 use std::fmt::{self, Display};
 
 use chrono::prelude::*;
-use std::convert::TryFrom;
-
-use crate::Result;
 use chrono::LocalResult;
 use rppal::i2c::I2c;
 
-/// SD3078 time, always 24hr
+use crate::Result;
+
+/// SD3078 time, always UTC 24hr
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct SD3078Time([u8; 7]);
 
@@ -85,8 +85,8 @@ impl Display for SD3078Time {
     }
 }
 
-impl From<DateTime<Local>> for SD3078Time {
-    fn from(dt: DateTime<Local>) -> Self {
+impl From<DateTime<Utc>> for SD3078Time {
+    fn from(dt: DateTime<Utc>) -> Self {
         let mut t = SD3078Time([0; 7]);
         t.0[6] = dec_to_bcd((dt.year() % 100) as u8);
         t.0[5] = dec_to_bcd(dt.month() as u8);
@@ -99,7 +99,7 @@ impl From<DateTime<Local>> for SD3078Time {
     }
 }
 
-impl TryFrom<SD3078Time> for DateTime<Local> {
+impl TryFrom<SD3078Time> for DateTime<Utc> {
     type Error = ();
 
     fn try_from(t: SD3078Time) -> std::result::Result<Self, Self::Error> {
@@ -110,13 +110,29 @@ impl TryFrom<SD3078Time> for DateTime<Local> {
         let month = bcd_to_dec(t.0[5]) as u32;
         let year = 2000 + bcd_to_dec(t.0[6]) as i32;
 
-        let datetime = Local
+        let datetime = Utc
             .ymd_opt(year, month, day_of_month)
             .and_hms_opt(hour, min, sec);
         match datetime {
             LocalResult::Single(datetime) => Ok(datetime),
             _ => Err(()),
         }
+    }
+}
+
+impl From<DateTime<Local>> for SD3078Time {
+    fn from(dt: DateTime<Local>) -> Self {
+        let dt: DateTime<Utc> = DateTime::from(dt);
+        dt.into()
+    }
+}
+
+impl TryFrom<SD3078Time> for DateTime<Local> {
+    type Error = ();
+
+    fn try_from(t: SD3078Time) -> std::result::Result<Self, Self::Error> {
+        t.try_into()
+            .and_then(|dt: DateTime<Utc>| Ok(DateTime::from(dt)))
     }
 }
 
@@ -314,7 +330,7 @@ impl SD3078 {
 
     /// Set a test wake up after 1 minutes
     pub fn set_test_wake(&self) -> Result<()> {
-        let now = Local::now();
+        let now = Utc::now();
         self.write_time(now.into())?;
 
         let duration = chrono::Duration::seconds(90);

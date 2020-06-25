@@ -357,11 +357,11 @@ impl PiSugarStatus {
     }
 
     pub fn rtc_time(&self) -> DateTime<Local> {
-        self.rtc_time
+        self.rtc_time.into()
     }
 
     pub fn set_rtc_time(&mut self, rtc_time: DateTime<Local>) {
-        self.rtc_time = rtc_time
+        self.rtc_time = DateTime::from(rtc_time)
     }
 
     pub fn poll(&mut self, config: &PiSugarConfig, now: Instant) -> Result<Option<TapType>> {
