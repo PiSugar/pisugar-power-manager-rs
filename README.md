@@ -206,8 +206,8 @@ Default ports:
 
     uds     /tmp/pisugar-server.sock
     tcp     0.0.0.0:8423
-    ws      0.0.0.0:8422
-    http    0.0.0.0:8421    # web only
+    ws      0.0.0.0:8422    # standalone websocket api
+    http    0.0.0.0:8421    # web UI and websocket (/ws)
 
 | Command | Description | Response/Usage |
 | :- | :-: | :-: |

@@ -11,12 +11,14 @@ use std::time::Instant;
 use bytes::*;
 use chrono::prelude::*;
 use clap::{App, Arg};
+use env_logger::Env;
 use futures::prelude::*;
 use futures::SinkExt;
 use futures_channel::mpsc::unbounded;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::Client;
-use hyper::Server;
+use hyper::{Body, Client, Response};
+use hyper::{Request, Server};
+use hyper_websocket_lite::{server_upgrade, AsyncClient};
 use log::LevelFilter;
 use syslog::{BasicLogger, Facility, Formatter3164};
 use tokio::fs::OpenOptions;
@@ -24,8 +26,8 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
+use websocket_codec::{Message, Opcode};
 
-use env_logger::Env;
 use pisugar_core::{
     execute_shell, notify_shutdown_soon, sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time,
     I2C_READ_INTERVAL, TIME_HOST,
@@ -483,13 +485,76 @@ fn clean_up(uds: Option<String>, web_dir: Option<String>) {
     exit(0)
 }
 
-/// Serve web
-async fn serve_http(http_addr: SocketAddr, web_dir: String) {
+async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, event_rx: EventRx) {
+    let (tx, mut rx) = unbounded();
+    let (mut sink, mut s) = stream_mut.split();
+
+    // req
+    let mut tx_cloned = tx.clone();
+    tokio::spawn(async move {
+        while let Some(Ok(msg)) = s.next().await {
+            let resp_msg = match msg.opcode() {
+                Opcode::Text => {
+                    let req = msg.as_text().unwrap();
+                    let resp = handle_request(core.clone(), req);
+                    Some(Message::text(resp))
+                }
+                Opcode::Binary => Some(Message::close(None)),
+                Opcode::Ping => Some(Message::pong(msg.into_data())),
+                Opcode::Close => Some(Message::close(None)),
+                Opcode::Pong => None,
+            };
+            if resp_msg.is_some() {
+                tx_cloned.send(resp_msg).await.expect("Channel failed");
+            }
+        }
+        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tx_cloned.send(None).await.expect("Channel failed");
+        log::info!("Websocket closed");
+    });
+
+    // button event
+    tokio::spawn(event_rx.map(|e| Ok(Some(Message::text(e)))).forward(tx));
+
+    // send back
+    while let Some(Some(rsp)) = rx.next().await {
+        sink.send(rsp).await.expect("Channel failed");
+    }
+}
+
+async fn handle_http_req(
+    req: Request<Body>,
+    static_: hyper_staticfile::Static,
+    core: Arc<Mutex<PiSugarCore>>,
+    event_rx: EventRx,
+) -> Result<Response<Body>, io::Error> {
+    if req.uri().path().ends_with("/ws") {
+        server_upgrade(req, |c| on_ws_client(c, core, event_rx))
+            .await
+            .map_err(|_| io::Error::from(io::ErrorKind::Other))
+    } else {
+        static_.clone().serve(req).await
+    }
+}
+
+/// Serve http
+async fn serve_http(
+    http_addr: SocketAddr,
+    web_dir: String,
+    core: Arc<Mutex<PiSugarCore>>,
+    event_rx: EventRx,
+) {
     let static_ = hyper_staticfile::Static::new(web_dir);
 
     let make_service = make_service_fn(move |_| {
         let static_ = static_.clone();
-        future::ok::<_, hyper::Error>(service_fn(move |req| static_.clone().serve(req)))
+        let core = core.clone();
+        let event_rx = event_rx.clone();
+        async {
+            Ok::<_, io::Error>(service_fn(move |req| {
+                handle_http_req(req, static_.clone(), core.clone(), event_rx.clone())
+            }))
+        }
     });
 
     let server = Server::bind(&http_addr).serve(make_service);
@@ -508,7 +573,7 @@ fn init_logging(debug: bool, syslog: bool) {
             facility: Facility::LOG_USER,
             hostname: None,
             process: env!("CARGO_PKG_NAME").into(),
-            pid: pid,
+            pid,
         };
         let logger = syslog::unix(formatter).expect("Could not connect to syslog");
         log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
@@ -663,7 +728,7 @@ async fn main() -> std::io::Result<()> {
     if matches.is_present("uds") {
         let uds_addr = matches.value_of("uds").unwrap();
         let core_cloned = core.clone();
-        let event_rx_cloned = event_rx;
+        let event_rx_cloned = event_rx.clone();
         match tokio::net::UnixListener::bind(uds_addr) {
             Ok(mut uds_listener) => {
                 tokio::spawn(async move {
@@ -681,16 +746,19 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
-    // http web
+    // http web/ws
     if matches.is_present("http") && matches.is_present("web") {
+        let core_cloned = core.clone();
+        let event_rx = event_rx.clone();
         let web_dir = matches.value_of("web").unwrap().to_string();
         let http_addr = matches.value_of("http").unwrap().parse().unwrap();
         let web_dir_cloned = web_dir.clone();
         tokio::spawn(async move {
             log::info!("Http web server listening...");
-            let _ = serve_http(http_addr, web_dir).await;
+            let _ = serve_http(http_addr, web_dir, core_cloned, event_rx).await;
             log::info!("Http web server stopped");
         });
+
         // Write a _ws.json file
         if matches.is_present("ws") {
             let ws_addr = matches.value_of("ws").unwrap();

@@ -11,22 +11,8 @@ import 'element-ui/lib/theme-chalk/index.css'
 import locale from 'element-ui/lib/locale/lang/en'
 import { messages, localeOptions } from './locale'
 
-const defaultWsPort = 8422
-const defaultHost = localStorage.getItem('webSocketAddress') || `ws://${window.location.hostname}:${defaultWsPort}`
-const webSocketHost = process.env.NODE_ENV === 'development' ? 'ws://192.168.100.201:8422' : defaultHost
-
-axios.get(`http://${window.location.host}/_ws.json`).then(res => {
-  const { wsPort } = res.data
-  if (wsPort) {
-    const wsHost = `ws://${window.location.hostname}:${wsPort}`
-    if (wsHost !== webSocketHost) {
-      localStorage.setItem('webSocketAddress', wsHost)
-      window.location.reload()
-    }
-  }
-}).catch(e => {
-  console.log(`Unable to get webscoket host, use default: ${webSocketHost}`)
-})
+const ws_protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+const webSocketHost = `${ws_protocol}//${window.location.hostname}:${window.location.port}/ws`
 
 if (!process.env.IS_WEB) Vue.use(require('vue-electron'))
 Vue.webSocketAddress = webSocketHost

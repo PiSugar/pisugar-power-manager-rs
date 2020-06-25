@@ -92,6 +92,7 @@ fn convert_battery_voltage_to_level(voltage: f64, battery_curve: &[BatteryThresh
     0.0
 }
 
+/// Write time to system
 pub fn sys_write_time(dt: DateTime<Local>) {
     let cmd = format!(
         "/bin/date -s {}-{}-{} {}:{}:{}",
