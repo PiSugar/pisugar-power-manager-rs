@@ -11,8 +11,8 @@ import 'element-ui/lib/theme-chalk/index.css'
 import locale from 'element-ui/lib/locale/lang/en'
 import { messages, localeOptions } from './locale'
 
-const ws_protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-const webSocketHost = `${ws_protocol}//${window.location.hostname}:${window.location.port}/ws`
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+const webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
 
 if (!process.env.IS_WEB) Vue.use(require('vue-electron'))
 Vue.webSocketAddress = webSocketHost
