@@ -231,14 +231,19 @@ Default ports:
 | rtc_alarm_disable | disable rtc wakeup alarm | |
 | set_button_enable | auto shutdown level % | set_button_enable [single\|double\|long] [0\|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level [single\|double\|long] [shell] |
-| set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level 3 |
-| set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay 30|
+| set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level [number] |
+| set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay [number]|
 
 Examples:
 
     nc -U /tmp/pisugar-server.sock
     get battery
     get model
+    rtc_alarm_set 2020-06-26T16:09:34+08:00 127
+    set_button_enable long 1
+    set_button_enable long sudo shutdown now
+    safe_shutdown_level 3
+    safe_shutdown_delay 30
     <ctrl+c to break>
 
 Or
