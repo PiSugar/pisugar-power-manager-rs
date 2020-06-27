@@ -123,6 +123,75 @@ impl IP5312 {
         Ok(())
     }
 
+    /// Init gpio, 2 led version
+    pub fn init_gpio_2led(&self) -> Result<()> {
+        // gpio1, l4 sel
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
+        v |= 0b0000_0010;
+        self.i2c.smbus_write_byte(0x52, v)?;
+
+        // gpio1 input enable
+        let mut v = self.i2c.smbus_read_byte(0x54)?;
+        v |= 0b0000_0010;
+        self.i2c.smbus_write_byte(0x54, v)?;
+
+        // charging control, gpio2, light sel
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
+        v |= 0b0000_0100;
+        self.i2c.smbus_write_byte(0x52, v)?;
+
+        // vset -> register
+        let mut v = self.i2c.smbus_read_byte(0x29)?;
+        v &= 0b1011_1111;
+        self.i2c.smbus_write_byte(0x29, v)?;
+
+        // vset fn adc
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
+        v &= 0b1001_1111;
+        v |= 0b0100_0000;
+        self.i2c.smbus_write_byte(0x52, v);
+
+        // vgpi enable
+        let mut v = self.i2c.smbus_read_byte(0xc2)?;
+        v |= 0b0001_0000;
+        self.i2c.smbus_write_byte(0xc2, v);
+
+        Ok(())
+    }
+
+    /// Enable/disable charging, 2 led only
+    pub fn toggle_charging_2led(&self, enable: bool) -> Result<()> {
+        // gpio2 disable
+        let mut v = self.i2c.smbus_read_byte(0x56)?;
+        v &= 0b1111_1011;
+        self.i2c.smbus_write_byte(0x56, v)?;
+
+        // enable/disable
+        let mut v = self.i2c.smbus_read_byte(0x58)?;
+        v &= 0b1111_1011;
+        if enable {
+            v |= 0b0000_0100;
+        }
+        self.i2c.smbus_write_byte(0x58, v)?;
+
+        // gpio2 enable
+        let mut v = self.i2c.smbus_read_byte(0x56)?;
+        v |= 0b0000_0100;
+        self.i2c.smbus_write_byte(0x56, v)?;
+
+        Ok(())
+    }
+
+    /// Is charging, 2led only
+    pub fn is_charging_2led(&self) -> Result<bool> {
+        let low = self.i2c.smbus_read_byte(0xdc)?;
+        let high = self.i2c.smbus_read_byte(0xdd)?;
+        if low == 0xff && high == 0x1f {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     /// Init boost intensity, 0x3f*50ma, 3A
     pub fn init_boost_intensity(&self) -> Result<()> {
         let mut v = self.i2c.smbus_read_byte(0x30)?;

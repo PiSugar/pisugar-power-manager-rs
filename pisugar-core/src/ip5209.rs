@@ -128,7 +128,78 @@ impl IP5209 {
         Ok(())
     }
 
-    /// read gpio tap
+    /// Init gpio, 2 led version
+    pub fn init_gpio_2led(&self) -> Result<()> {
+        // gpio1 tap, L4 sel
+        let mut v = self.i2c.smbus_read_byte(0x51)?;
+        v &= 0b1111_0011;
+        v |= 0b0000_0100;
+        self.i2c.smbus_write_byte(0x51, v)?;
+
+        // gpio1 input enable
+        let mut v = self.i2c.smbus_read_byte(0x53)?;
+        v |= 0b0000_0010;
+        self.i2c.smbus_write_byte(0x53, v)?;
+
+        // charging control, gpio2
+        let mut v = self.i2c.smbus_read_byte(0x51)?;
+        v &= 0b1100_1111;
+        v |= 0b1101_1111;
+        self.i2c.smbus_write_byte(0x51, v)?;
+
+        // vset -> register
+        let mut v = self.i2c.smbus_read_byte(0x26)?;
+        v &= 0b1011_0000;
+        self.i2c.smbus_write_byte(0x26, v)?;
+
+        // vset -> gpio4
+        let mut v = self.i2c.smbus_read_byte(0x52)?;
+        v &= 0b1111_0011;
+        v |= 0b0000_0100;
+        self.i2c.smbus_write_byte(0x52, v)?;
+
+        // gpio4 input enable
+        let mut v = self.i2c.smbus_read_byte(0x53)?;
+        v &= 0b1110_1111;
+        v |= 0b0001_0000;
+        self.i2c.smbus_write_byte(0x53, v);
+
+        Ok(())
+    }
+
+    /// Enable/Disable charging, 2 led version
+    pub fn toggle_charging_2led(&self, enable: bool) -> Result<()> {
+        // disable gpio2 output
+        let mut v = self.i2c.smbus_read_byte(0x54)?;
+        v &= 0b1111_1011;
+        self.i2c.smbus_write_byte(0x54, v)?;
+
+        // enable or disable charging
+        let mut v = self.i2c.smbus_read_byte(0x55)?;
+        v &= 0b1111_1011;
+        if enable {
+            v |= 0b0000_0100;
+        }
+        self.i2c.smbus_write_byte(0x55, v)?;
+
+        // enable gpio2 output
+        let mut v = self.i2c.smbus_read_byte(0x54)?;
+        v &= 0b1111_1011;
+        v |= 0b0000_0100;
+        self.i2c.smbus_write_byte(0x54, v);
+
+        Ok(())
+    }
+
+    pub fn is_charging_2led(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x55)?;
+        if v & 0b0001_0000 != 0 {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    /// Read gpio tap 4:0
     pub fn read_gpio_tap(&self) -> Result<u8> {
         let v = self.i2c.smbus_read_byte(0x55)?;
         Ok(v)
