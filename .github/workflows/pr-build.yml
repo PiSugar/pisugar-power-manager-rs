@@ -45,13 +45,13 @@ jobs:
       working-directory: electron
 
     # Rust cache
-    - name: Rust cargo cache
-      uses: actions/cache@v1
-      env:
-        cache-name: cache-rust-cargo
-      with:
-        path: ~/.cargo
-        key: ${{ runner.os }}-build-${{ env.cache-name }}
+#    - name: Rust cargo cache
+#      uses: actions/cache@v1
+#      env:
+#        cache-name: cache-rust-cargo
+#      with:
+#        path: ~/.cargo
+#        key: ${{ runner.os }}-build-${{ env.cache-name }}
     # Rust target cache
     - name: Rust target cache
       uses: actions/cache@v1
