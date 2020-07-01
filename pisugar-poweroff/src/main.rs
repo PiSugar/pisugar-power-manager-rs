@@ -28,7 +28,7 @@ fn main() {
     eprint!("0...\n");
 
     let config = PiSugarConfig::default();
-    if let Ok(core) = PiSugarCore::new(config) {
+    if let Ok(core) = PiSugarCore::new(config, 4) {
         for _ in 0..3 {
             let _ = core.force_shutdown();
             sleep(Duration::from_millis(10));

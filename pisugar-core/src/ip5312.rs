@@ -1,7 +1,11 @@
+use std::collections::VecDeque;
+use std::time::Instant;
+
 use rppal::i2c::I2c;
 
-use crate::Result;
-use crate::{convert_battery_voltage_to_level, I2cError};
+use crate::battery::Battery;
+use crate::{convert_battery_voltage_to_level, I2cError, MODEL_V2_PRO};
+use crate::{gpio_detect_tap, Result, TapType};
 use crate::{BatteryThreshold, Error};
 
 /// Battery threshold curve
@@ -108,7 +112,7 @@ impl IP5312 {
         Ok(())
     }
 
-    /// Enable gpio1
+    /// Init GPIO, 4-led
     pub fn init_gpio(&self) -> Result<()> {
         // mfp_ctl0, set l4_sel
         let mut v = self.i2c.smbus_read_byte(0x52)?;
@@ -123,7 +127,7 @@ impl IP5312 {
         Ok(())
     }
 
-    /// Init gpio, 2 led version
+    /// Init GPIO, 2-led
     pub fn init_gpio_2led(&self) -> Result<()> {
         // gpio1, l4 sel
         let mut v = self.i2c.smbus_read_byte(0x52)?;
@@ -149,12 +153,12 @@ impl IP5312 {
         let mut v = self.i2c.smbus_read_byte(0x52)?;
         v &= 0b1001_1111;
         v |= 0b0100_0000;
-        self.i2c.smbus_write_byte(0x52, v);
+        self.i2c.smbus_write_byte(0x52, v)?;
 
         // vgpi enable
         let mut v = self.i2c.smbus_read_byte(0xc2)?;
         v |= 0b0001_0000;
-        self.i2c.smbus_write_byte(0xc2, v);
+        self.i2c.smbus_write_byte(0xc2, v)?;
 
         Ok(())
     }
@@ -182,7 +186,7 @@ impl IP5312 {
         Ok(())
     }
 
-    /// Is charging, 2led only
+    /// Is charging, 2-led
     pub fn is_charging_2led(&self) -> Result<bool> {
         let low = self.i2c.smbus_read_byte(0xdc)?;
         let high = self.i2c.smbus_read_byte(0xdd)?;
@@ -202,7 +206,7 @@ impl IP5312 {
         Ok(())
     }
 
-    /// Read gpio tap
+    /// Read gpio tap, gpio1
     pub fn read_gpio_tap(&self) -> Result<u8> {
         let mut v = self.i2c.smbus_read_byte(0x58)?;
         v &= 0b0000_0010;
@@ -218,5 +222,129 @@ impl IP5312 {
         self.i2c.smbus_write_byte(0x01, t)?;
 
         Ok(())
+    }
+}
+
+pub struct IP5312Battery {
+    ip5312: IP5312,
+    led_amount: u32,
+    voltages: VecDeque<(Instant, f32)>,
+    tap_history: String,
+}
+
+impl IP5312Battery {
+    pub fn new(i2c_addr: u16, led_amount: u32) -> Result<Self> {
+        let ip5312 = IP5312::new(i2c_addr)?;
+        let voltages = VecDeque::with_capacity(10);
+        let tap_history = String::with_capacity(100);
+        Ok(Self {
+            ip5312,
+            led_amount,
+            voltages,
+            tap_history,
+        })
+    }
+}
+
+impl Battery for IP5312Battery {
+    fn init(&mut self) -> Result<()> {
+        if self.led_amount == 2 {
+            self.ip5312.init_gpio_2led()?;
+        } else {
+            self.ip5312.init_gpio()?;
+        }
+        self.ip5312.init_boost_intensity()?;
+
+        let v = self.voltage()?;
+        let now = Instant::now();
+        while self.voltages.len() < self.voltages.capacity() {
+            self.voltages.push_back((now, v));
+        }
+        Ok(())
+    }
+
+    fn model(&self) -> String {
+        return MODEL_V2_PRO.to_string();
+    }
+
+    fn led_amount(&self) -> Result<u32> {
+        Ok(self.led_amount)
+    }
+
+    fn voltage(&self) -> Result<f32> {
+        self.ip5312.read_voltage().and_then(|v| Ok(v as f32))
+    }
+
+    fn voltage_avg(&self) -> Result<f32> {
+        let mut total = 0.0;
+        self.voltages.iter().for_each(|v| total += v.1);
+        if self.voltages.len() > 0 {
+            Ok(total / self.voltages.len() as f32)
+        } else {
+            Err(Error::Other("Require initialization".to_string()))
+        }
+    }
+
+    fn level(&self) -> Result<f32> {
+        self.voltage()
+            .and_then(|v| Ok(IP5312::parse_voltage_level(v as f64) as f32))
+    }
+
+    fn intensity(&self) -> Result<f32> {
+        self.ip5312.read_intensity().and_then(|i| Ok(i as f32))
+    }
+
+    fn intensity_avg(&self) -> Result<f32> {
+        unimplemented!()
+    }
+
+    fn is_charging(&self) -> Result<bool> {
+        if self.led_amount == 2 {
+            self.ip5312.is_charging_2led()
+        } else {
+            if self.voltages.len() >= 2 {
+                let mut total = 0.0;
+                for i in 1..self.voltages.len() {
+                    let delta = self.voltages[i].1 - self.voltages[i - 1].1;
+                    total += delta;
+                }
+                return Ok(total > 0.0);
+            }
+            Ok(false)
+        }
+    }
+
+    fn toggle_charging(&self, enable: bool) -> Result<()> {
+        if self.led_amount == 2 {
+            self.ip5312.toggle_charging_2led(enable)
+        } else {
+            Err(I2cError::FeatureNotSupported.into())
+        }
+    }
+
+    fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
+        let voltage = self.voltage()?;
+        if self.voltages.len() == self.voltages.capacity() {
+            self.voltages.pop_front();
+        }
+        self.voltages.push_back((now, voltage));
+
+        let gpio_value = self.ip5312.read_gpio_tap()?;
+        let tapped = gpio_value != 0;
+        if self.tap_history.len() >= self.tap_history.capacity() {
+            self.tap_history.remove(0);
+        }
+        if tapped {
+            self.tap_history.push('1');
+        } else {
+            self.tap_history.push('0');
+        }
+
+        let tap_result = gpio_detect_tap(&mut self.tap_history);
+        Ok(tap_result)
+    }
+
+    fn shutdown(&self) -> Result<()> {
+        self.ip5312.force_shutdown()
     }
 }

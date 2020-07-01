@@ -8,7 +8,7 @@ use rppal::i2c::I2c;
 use crate::Result;
 
 /// SD3078 time, always UTC 24hr
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct SD3078Time([u8; 7]);
 
 impl SD3078Time {
