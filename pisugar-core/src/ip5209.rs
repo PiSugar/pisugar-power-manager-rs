@@ -228,18 +228,21 @@ pub struct IP5209Battery {
     ip5209: IP5209,
     led_amount: u32,
     voltages: VecDeque<(Instant, f32)>,
+    intensities: VecDeque<(Instant, f32)>,
     tap_history: String,
 }
 
 impl IP5209Battery {
     pub fn new(i2c_addr: u16, led_amount: u32) -> Result<Self> {
         let ip5209 = IP5209::new(i2c_addr)?;
-        let voltages = VecDeque::with_capacity(100);
+        let voltages = VecDeque::with_capacity(10);
+        let intensities = VecDeque::with_capacity(10);
         let tap_history = String::with_capacity(100);
         Ok(Self {
             ip5209,
             led_amount,
             voltages,
+            intensities,
             tap_history,
         })
     }
@@ -249,6 +252,7 @@ impl Battery for IP5209Battery {
     fn init(&mut self) -> Result<()> {
         if self.led_amount == 2 {
             self.ip5209.init_gpio_2led()?;
+            self.ip5209.toggle_charging_2led(true)?;
         } else {
             self.ip5209.init_gpio()?;
         }
@@ -258,6 +262,12 @@ impl Battery for IP5209Battery {
         while self.voltages.len() < self.voltages.capacity() {
             self.voltages.push_back((now, v));
         }
+
+        let i = self.intensity()?;
+        while self.intensities.len() > self.intensities.capacity() {
+            self.intensities.push_back((now, i));
+        }
+
         Ok(())
     }
 
@@ -293,7 +303,13 @@ impl Battery for IP5209Battery {
     }
 
     fn intensity_avg(&self) -> Result<f32> {
-        unimplemented!()
+        let mut total = 0.0;
+        self.intensities.iter().for_each(|i| total += i.1);
+        if self.intensities.len() > 0 {
+            Ok(total / self.intensities.len() as f32)
+        } else {
+            Err(Error::Other("Require initialization".to_string()))
+        }
     }
 
     fn is_charging(&self) -> Result<bool> {
@@ -327,11 +343,17 @@ impl Battery for IP5209Battery {
         }
         self.voltages.push_back((now, voltage));
 
+        let intensity = self.intensity()?;
+        if self.intensities.len() == self.intensities.capacity() {
+            self.intensities.pop_front();
+        }
+        self.intensities.push_back((now, intensity));
+
         let gpio_value = self.ip5209.read_gpio_tap()?;
         let tapped = if self.led_amount == 2 {
-            gpio_value & 0b0001_0000 != 0 // GPIO4 in 4-led
-        } else {
             gpio_value & 0b0000_0010 != 0 // GPIO1 in 2-led
+        } else {
+            gpio_value & 0b0001_0000 != 0 // GPIO4 in 4-led
         };
 
         if self.tap_history.len() >= self.tap_history.capacity() {

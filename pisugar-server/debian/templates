@@ -18,3 +18,8 @@ Template: pisugar-server/uds
 Type: boolean
 Default: true
 Description: Enable uds server on /tmp/pisugar-server.sock.
+
+Template: pisugar-server/led
+Type: select
+Choices: 4, 2
+Description: PiSugar LED amount (check the back of PiSugar).

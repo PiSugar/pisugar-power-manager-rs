@@ -229,6 +229,7 @@ pub struct IP5312Battery {
     ip5312: IP5312,
     led_amount: u32,
     voltages: VecDeque<(Instant, f32)>,
+    intensities: VecDeque<(Instant, f32)>,
     tap_history: String,
 }
 
@@ -236,11 +237,13 @@ impl IP5312Battery {
     pub fn new(i2c_addr: u16, led_amount: u32) -> Result<Self> {
         let ip5312 = IP5312::new(i2c_addr)?;
         let voltages = VecDeque::with_capacity(10);
+        let intensities = VecDeque::with_capacity(10);
         let tap_history = String::with_capacity(100);
         Ok(Self {
             ip5312,
             led_amount,
             voltages,
+            intensities,
             tap_history,
         })
     }
@@ -250,6 +253,7 @@ impl Battery for IP5312Battery {
     fn init(&mut self) -> Result<()> {
         if self.led_amount == 2 {
             self.ip5312.init_gpio_2led()?;
+            self.ip5312.toggle_charging_2led(true)?;
         } else {
             self.ip5312.init_gpio()?;
         }
@@ -260,6 +264,12 @@ impl Battery for IP5312Battery {
         while self.voltages.len() < self.voltages.capacity() {
             self.voltages.push_back((now, v));
         }
+
+        let i = self.intensity()?;
+        while self.intensities.len() > self.intensities.capacity() {
+            self.intensities.push_back((now, i));
+        }
+
         Ok(())
     }
 
@@ -295,7 +305,13 @@ impl Battery for IP5312Battery {
     }
 
     fn intensity_avg(&self) -> Result<f32> {
-        unimplemented!()
+        let mut total = 0.0;
+        self.intensities.iter().for_each(|i| total += i.1);
+        if self.intensities.len() > 0 {
+            Ok(total / self.intensities.len() as f32)
+        } else {
+            Err(Error::Other("Require initialization".to_string()))
+        }
     }
 
     fn is_charging(&self) -> Result<bool> {
@@ -328,6 +344,12 @@ impl Battery for IP5312Battery {
             self.voltages.pop_front();
         }
         self.voltages.push_back((now, voltage));
+
+        let intensity = self.intensity()?;
+        if self.intensities.len() == self.intensities.capacity() {
+            self.intensities.pop_front();
+        }
+        self.intensities.push_back((now, intensity));
 
         let gpio_value = self.ip5312.read_gpio_tap()?;
         let tapped = gpio_value != 0;

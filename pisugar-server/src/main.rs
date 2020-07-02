@@ -67,8 +67,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         let resp = match parts[1].as_str() {
                             "model" => Ok(core.model()),
                             "battery" => core.level().map(|l| l.to_string()),
-                            "battery_v" => core.voltage().map(|v| v.to_string()),
-                            "battery_i" => core.intensity().map(|i| i.to_string()),
+                            "battery_v" => core.voltage_avg().map(|v| v.to_string()),
+                            "battery_i" => core.intensity_avg().map(|i| i.to_string()),
                             "battery_charging" => core.charging().map(|c| c.to_string()),
                             "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
                             "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
@@ -138,6 +138,27 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             log::error!("{}", resp.err().unwrap());
                             err
                         };
+                    };
+                }
+                "set_charging_range" => {
+                    let mut charging_range = None;
+                    if parts.len() > 1 {
+                        let range: Vec<String> =
+                            parts[1].split(',').map(|s| s.to_string()).collect();
+                        if range.len() == 2 {
+                            if let (Ok(begin), Ok(end)) =
+                                (range[0].parse::<f32>(), range[1].parse::<f32>())
+                            {
+                                charging_range = Some((begin, end));
+                            }
+                        }
+                    }
+                    return match core.set_charging_range(charging_range) {
+                        Ok(_) => format!("{}: done\n", parts[0]),
+                        Err(e) => {
+                            log::error!("{}", e);
+                            err
+                        }
                     };
                 }
                 "rtc_clear_flag" => {

@@ -147,6 +147,9 @@ pub struct PiSugarConfig {
 
     #[serde(default)]
     pub auto_shutdown_delay: f64,
+
+    #[serde(default)]
+    pub auto_charge_range: Option<(f32, f32)>,
 }
 
 impl PiSugarConfig {
@@ -248,6 +251,7 @@ impl PiSugarCore {
             }
             Err(e) => return Err(e),
         }
+        battery.init()?;
 
         let rtc = SD3078::new(I2C_ADDR_RTC)?;
 
@@ -325,8 +329,16 @@ impl PiSugarCore {
         self.battery.voltage()
     }
 
+    pub fn voltage_avg(&self) -> Result<f32> {
+        self.battery.voltage_avg()
+    }
+
     pub fn intensity(&self) -> Result<f32> {
         self.battery.intensity()
+    }
+
+    pub fn intensity_avg(&self) -> Result<f32> {
+        self.battery.intensity_avg()
     }
 
     pub fn level(&self) -> Result<f32> {
@@ -335,6 +347,18 @@ impl PiSugarCore {
 
     pub fn charging(&self) -> Result<bool> {
         self.battery.is_charging()
+    }
+
+    pub fn set_charging_range(&mut self, range: Option<(f32, f32)>) -> Result<()> {
+        if let Some((begin, end)) = range {
+            if begin < 0.0 || end < begin || end > 100.0 {
+                return Err(Error::Other("Invalid charging range".to_string()));
+            }
+        } else {
+            self.battery.toggle_charging(true)?;
+        }
+        self.config.auto_charge_range = range;
+        self.save_config()
     }
 
     pub fn read_time(&self) -> Result<DateTime<Local>> {
@@ -398,8 +422,12 @@ impl PiSugarCore {
     }
 
     pub fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
+        self.poll_at = now;
+
+        // tap
         let config = &self.config;
-        if let Some(tap_type) = self.battery.poll(now)? {
+        let tap = self.battery.poll(now)?;
+        if let Some(tap_type) = tap {
             let script = match tap_type {
                 TapType::Single => {
                     if config.single_tap_enable {
@@ -434,6 +462,41 @@ impl PiSugarCore {
 
         // slower
         if now > self.poll_at && now.duration_since(self.poll_at).as_secs() >= 1 {
+            // 2-led, auto charging
+            if self.battery.led_amount().unwrap_or(4) == 2 {
+                if let Some((begin, end)) = &self.config.auto_charge_range {
+                    let _ = self.level().and_then(|l| {
+                        if l <= *begin {
+                            let _ = self.battery.is_charging().and_then(|charging| {
+                                if !charging {
+                                    let is_ok = self.battery.toggle_charging(true).is_ok();
+                                    log::info!(
+                                        "Battery level {}, enable charging result: {}",
+                                        l,
+                                        is_ok
+                                    );
+                                }
+                                Ok(())
+                            });
+                        }
+                        if l >= *end {
+                            let _ = self.battery.is_charging().and_then(|charging| {
+                                if charging {
+                                    let is_ok = self.battery.toggle_charging(false).is_ok();
+                                    log::info!(
+                                        "Battery level {}, disable charging result: {}",
+                                        l,
+                                        is_ok
+                                    );
+                                }
+                                Ok(())
+                            });
+                        }
+                        Ok(())
+                    });
+                }
+            }
+
             // rtc battery charging
             if (self.rtc.read_battery_low_flag().ok() == Some(true))
                 && (self.rtc.read_battery_charging_flag().ok() == Some(false))
@@ -450,6 +513,6 @@ impl PiSugarCore {
             }
         }
 
-        Ok(None)
+        Ok(tap)
     }
 }
