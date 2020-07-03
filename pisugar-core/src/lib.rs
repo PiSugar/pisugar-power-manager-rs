@@ -349,6 +349,10 @@ impl PiSugarCore {
         self.battery.is_charging()
     }
 
+    pub fn charging_range(&self) -> Result<Option<(f32, f32)>> {
+        Ok(self.config.auto_charge_range)
+    }
+
     pub fn set_charging_range(&mut self, range: Option<(f32, f32)>) -> Result<()> {
         if let Some((begin, end)) = range {
             if begin < 0.0 || end < begin || end > 100.0 {

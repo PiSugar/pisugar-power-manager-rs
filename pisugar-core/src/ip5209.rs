@@ -184,7 +184,7 @@ impl IP5209 {
         // enable or disable charging
         let mut v = self.i2c.smbus_read_byte(0x55)?;
         v &= 0b1111_1011;
-        if enable {
+        if !enable {
             v |= 0b0000_0100;
         }
         self.i2c.smbus_write_byte(0x55, v)?;

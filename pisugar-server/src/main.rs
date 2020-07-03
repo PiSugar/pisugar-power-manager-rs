@@ -70,6 +70,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "battery_v" => core.voltage_avg().map(|v| v.to_string()),
                             "battery_i" => core.intensity_avg().map(|i| i.to_string()),
                             "battery_charging" => core.charging().map(|c| c.to_string()),
+                            "auto_charging_range" => core
+                                .charging_range()
+                                .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
                             "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
                             "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
                             "rtc_alarm_flag" => core.read_alarm_flag().map(|f| f.to_string()),
