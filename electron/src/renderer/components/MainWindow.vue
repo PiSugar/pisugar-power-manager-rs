@@ -386,8 +386,7 @@
         } else {
           this.alarmOptionValue = 1
         }
-
-        this.setRtcAlarm()
+        if (this.repeatDialog) this.setRtcAlarm()
       }
     },
 
