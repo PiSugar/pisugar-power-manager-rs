@@ -2,6 +2,9 @@
 
 . /usr/share/debconf/confmodule
 
+db_input critical pisugar-server/led || true
+db_go
+
 db_input medium pisugar-server/address || true
 db_go
 

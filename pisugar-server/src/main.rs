@@ -29,8 +29,8 @@ use tokio_util::codec::{BytesCodec, Framed};
 use websocket_codec::{Message, Opcode};
 
 use pisugar_core::{
-    execute_shell, notify_shutdown_soon, sys_write_time, PiSugarConfig, PiSugarCore, SD3078Time,
-    I2C_READ_INTERVAL, TIME_HOST,
+    execute_shell, notify_shutdown_soon, sys_write_time, Error, PiSugarConfig, PiSugarCore,
+    SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
 };
 
 /// Websocket info
@@ -45,12 +45,8 @@ type EventRx = tokio::sync::watch::Receiver<String>;
 /// Poll pisugar status
 fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
     log::debug!("Polling state");
-
     let now = Instant::now();
-    let status = &mut core.status;
-    let config = &mut core.config;
-
-    if let Ok(Some(tap_type)) = status.poll(config, now) {
+    if let Ok(Some(tap_type)) = core.poll(now) {
         let _ = tx.broadcast(format!("{}", tap_type));
     }
 }
@@ -69,54 +65,32 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "get" => {
                     if parts.len() > 1 {
                         let resp = match parts[1].as_str() {
-                            "model" => core.model().to_string(),
-                            "battery" => core.level().to_string(),
-                            "battery_v" => core.voltage().to_string(),
-                            "battery_i" => core.intensity().to_string(),
-                            "battery_charging" => core.charging().to_string(),
-                            "rtc_time" => format!("{:?}", core.read_time()),
-                            "rtc_time_list" => format!("{}", core.read_raw_time()),
-                            "rtc_alarm_flag" => match core.read_alarm_flag() {
-                                Ok(flag) => format!("{}", flag),
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                    return err;
-                                }
-                            },
-                            "rtc_alarm_time" => match core.read_alarm_time() {
-                                Ok(time) => {
-                                    if let Ok(datetime) = time.try_into() {
-                                        let datetime: DateTime<Local> = datetime;
-                                        format!("{:?}", datetime)
-                                    } else {
-                                        return err;
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                    return err;
-                                }
-                            },
-                            "rtc_alarm_time_list" => match core.read_alarm_time() {
-                                Ok(time) => time.to_string(),
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                    return err;
-                                }
-                            },
-                            "rtc_alarm_enabled" => match core.read_alarm_enabled() {
-                                Ok(enabled) => format!("{}", enabled),
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                    return err;
-                                }
-                            },
-                            "alarm_repeat" => format!("{}", core.config().auto_wake_repeat),
+                            "model" => Ok(core.model()),
+                            "battery" => core.level().map(|l| l.to_string()),
+                            "battery_v" => core.voltage_avg().map(|v| v.to_string()),
+                            "battery_i" => core.intensity_avg().map(|i| i.to_string()),
+                            "battery_charging" => core.charging().map(|c| c.to_string()),
+                            "auto_charging_range" => core
+                                .charging_range()
+                                .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
+                            "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
+                            "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
+                            "rtc_alarm_flag" => core.read_alarm_flag().map(|f| f.to_string()),
+                            "rtc_alarm_time" => core
+                                .read_alarm_time()
+                                .and_then(|r| {
+                                    r.try_into()
+                                        .map_err(|_| Error::Other("Invalid".to_string()))
+                                })
+                                .map(|t: DateTime<Local>| t.to_rfc3339()),
+                            "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
+                            "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
+                            "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
                             "safe_shutdown_level" => {
-                                format!("{}", core.config().auto_shutdown_level)
+                                Ok(core.config().auto_shutdown_level.to_string())
                             }
                             "safe_shutdown_delay" => {
-                                format!("{}", core.config().auto_shutdown_delay)
+                                Ok(core.config().auto_shutdown_delay.to_string())
                             }
                             "button_enable" => {
                                 if parts.len() > 2 {
@@ -133,7 +107,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                             return err;
                                         }
                                     };
-                                    format!("{} {}", parts[2], enable)
+                                    Ok(format!("{} {}", parts[2], enable))
                                 } else {
                                     return err;
                                 }
@@ -153,7 +127,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                             return err;
                                         }
                                     };
-                                    format!("{} {}", parts[2], shell)
+                                    Ok(format!("{} {}", parts[2], shell))
                                 } else {
                                     return err;
                                 }
@@ -161,7 +135,33 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             _ => return err,
                         };
 
-                        return format!("{}: {}\n", parts[1], resp);
+                        return if resp.is_ok() {
+                            format!("{}: {}\n", parts[1], resp.unwrap())
+                        } else {
+                            log::error!("{}", resp.err().unwrap());
+                            err
+                        };
+                    };
+                }
+                "set_charging_range" => {
+                    let mut charging_range = None;
+                    if parts.len() > 1 {
+                        let range: Vec<String> =
+                            parts[1].split(',').map(|s| s.to_string()).collect();
+                        if range.len() == 2 {
+                            if let (Ok(begin), Ok(end)) =
+                                (range[0].parse::<f32>(), range[1].parse::<f32>())
+                            {
+                                charging_range = Some((begin, end));
+                            }
+                        }
+                    }
+                    return match core.set_charging_range(charging_range) {
+                        Ok(_) => format!("{}: done\n", parts[0]),
+                        Err(e) => {
+                            log::error!("{}", e);
+                            err
+                        }
                     };
                 }
                 "rtc_clear_flag" => {
@@ -184,9 +184,11 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     };
                 }
                 "rtc_rtc2pi" => {
-                    let t = core.read_time();
-                    sys_write_time(t);
-                    return format!("{}: done\n", parts[0]);
+                    if let Ok(t) = core.read_time() {
+                        sys_write_time(t);
+                        format!("{}: done\n", parts[0]);
+                    } else {
+                    }
                 }
                 "rtc_web" => {
                     tokio::spawn(async move {
@@ -653,6 +655,13 @@ async fn main() -> std::io::Result<()> {
                 .takes_value(false)
                 .help("Log to syslog"),
         )
+        .arg(
+            Arg::with_name("led")
+                .long("led")
+                .takes_value(true)
+                .default_value("4")
+                .help("2-led or 4-led"),
+        )
         .get_matches();
 
     // init logging
@@ -660,12 +669,15 @@ async fn main() -> std::io::Result<()> {
     let syslog = matches.is_present("syslog");
     init_logging(debug, syslog);
 
+    // led
+    let led_amount = matches.value_of("led").unwrap_or("4").parse().unwrap_or(4);
+
     // core
     let core = if matches.is_present("config") {
-        PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true).unwrap()
+        PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true, led_amount).unwrap()
     } else {
         let config = PiSugarConfig::default();
-        PiSugarCore::new(config).unwrap()
+        PiSugarCore::new(config, led_amount).unwrap()
     };
     let core = Arc::new(Mutex::new(core));
 
@@ -787,35 +799,37 @@ async fn main() -> std::io::Result<()> {
         poll_pisugar_status(&mut core, &event_tx);
 
         // auto shutdown
-        if core.level() <= core.config().auto_shutdown_level {
-            let now = tokio::time::Instant::now();
-            let seconds = now.duration_since(shutdown_at).as_millis() as f64;
-            let remains = core.config().auto_shutdown_delay - seconds;
-            let remains = if remains < 0.0 { 0.0 } else { remains };
+        if let Ok(level) = core.level() {
+            if level as f64 <= core.config().auto_shutdown_level {
+                let now = tokio::time::Instant::now();
+                let seconds = now.duration_since(shutdown_at).as_millis() as f64;
+                let remains = core.config().auto_shutdown_delay - seconds;
+                let remains = if remains < 0.0 { 0.0 } else { remains };
 
-            let should_notify = if remains <= 0.0 {
-                false
-            } else if remains < 30.0 {
-                notify_at + Duration::from_secs(1) < now
-            } else if remains < 60.0 {
-                notify_at + Duration::from_secs(5) < now
-            } else if remains < 120.0 {
-                notify_at + Duration::from_secs(10) < now
+                let should_notify = if remains <= 0.0 {
+                    false
+                } else if remains < 30.0 {
+                    notify_at + Duration::from_secs(1) < now
+                } else if remains < 60.0 {
+                    notify_at + Duration::from_secs(5) < now
+                } else if remains < 120.0 {
+                    notify_at + Duration::from_secs(10) < now
+                } else {
+                    false
+                };
+
+                if should_notify {
+                    let message = format!("Low battery, will power off after {} seconds", remains);
+                    notify_shutdown_soon(message.as_str());
+                    notify_at = now;
+                }
+
+                if remains <= 0.0 {
+                    let _ = execute_shell("/sbin/shutdown --poweroff 0");
+                }
             } else {
-                false
-            };
-
-            if should_notify {
-                let message = format!("Low battery, will power off after {} seconds", remains);
-                notify_shutdown_soon(message.as_str());
-                notify_at = now;
+                shutdown_at = tokio::time::Instant::now();
             }
-
-            if remains <= 0.0 {
-                let _ = execute_shell("/sbin/shutdown --poweroff 0");
-            }
-        } else {
-            shutdown_at = tokio::time::Instant::now();
         }
     }
 }
