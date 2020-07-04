@@ -903,9 +903,14 @@
         left: 0;
         margin-left: -2px;
         animation: breath 0.8s ease-in-out alternate-reverse infinite;
-        &:hover{
-          transform: scale(3, 1);
-        }
+        background: linear-gradient(white 25%, transparent 0,
+         transparent 50%, white 0, 
+         white 75%, transparent 0);
+        background-size: 100% 30px;
+        transition: all 0.5s ease-in-out;
+      }
+      &:hover .line{
+        transform: scale(2, 1);
       }
     }
     .battery-content{
