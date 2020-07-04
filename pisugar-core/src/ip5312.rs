@@ -53,7 +53,7 @@ impl IP5312 {
     }
 
     /// Parse level(%)
-    pub fn parse_voltage_level(voltage: f64) -> f64 {
+    pub fn parse_voltage_level(voltage: f32) -> f32 {
         let level = if voltage > 0.0 {
             convert_battery_voltage_to_level(voltage, &BATTERY_CURVE)
         } else {
@@ -237,21 +237,20 @@ pub struct IP5312Battery {
     led_amount: u32,
     voltages: VecDeque<(Instant, f32)>,
     intensities: VecDeque<(Instant, f32)>,
+    levels: VecDeque<f32>,
     tap_history: String,
 }
 
 impl IP5312Battery {
     pub fn new(i2c_addr: u16, led_amount: u32) -> Result<Self> {
         let ip5312 = IP5312::new(i2c_addr)?;
-        let voltages = VecDeque::with_capacity(10);
-        let intensities = VecDeque::with_capacity(10);
-        let tap_history = String::with_capacity(100);
         Ok(Self {
             ip5312,
             led_amount,
-            voltages,
-            intensities,
-            tap_history,
+            voltages: VecDeque::with_capacity(30),
+            intensities: VecDeque::with_capacity(30),
+            levels: VecDeque::with_capacity(30),
+            tap_history: String::with_capacity(30),
         })
     }
 }
@@ -303,8 +302,7 @@ impl Battery for IP5312Battery {
     }
 
     fn level(&self) -> Result<f32> {
-        self.voltage()
-            .and_then(|v| Ok(IP5312::parse_voltage_level(v as f64) as f32))
+        self.voltage_avg().and_then(|v| Ok(IP5312::parse_voltage_level(v)))
     }
 
     fn intensity(&self) -> Result<f32> {
@@ -346,26 +344,29 @@ impl Battery for IP5312Battery {
     }
 
     fn is_charging(&self) -> Result<bool> {
-        if self.voltages.len() >= 2 {
-            let mut total = 0.0;
-            for i in 1..self.voltages.len() {
-                let delta = self.voltages[i].1 - self.voltages[i - 1].1;
-                total += delta;
+        if self.levels.len() > 2 {
+            if let Ok(avg) = self.voltage_avg() {
+                return Ok(self.voltages[0].1 < avg && avg < self.voltages[self.voltages.len() - 1].1);
             }
-            return Ok(total > 0.0);
         }
         Ok(false)
     }
 
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
         let voltage = self.voltage()?;
-        if self.voltages.len() == self.voltages.capacity() {
+        if self.voltages.len() >= self.voltages.capacity() {
             self.voltages.pop_front();
         }
         self.voltages.push_back((now, voltage));
 
+        let level = IP5312::parse_voltage_level(voltage);
+        if self.levels.len() >= self.levels.capacity() {
+            self.levels.pop_front();
+        }
+        self.levels.push_back(level);
+
         let intensity = self.intensity()?;
-        if self.intensities.len() == self.intensities.capacity() {
+        if self.intensities.len() >= self.intensities.capacity() {
             self.intensities.pop_front();
         }
         self.intensities.push_back((now, intensity));

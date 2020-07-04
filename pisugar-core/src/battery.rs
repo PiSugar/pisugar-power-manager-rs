@@ -1,4 +1,5 @@
 use crate::{Result, TapType};
+use std::collections::VecDeque;
 use std::time::Instant;
 
 /// Battery chip controller
@@ -44,4 +45,26 @@ pub trait Battery {
 
     /// Shutdown battery chip
     fn shutdown(&self) -> Result<()>;
+}
+
+#[allow(dead_code)]
+pub fn check_charging(levels: &VecDeque<f32>) -> bool {
+    let capacity = levels.len() as f32;
+    let x_sum = (0.0 + capacity - 1.0) * capacity / 2.0;
+    let x_bar = x_sum / capacity;
+    let y_sum: f32 = levels.iter().sum();
+    let _y_bar = y_sum / capacity;
+    // k = Sum(yi * (xi - x_bar)) / Sum(xi - x_bar)^2
+    let mut iter = levels.iter();
+    let mut a = 0.0;
+    let mut b = 0.0;
+    for i in 0..levels.len() {
+        let xi = i as f32;
+        let yi = iter.next().unwrap().clone();
+        a += yi * (xi - x_bar);
+        b += (xi - x_bar) * (xi - x_bar);
+    }
+    let k = a / b;
+    log::debug!("Charging k: {}", k);
+    return k >= 0.005;
 }

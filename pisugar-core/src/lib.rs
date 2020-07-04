@@ -39,7 +39,7 @@ const I2C_ADDR_RTC: u16 = 0x32;
 const I2C_ADDR_BAT: u16 = 0x75;
 
 /// Battery charging delay 5min after full, 20min, should be adjust as needed
-const BAT_CHARGING_DELAY: std::time::Duration = std::time::Duration::from_secs(20 * 60);
+const BAT_CHARGING_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
@@ -77,10 +77,10 @@ impl Display for Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Battery voltage threshold, (low, percentage at low)
-type BatteryThreshold = (f64, f64);
+type BatteryThreshold = (f32, f32);
 
 /// Battery voltage to percentage level
-fn convert_battery_voltage_to_level(voltage: f64, battery_curve: &[BatteryThreshold]) -> f64 {
+fn convert_battery_voltage_to_level(voltage: f32, battery_curve: &[BatteryThreshold]) -> f32 {
     for i in 0..battery_curve.len() {
         let v_low = battery_curve[i].0;
         let l_low = battery_curve[i].1;
@@ -152,7 +152,7 @@ pub struct PiSugarConfig {
     pub auto_shutdown_delay: f64,
 
     #[serde(default)]
-    pub auto_charge_range: Option<(f32, f32)>,
+    pub auto_charging_range: Option<(f32, f32)>,
 }
 
 impl PiSugarConfig {
@@ -241,7 +241,7 @@ pub struct PiSugarCore {
     battery: Box<dyn Battery + Send>,
     battery_full_at: Option<Instant>,
     rtc: SD3078,
-    poll_at: Instant,
+    poll_check_at: Instant,
 }
 
 impl PiSugarCore {
@@ -264,7 +264,7 @@ impl PiSugarCore {
             battery,
             battery_full_at: None,
             rtc,
-            poll_at: Instant::now(),
+            poll_check_at: Instant::now(),
         })
     }
 
@@ -366,7 +366,7 @@ impl PiSugarCore {
     }
 
     pub fn charging_range(&self) -> Result<Option<(f32, f32)>> {
-        Ok(self.config.auto_charge_range)
+        Ok(self.config.auto_charging_range)
     }
 
     pub fn set_charging_range(&mut self, range: Option<(f32, f32)>) -> Result<()> {
@@ -377,7 +377,7 @@ impl PiSugarCore {
         } else {
             self.battery.toggle_allow_charging(true)?;
         }
-        self.config.auto_charge_range = range;
+        self.config.auto_charging_range = range;
         self.save_config()
     }
 
@@ -441,8 +441,6 @@ impl PiSugarCore {
     }
 
     pub fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
-        self.poll_at = now;
-
         // tap
         let config = &self.config;
         let tap = self.battery.poll(now)?;
@@ -480,10 +478,13 @@ impl PiSugarCore {
         }
 
         // slower
-        if now > self.poll_at && now.duration_since(self.poll_at).as_secs() >= 1 {
+        if now > self.poll_check_at && now.duration_since(self.poll_check_at).as_secs() >= 1 {
+            log::debug!("Poll check");
+            self.poll_check_at = now;
+
             // 2-led, auto allow charging
             if self.battery.led_amount().unwrap_or(4) == 2 {
-                if let Some((begin, end)) = &self.config.auto_charge_range {
+                if let Some((begin, end)) = &self.config.auto_charging_range {
                     let l = self.level().unwrap_or(0.0);
                     let allow_charging = self.battery.is_allow_charging().unwrap_or(false);
                     if l < *begin && !allow_charging {
@@ -491,8 +492,9 @@ impl PiSugarCore {
                         let is_ok = self.battery.toggle_allow_charging(true).map_or("fail", |_| "ok");
                         log::info!("Battery {} <= {}, enable charging: {}", l, *begin, is_ok);
                     }
-                    if l >= *end && allow_charging || l >= 100.0 {
+                    if (l >= *end && allow_charging) || l >= 99.9 {
                         let should_stop = if self.battery_full_at.is_none() {
+                            log::info!("Battery {} >= {}, full", l, *end);
                             self.battery_full_at = Some(now);
                             false
                         } else {
