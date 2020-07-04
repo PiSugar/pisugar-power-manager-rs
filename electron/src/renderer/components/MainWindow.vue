@@ -896,7 +896,7 @@
       overflow: hidden;
       .line{
         position: absolute;
-        width: 2px;
+        width: 3px;
         height: 100%;
         background: white;
         top: 0;
