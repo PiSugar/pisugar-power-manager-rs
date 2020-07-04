@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::{Arc, Mutex};
+use std::thread::sleep;
 use std::time::Instant;
 
 use bytes::*;
@@ -70,6 +71,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "battery_v" => core.voltage_avg().map(|v| v.to_string()),
                             "battery_i" => core.intensity_avg().map(|i| i.to_string()),
                             "battery_charging" => core.charging().map(|c| c.to_string()),
+                            "led_amount" => core.led_amount().map(|n| n.to_string()),
                             "auto_charging_range" => core
                                 .charging_range()
                                 .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
@@ -674,13 +676,21 @@ async fn main() -> std::io::Result<()> {
     let led_amount = matches.value_of("led").unwrap_or("4").parse().unwrap_or(4);
 
     // core
-    let core = if matches.is_present("config") {
-        PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true, led_amount).unwrap()
-    } else {
-        let config = PiSugarConfig::default();
-        PiSugarCore::new(config, led_amount).unwrap()
-    };
-    let core = Arc::new(Mutex::new(core));
+    let core;
+    loop {
+        let c = if matches.is_present("config") {
+            PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true, led_amount)
+        } else {
+            let config = PiSugarConfig::default();
+            PiSugarCore::new(config, led_amount)
+        };
+        if c.is_ok() {
+            core = Arc::new(Mutex::new(c.unwrap()));
+            break;
+        }
+        log::error!("PiSugar init failed");
+        sleep(Duration::from_secs(3));
+    }
 
     // event watch
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());

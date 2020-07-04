@@ -325,6 +325,10 @@ impl PiSugarCore {
         self.battery.model()
     }
 
+    pub fn led_amount(&self) -> Result<u32> {
+        self.battery.led_amount()
+    }
+
     pub fn voltage(&self) -> Result<f32> {
         self.battery.voltage()
     }
