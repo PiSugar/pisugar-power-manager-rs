@@ -2,6 +2,8 @@
 
 . /usr/share/debconf/confmodule
 
+db_reset pisugar-server/led || true
+
 db_input critical pisugar-server/led || true
 db_go
 

@@ -22,4 +22,9 @@ Description: Enable uds server on /tmp/pisugar-server.sock.
 Template: pisugar-server/led
 Type: select
 Choices: 4, 2
-Description: PiSugar 2 battery status-indicating LED amount (PiSugar 2 Pro should choose 2).
+Description: PiSugar 2 battery status-indicating LED amount (choose 2 for PiSugar 2 Pro with no LEDs).
+
+Template: pisugar-server/model
+Type: select
+Choices: PiSugar 2 with 4 LEDs, PiSugar 2 with 2 LEDs, PiSugar 2 Pro with 4 LEDs, PiSugar 2 Pro with no LEDs
+Description: PiSugar model.

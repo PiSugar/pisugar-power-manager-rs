@@ -38,6 +38,9 @@ const I2C_ADDR_RTC: u16 = 0x32;
 /// Battery address, IP5209/IP5312
 const I2C_ADDR_BAT: u16 = 0x75;
 
+/// Battery charging delay 5min after full, 20min, should be adjust as needed
+const BAT_CHARGING_DELAY: std::time::Duration = std::time::Duration::from_secs(20 * 60);
+
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
 
@@ -236,14 +239,14 @@ pub struct PiSugarCore {
     config_path: Option<String>,
     config: PiSugarConfig,
     battery: Box<dyn Battery + Send>,
+    battery_full_at: Option<Instant>,
     rtc: SD3078,
     poll_at: Instant,
 }
 
 impl PiSugarCore {
     pub fn new(config: PiSugarConfig, led_amount: u32) -> Result<Self> {
-        let mut battery: Box<dyn Battery + Send> =
-            Box::new(IP5312Battery::new(I2C_ADDR_BAT, led_amount)?);
+        let mut battery: Box<dyn Battery + Send> = Box::new(IP5312Battery::new(I2C_ADDR_BAT, led_amount)?);
         match battery.voltage() {
             Ok(_) => {}
             Err(Error::I2c(I2cError::FeatureNotSupported)) => {
@@ -259,6 +262,7 @@ impl PiSugarCore {
             config_path: None,
             config,
             battery,
+            battery_full_at: None,
             rtc,
             poll_at: Instant::now(),
         })
@@ -349,6 +353,14 @@ impl PiSugarCore {
         self.battery.level()
     }
 
+    pub fn power_plugged(&self) -> Result<bool> {
+        self.battery.is_power_plugged()
+    }
+
+    pub fn allow_charging(&self) -> Result<bool> {
+        self.battery.is_allow_charging()
+    }
+
     pub fn charging(&self) -> Result<bool> {
         self.battery.is_charging()
     }
@@ -363,17 +375,16 @@ impl PiSugarCore {
                 return Err(Error::Other("Invalid charging range".to_string()));
             }
         } else {
-            self.battery.toggle_charging(true)?;
+            self.battery.toggle_allow_charging(true)?;
         }
         self.config.auto_charge_range = range;
         self.save_config()
     }
 
     pub fn read_time(&self) -> Result<DateTime<Local>> {
-        self.rtc.read_time().and_then(|t| {
-            t.try_into()
-                .map_err(|_| Error::Other("Invalid datetime".to_string()))
-        })
+        self.rtc
+            .read_time()
+            .and_then(|t| t.try_into().map_err(|_| Error::Other("Invalid datetime".to_string())))
     }
 
     pub fn read_raw_time(&self) -> Result<SD3078Time> {
@@ -470,38 +481,29 @@ impl PiSugarCore {
 
         // slower
         if now > self.poll_at && now.duration_since(self.poll_at).as_secs() >= 1 {
-            // 2-led, auto charging
+            // 2-led, auto allow charging
             if self.battery.led_amount().unwrap_or(4) == 2 {
                 if let Some((begin, end)) = &self.config.auto_charge_range {
-                    let _ = self.level().and_then(|l| {
-                        if l <= *begin {
-                            let _ = self.battery.is_charging().and_then(|charging| {
-                                if !charging {
-                                    let is_ok = self.battery.toggle_charging(true).is_ok();
-                                    log::info!(
-                                        "Battery level {}, enable charging result: {}",
-                                        l,
-                                        is_ok
-                                    );
-                                }
-                                Ok(())
-                            });
+                    let l = self.level().unwrap_or(0.0);
+                    let allow_charging = self.battery.is_allow_charging().unwrap_or(false);
+                    if l < *begin && !allow_charging {
+                        self.battery_full_at = None;
+                        let is_ok = self.battery.toggle_allow_charging(true).map_or("fail", |_| "ok");
+                        log::info!("Battery {} <= {}, enable charging: {}", l, *begin, is_ok);
+                    }
+                    if l >= *end && allow_charging || l >= 100.0 {
+                        let should_stop = if self.battery_full_at.is_none() {
+                            self.battery_full_at = Some(now);
+                            false
+                        } else {
+                            let full_at = self.battery_full_at.unwrap();
+                            now.duration_since(full_at) > BAT_CHARGING_DELAY
+                        };
+                        if should_stop {
+                            let is_ok = self.battery.toggle_allow_charging(false).map_or("fail", |_| "ok");
+                            log::info!("Battery {} >= {}, stop charging: {}", l, *end, is_ok);
                         }
-                        if l >= *end {
-                            let _ = self.battery.is_charging().and_then(|charging| {
-                                if charging {
-                                    let is_ok = self.battery.toggle_charging(false).is_ok();
-                                    log::info!(
-                                        "Battery level {}, disable charging result: {}",
-                                        l,
-                                        is_ok
-                                    );
-                                }
-                                Ok(())
-                            });
-                        }
-                        Ok(())
-                    });
+                    }
                 }
             }
 
