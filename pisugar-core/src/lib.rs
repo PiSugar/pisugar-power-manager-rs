@@ -38,8 +38,8 @@ const I2C_ADDR_RTC: u16 = 0x32;
 /// Battery address, IP5209/IP5312
 const I2C_ADDR_BAT: u16 = 0x75;
 
-/// Battery charging delay 5min after full
-const BAT_CHARGING_DELAY: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// Battery charging delay 5min after full, 20min, should be adjust as needed
+const BAT_CHARGING_DELAY: std::time::Duration = std::time::Duration::from_secs(20 * 60);
 
 pub const MODEL_V2: &str = "PiSugar 2";
 pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
