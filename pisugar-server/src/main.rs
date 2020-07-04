@@ -133,7 +133,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         };
                     };
                 }
-                "set_charging_range" => {
+                "set_battery_charging_range" => {
                     let mut charging_range = None;
                     if parts.len() > 1 {
                         let range: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
