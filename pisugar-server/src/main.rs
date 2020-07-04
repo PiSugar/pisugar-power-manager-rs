@@ -30,8 +30,8 @@ use tokio_util::codec::{BytesCodec, Framed};
 use websocket_codec::{Message, Opcode};
 
 use pisugar_core::{
-    execute_shell, notify_shutdown_soon, sys_write_time, Error, PiSugarConfig, PiSugarCore,
-    SD3078Time, I2C_READ_INTERVAL, TIME_HOST,
+    execute_shell, notify_shutdown_soon, sys_write_time, Error, PiSugarConfig, PiSugarCore, SD3078Time,
+    I2C_READ_INTERVAL, TIME_HOST,
 };
 
 /// Websocket info
@@ -70,31 +70,26 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "battery" => core.level().map(|l| l.to_string()),
                             "battery_v" => core.voltage_avg().map(|v| v.to_string()),
                             "battery_i" => core.intensity_avg().map(|i| i.to_string()),
-                            "battery_charging" => core.charging().map(|c| c.to_string()),
-                            "led_amount" => core.led_amount().map(|n| n.to_string()),
-                            "auto_charging_range" => core
+                            "battery_led_amount" => core.led_amount().map(|n| n.to_string()),
+                            "battery_power_plugged" => core.power_plugged().map(|p| p.to_string()),
+                            "battery_allow_charging" => core.allow_charging().map(|a| a.to_string()),
+                            "battery_charging_range" => core
                                 .charging_range()
                                 .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
+                            "battery_charging" => core.charging().map(|c| c.to_string()),
                             "system_time" => Ok(Local::now().to_rfc3339()),
                             "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
                             "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
                             "rtc_alarm_flag" => core.read_alarm_flag().map(|f| f.to_string()),
                             "rtc_alarm_time" => core
                                 .read_alarm_time()
-                                .and_then(|r| {
-                                    r.try_into()
-                                        .map_err(|_| Error::Other("Invalid".to_string()))
-                                })
+                                .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())))
                                 .map(|t: DateTime<Local>| t.to_rfc3339()),
                             "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
                             "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
                             "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
-                            "safe_shutdown_level" => {
-                                Ok(core.config().auto_shutdown_level.to_string())
-                            }
-                            "safe_shutdown_delay" => {
-                                Ok(core.config().auto_shutdown_delay.to_string())
-                            }
+                            "safe_shutdown_level" => Ok(core.config().auto_shutdown_level.to_string()),
+                            "safe_shutdown_delay" => Ok(core.config().auto_shutdown_delay.to_string()),
                             "button_enable" => {
                                 if parts.len() > 2 {
                                     let enable = match parts[2].as_str() {
@@ -102,11 +97,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                         "double" => core.config().double_tap_enable,
                                         "long" => core.config().long_tap_enable,
                                         _ => {
-                                            log::error!(
-                                                "{} {}: unknown tap type",
-                                                parts[0],
-                                                parts[1]
-                                            );
+                                            log::error!("{} {}: unknown tap type", parts[0], parts[1]);
                                             return err;
                                         }
                                     };
@@ -122,11 +113,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                         "double" => core.config().double_tap_shell.as_str(),
                                         "long" => core.config().long_tap_shell.as_str(),
                                         _ => {
-                                            log::error!(
-                                                "{} {}: unknown tap type",
-                                                parts[0],
-                                                parts[1]
-                                            );
+                                            log::error!("{} {}: unknown tap type", parts[0], parts[1]);
                                             return err;
                                         }
                                     };
@@ -149,12 +136,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "set_charging_range" => {
                     let mut charging_range = None;
                     if parts.len() > 1 {
-                        let range: Vec<String> =
-                            parts[1].split(',').map(|s| s.to_string()).collect();
+                        let range: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
                         if range.len() == 2 {
-                            if let (Ok(begin), Ok(end)) =
-                                (range[0].parse::<f32>(), range[1].parse::<f32>())
-                            {
+                            if let (Ok(begin), Ok(end)) = (range[0].parse::<f32>(), range[1].parse::<f32>()) {
                                 charging_range = Some((begin, end));
                             }
                         }
@@ -333,11 +317,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
     err
 }
 
-async fn _handle_stream<T>(
-    core: Arc<Mutex<PiSugarCore>>,
-    stream: T,
-    event_rx: EventRx,
-) -> io::Result<()>
+async fn _handle_stream<T>(core: Arc<Mutex<PiSugarCore>>, stream: T, event_rx: EventRx) -> io::Result<()>
 where
     T: 'static + AsyncRead + AsyncWrite + Send,
 {
@@ -387,21 +367,13 @@ where
 }
 
 /// Handle tcp stream
-async fn handle_tcp_stream(
-    core: Arc<Mutex<PiSugarCore>>,
-    stream: TcpStream,
-    event_rx: EventRx,
-) -> io::Result<()> {
+async fn handle_tcp_stream(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, event_rx: EventRx) -> io::Result<()> {
     log::info!("Incoming tcp connection from: {}", stream.peer_addr()?);
     _handle_stream(core, stream, event_rx).await
 }
 
 /// Handle websocket request
-async fn handle_ws_connection(
-    core: Arc<Mutex<PiSugarCore>>,
-    stream: TcpStream,
-    event_rx: EventRx,
-) -> io::Result<()> {
+async fn handle_ws_connection(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, event_rx: EventRx) -> io::Result<()> {
     log::info!("Incoming ws connection from: {}", stream.peer_addr()?);
 
     let ws_stream = tokio_tungstenite::accept_async(stream)
@@ -451,11 +423,7 @@ async fn handle_ws_connection(
 }
 
 /// Handle uds
-async fn handle_uds_stream(
-    core: Arc<Mutex<PiSugarCore>>,
-    stream: UnixStream,
-    event_rx: EventRx,
-) -> io::Result<()> {
+async fn handle_uds_stream(core: Arc<Mutex<PiSugarCore>>, stream: UnixStream, event_rx: EventRx) -> io::Result<()> {
     log::info!("Incoming uds stream: {:?}", stream.peer_addr()?);
     _handle_stream(core, stream, event_rx).await
 }
@@ -543,12 +511,7 @@ async fn handle_http_req(
 }
 
 /// Serve http
-async fn serve_http(
-    http_addr: SocketAddr,
-    web_dir: String,
-    core: Arc<Mutex<PiSugarCore>>,
-    event_rx: EventRx,
-) {
+async fn serve_http(http_addr: SocketAddr, web_dir: String, core: Arc<Mutex<PiSugarCore>>, event_rx: EventRx) {
     let static_ = hyper_staticfile::Static::new(web_dir);
 
     let make_service = make_service_fn(move |_| {
@@ -788,11 +751,7 @@ async fn main() -> std::io::Result<()> {
             let ws_sock_addr: SocketAddr = ws_addr.parse().unwrap();
             let content = format!("{{\"wsPort\": \"{}\"}}", ws_sock_addr.port());
             let filename = PathBuf::from(web_dir_cloned).join("_ws.json");
-            let mut file = OpenOptions::default()
-                .create(true)
-                .write(true)
-                .open(filename)
-                .await?;
+            let mut file = OpenOptions::default().create(true).write(true).open(filename).await?;
             file.set_len(0).await?;
             file.write_all(content.as_bytes()).await?;
         }

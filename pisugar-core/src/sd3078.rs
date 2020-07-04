@@ -110,9 +110,7 @@ impl TryFrom<SD3078Time> for DateTime<Utc> {
         let month = bcd_to_dec(t.0[5]) as u32;
         let year = 2000 + bcd_to_dec(t.0[6]) as i32;
 
-        let datetime = Utc
-            .ymd_opt(year, month, day_of_month)
-            .and_hms_opt(hour, min, sec);
+        let datetime = Utc.ymd_opt(year, month, day_of_month).and_hms_opt(hour, min, sec);
         match datetime {
             LocalResult::Single(datetime) => Ok(datetime),
             _ => Err(()),
@@ -131,8 +129,7 @@ impl TryFrom<SD3078Time> for DateTime<Local> {
     type Error = ();
 
     fn try_from(t: SD3078Time) -> std::result::Result<Self, Self::Error> {
-        t.try_into()
-            .and_then(|dt: DateTime<Utc>| Ok(DateTime::from(dt)))
+        t.try_into().and_then(|dt: DateTime<Utc>| Ok(DateTime::from(dt)))
     }
 }
 

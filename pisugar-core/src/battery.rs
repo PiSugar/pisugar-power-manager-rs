@@ -27,11 +27,17 @@ pub trait Battery {
     /// Battery average current intensity (A)
     fn intensity_avg(&self) -> Result<f32>;
 
-    /// Is Battery charging
-    fn is_charging(&self) -> Result<bool>;
+    /// Is power cable plugged in
+    fn is_power_plugged(&self) -> Result<bool>;
+
+    /// Is battery allow charging
+    fn is_allow_charging(&self) -> Result<bool>;
 
     /// Enable/disable charging
-    fn toggle_charging(&self, enable: bool) -> Result<()>;
+    fn toggle_allow_charging(&self, enable: bool) -> Result<()>;
+
+    /// Is battery charging
+    fn is_charging(&self) -> Result<bool>;
 
     /// Poll and check tapped
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>>;

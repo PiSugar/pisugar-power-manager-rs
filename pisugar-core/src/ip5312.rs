@@ -163,8 +163,15 @@ impl IP5312 {
         Ok(())
     }
 
+    /// Allow/Disallow charging (0/1)
+    pub fn allow_charging_2led(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x58)?;
+        let allowed = (v & 0b0000_0100) == 0;
+        Ok(allowed)
+    }
+
     /// Enable/disable charging, 2 led only
-    pub fn toggle_charging_2led(&self, enable: bool) -> Result<()> {
+    pub fn toggle_allow_charging_2led(&self, enable: bool) -> Result<()> {
         // gpio2 disable
         let mut v = self.i2c.smbus_read_byte(0x56)?;
         v &= 0b1111_1011;
@@ -186,8 +193,8 @@ impl IP5312 {
         Ok(())
     }
 
-    /// Is charging, 2-led
-    pub fn is_charging_2led(&self) -> Result<bool> {
+    /// Is power cable plugged in, 2-led
+    pub fn is_power_plugged_2led(&self) -> Result<bool> {
         let low = self.i2c.smbus_read_byte(0xdc)?;
         let high = self.i2c.smbus_read_byte(0xdd)?;
         if low == 0xff && high == 0x1f {
@@ -253,7 +260,7 @@ impl Battery for IP5312Battery {
     fn init(&mut self) -> Result<()> {
         if self.led_amount == 2 {
             self.ip5312.init_gpio_2led()?;
-            self.ip5312.toggle_charging_2led(true)?;
+            self.ip5312.toggle_allow_charging_2led(true)?;
         } else {
             self.ip5312.init_gpio()?;
         }
@@ -314,28 +321,40 @@ impl Battery for IP5312Battery {
         }
     }
 
-    fn is_charging(&self) -> Result<bool> {
+    fn is_power_plugged(&self) -> Result<bool> {
         if self.led_amount == 2 {
-            self.ip5312.is_charging_2led()
+            self.ip5312.is_power_plugged_2led()
         } else {
-            if self.voltages.len() >= 2 {
-                let mut total = 0.0;
-                for i in 1..self.voltages.len() {
-                    let delta = self.voltages[i].1 - self.voltages[i - 1].1;
-                    total += delta;
-                }
-                return Ok(total > 0.0);
-            }
-            Ok(false)
+            self.is_allow_charging()
         }
     }
 
-    fn toggle_charging(&self, enable: bool) -> Result<()> {
+    fn is_allow_charging(&self) -> Result<bool> {
         if self.led_amount == 2 {
-            self.ip5312.toggle_charging_2led(enable)
+            self.ip5312.allow_charging_2led()
+        } else {
+            Ok(true)
+        }
+    }
+
+    fn toggle_allow_charging(&self, enable: bool) -> Result<()> {
+        if self.led_amount == 2 {
+            self.ip5312.toggle_allow_charging_2led(enable)
         } else {
             Err(I2cError::FeatureNotSupported.into())
         }
+    }
+
+    fn is_charging(&self) -> Result<bool> {
+        if self.voltages.len() >= 2 {
+            let mut total = 0.0;
+            for i in 1..self.voltages.len() {
+                let delta = self.voltages[i].1 - self.voltages[i - 1].1;
+                total += delta;
+            }
+            return Ok(total > 0.0);
+        }
+        Ok(false)
     }
 
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {

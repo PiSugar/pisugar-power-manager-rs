@@ -4,10 +4,7 @@ use std::time::Instant;
 use rppal::i2c::I2c;
 
 use crate::battery::Battery;
-use crate::{
-    convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Result, TapType,
-    MODEL_V2,
-};
+use crate::{convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Result, TapType, MODEL_V2};
 
 /// Battery threshold curve
 pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
@@ -174,8 +171,15 @@ impl IP5209 {
         Ok(())
     }
 
+    /// Allow/Disallow charging (0/1)
+    pub fn allow_charging_2led(&self) -> Result<bool> {
+        let v = self.i2c.smbus_read_byte(0x55)?;
+        let allowed = (v & 0b0000_0100) == 0;
+        Ok(allowed)
+    }
+
     /// Enable/Disable charging, 2 led version
-    pub fn toggle_charging_2led(&self, enable: bool) -> Result<()> {
+    pub fn toggle_allow_charging_2led(&self, enable: bool) -> Result<()> {
         // disable gpio2 output
         let mut v = self.i2c.smbus_read_byte(0x54)?;
         v &= 0b1111_1011;
@@ -198,8 +202,8 @@ impl IP5209 {
         Ok(())
     }
 
-    /// Check charging
-    pub fn is_charging_2led(&self) -> Result<bool> {
+    /// Is power cable plugged in
+    pub fn is_power_plugged_2led(&self) -> Result<bool> {
         let v = self.i2c.smbus_read_byte(0x55)?;
         if v & 0b0001_0000 != 0 {
             return Ok(true);
@@ -252,7 +256,7 @@ impl Battery for IP5209Battery {
     fn init(&mut self) -> Result<()> {
         if self.led_amount == 2 {
             self.ip5209.init_gpio_2led()?;
-            self.ip5209.toggle_charging_2led(true)?;
+            self.ip5209.toggle_allow_charging_2led(true)?;
         } else {
             self.ip5209.init_gpio()?;
         }
@@ -312,28 +316,40 @@ impl Battery for IP5209Battery {
         }
     }
 
-    fn is_charging(&self) -> Result<bool> {
+    fn is_power_plugged(&self) -> Result<bool> {
         if self.led_amount == 2 {
-            self.ip5209.is_charging_2led()
+            self.ip5209.is_power_plugged_2led()
         } else {
-            if self.voltages.len() >= 2 {
-                let mut total = 0.0;
-                for i in 1..self.voltages.len() {
-                    let delta = self.voltages[i].1 - self.voltages[i - 1].1;
-                    total += delta;
-                }
-                return Ok(total > 0.0);
-            }
-            Ok(false)
+            self.is_allow_charging()
         }
     }
 
-    fn toggle_charging(&self, enable: bool) -> Result<()> {
+    fn is_allow_charging(&self) -> Result<bool> {
         if self.led_amount == 2 {
-            self.ip5209.toggle_charging_2led(enable)
+            self.ip5209.allow_charging_2led()
+        } else {
+            Ok(true)
+        }
+    }
+
+    fn toggle_allow_charging(&self, enable: bool) -> Result<()> {
+        if self.led_amount == 2 {
+            self.ip5209.toggle_allow_charging_2led(enable)
         } else {
             Err(Error::Other("Not supported".to_string()))
         }
+    }
+
+    fn is_charging(&self) -> Result<bool> {
+        if self.voltages.len() >= 2 {
+            let mut total = 0.0;
+            for i in 1..self.voltages.len() {
+                let delta = self.voltages[i].1 - self.voltages[i - 1].1;
+                total += delta;
+            }
+            return Ok(total > 0.0);
+        }
+        Ok(false)
     }
 
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
