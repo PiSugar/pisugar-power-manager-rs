@@ -2,6 +2,9 @@ module.exports = {
     language: 'Language',
     selectLanguage: 'Select Language',
     charging: 'Charging',
+    notCharging: 'Not Charging',
+    chargeSetting: 'Charging Setting',
+    chargingDesc: 'Start charging when the battery level is lower than ',
     enabled: 'Enabled',
     disabled: 'Disabled',
     wakeUpFeature: 'Schedule Wake Up',
@@ -38,6 +41,7 @@ module.exports = {
     immediately: 'Immediately',
     secondsDelay: 'seconds delay',
     rtcTime: 'RTC Time',
+    sysTime: 'SYS Time',
     syncTime: 'Sync Time',
     weekDay: {
         Monday: 'Monday',

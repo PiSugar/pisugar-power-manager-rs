@@ -2,6 +2,9 @@ module.exports = {
     language: '语言',
     selectLanguage: '请选择语言',
     charging: '充电中',
+    notCharging: '已接通电源',
+    chargeSetting: '充电设置',
+    chargingDesc: '电量低于指定值时启动充电',
     enabled: '开启',
     disabled: '关闭',
     wakeUpFeature: '定时开机',
@@ -38,6 +41,7 @@ module.exports = {
     immediately: '立即执行',
     secondsDelay: '秒后执行',
     rtcTime: 'RTC时间',
+    sysTime: 'SYS时间',
     syncTime: '同步时间',
     weekDay: {
         Monday: '周一',

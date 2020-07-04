@@ -2,12 +2,19 @@
   <div id="wrapper">
     <div class="center">
       <div class="battery-info">
-        <div :class="{'show': batteryCharging}" class="charge-tag">
+        <div :class="{'show': isNewVersion ? (batteryPlugged && batteryAllowCharging) : batteryCharging}" class="charge-tag flash-tag">
           <img class="flash" src="~@/assets/flash.svg" alt="">
           <p>{{$t("charging")}}</p>
         </div>
-        <div class="battery-shape">
+        <div :class="{'show': isNewVersion ? (batteryPlugged && !batteryAllowCharging) : false}" class="charge-tag plug-tag">
+          <img class="plug" src="~@/assets/plug.svg" alt="">
+          <p>{{$t("notCharging")}}</p>
+        </div>
+        <div class="battery-shape" @click="handleBatteryClick">
           <div class="battery-content" :class="batteryColor" :style="'width:'+batteryPercent+'%'"></div>
+          <div class="charging-layer" v-show="isNewVersion && batteryPlugged && !batteryAllowCharging">
+            <div class="line restart-line" :style="`left: ${chargingRestartPoint}%`"></div>
+          </div>
         </div>
         <div class="battery-level">{{batteryPercent}}%</div>
         <div class="battery-model">{{model}}</div>
@@ -20,7 +27,10 @@
         </div>
         <div class="title">{{$t('wakeUpFeature')}}</div>
         <el-row>
-          <el-select v-model="alarmOptionValue" placeholder="Select" :disabled="!socketConnect" @change="alarmOptionValueChange">
+          <el-select v-model="alarmOptionValue"
+            placeholder="Select"
+            :disabled="!socketConnect"
+            @change="alarmOptionValueChange">
             <el-option
                     v-for="item in alarmOption"
                     :key="item.value"
@@ -114,7 +124,13 @@
       </div>
 
       <div class="rtc-panel">
-        <div class="sys-info"><el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button> <span class="text">{{$t('rtcTime')}} : {{ rtcTimeDisplayString }}</span></div>
+        <div class="sys-info">
+          <el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button> 
+          <div class="time-text">
+            <div class="text rtc"><span class="label">{{$t('rtcTime')}}</span> : {{ rtcTimeString }}</div>
+            <div class="text sys"><span class="label">{{$t('sysTime')}}</span> : {{ sysTimeString }}</div>
+          </div>
+        </div>
       </div>
 
       <el-dialog :title="$t('repeat')" :visible.sync="repeatDialog">
@@ -136,7 +152,10 @@
 
       <el-dialog :title="$t('syncTime')" :visible.sync="timeDialog">
         <el-row>
-          {{$t('rtcTime')}}: {{rtcTimeDisplayString}}
+          <div class="time-text">
+            <div class="text rtc"><span class="label">{{$t('rtcTime')}}</span> : {{ rtcTimeString }}</div>
+            <div class="text sys"><span class="label">{{$t('sysTime')}}</span> : {{ sysTimeString }}</div>
+          </div>
         </el-row>
         <br>
         <el-row>
@@ -181,6 +200,26 @@
           <el-button type="primary" @click="languageConfirm">{{$t('confirm')}}</el-button>
         </div>
       </el-dialog>
+
+      <el-dialog :title="$t('chargeSetting')" :visible.sync="chargeDialog">
+        <el-row>
+          <el-slider
+            v-model="chargingRestartPoint"
+            :min="50"
+            :max="100"
+            :format-tooltip="formatTooltip"
+            :marks="chargingMarks"
+            show-input>
+          </el-slider>
+        </el-row>
+        <el-row>
+          <span class="charging-desc">{{chargingDesc}}</span>
+        </el-row>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="chargeDialog = false">{{$t('cancel')}}</el-button>
+          <el-button type="primary" @click="chargeConfirm">{{$t('confirm')}}</el-button>
+        </div>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -195,10 +234,15 @@
     data () {
       return {
         rtcTime: null,
-        rtcTimeDisplayString: '',
         rtcUpdateTime: new Date().getTime(),
+        rtcTimeString: '',
+        sysTime: null,
+        sysUpdateTime: new Date().getTime(),
+        sysTimeString: '',
         batteryPercent: '...',
         batteryCharging: false,
+        batteryPlugged: false,
+        batteryAllowCharging: true,
         socketConnect: false,
         model: '...',
         alarmOption: [
@@ -265,10 +309,17 @@
             value: k
           }
         }),
+        chargingRange: [-1, -1],
+        chargingRestartPoint: 50,
+        isNewVersion: false,
         timeDialog: false,
         locale: 'en',
         languageDialog: false,
-        languageOptions: localeOptions
+        languageOptions: localeOptions,
+        chargeDialog: false,
+        chargingMarks: {
+          80: '80%',
+        }
       }
     },
 
@@ -363,7 +414,19 @@
         } else {
           return `${this.$t('wakeUpOffDesc')}`
         }
-      }
+      },
+      chargingDesc () {
+        switch(this.$i18n.locale) {
+          case 'zh-CN': 
+            return this.chargingRestartPoint !== 100 ?
+              `电池电量低于${this.chargingRestartPoint}%时重启充电。`
+              : `连接电源时一直保持充电状态。`
+          default:
+            return this.chargingRestartPoint !== 100 ?
+              `Start charging when the battery level is lower than ${this.chargingRestartPoint}%.`
+              : `Always keep charging when USB is connected.`
+        }
+      },
     },
 
     watch: {
@@ -379,14 +442,10 @@
           this.$socket.send('get rtc_alarm_time')
         }
       },
-
       timeRepeat: function (val) {
-        if (val === 0) {
-          this.alarmOptionValue = 0
-        } else {
-          this.alarmOptionValue = 1
-        }
-        if (this.repeatDialog) this.setRtcAlarm()
+        if (!this.repeatDialog) return
+        this.alarmOptionValue = val === 0 ? 0 : 1
+        this.setRtcAlarm()
       }
     },
 
@@ -422,13 +481,37 @@
           if (!msg.indexOf('battery_charging: ')) {
             that.batteryCharging = msg.indexOf('true') > 0
           }
+          if (!msg.indexOf('battery_charging_range: ')) {
+            const res = msg.replace('battery_charging_range: ', '')
+            if (res.trim()) {
+              that.chargingRange = res.split(',').map(i => parseInt(i))
+            } else {
+              that.chargingRange = [100, 100]
+            }
+            that.chargingRestartPoint = that.chargingRange[0]
+          }
+          if (!msg.indexOf('battery_led_amount: ')) {
+            that.isNewVersion = msg.indexOf('2') > 0
+          }
+          if (!msg.indexOf('battery_power_plugged: ')) {
+            that.batteryPlugged = msg.indexOf('true') > 0
+          }
+          if (!msg.indexOf('battery_allow_charging: ')) {
+            that.batteryAllowCharging = msg.indexOf('true') > 0
+          }
           if (!msg.indexOf('rtc_time: ')) {
             msg = msg.replace('rtc_time: ', '').trim()
             that.rtcTime = new Moment(msg)
             that.rtcUpdateTime = new Date().getTime()
           }
+          if (!msg.indexOf('system_time: ')) {
+            msg = msg.replace('system_time: ', '').trim()
+            that.sysTime = new Moment(msg)
+            that.sysUpdateTime = new Date().getTime()
+          }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
             that.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
+            console.log(msg, that.alarmOptionValue)
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
             msg = msg.replace('rtc_alarm_time: ', '').trim()
@@ -489,6 +572,7 @@
             this.bindSocket()
             this.$socket.send('get model')
             this.$socket.send('get rtc_time')
+            this.$socket.send('get system_time')
             this.$socket.send('get rtc_alarm_enabled')
             this.$socket.send('get rtc_alarm_time')
             this.$socket.send('get alarm_repeat')
@@ -500,12 +584,16 @@
             this.$socket.send('get button_shell long')
             this.$socket.send('get safe_shutdown_level')
             this.$socket.send('get safe_shutdown_delay')
+            this.$socket.send('get battery_charging_range')
+            this.$socket.send('get battery_led_amount')
           }
           this.socketConnect = true
           this.$socket.send('get battery')
           this.$socket.send('get battery_i')
           this.$socket.send('get battery_v')
           this.$socket.send('get battery_charging')
+          this.$socket.send('get battery_power_plugged')
+          this.$socket.send('get battery_allow_charging')
         } else {
           this.socketConnect = false
           this.batteryPercent = 0
@@ -522,6 +610,7 @@
         this.$socket.send('rtc_pi2rtc')
         setTimeout(() => {
           this.$socket.send('get rtc_time')
+          this.$socket.send('get system_time')
         }, 1000)
         this.timeDialog = false
       },
@@ -529,6 +618,7 @@
         this.$socket.send('rtc_rtc2pi')
         setTimeout(() => {
           this.$socket.send('get rtc_time')
+          this.$socket.send('get system_time')
         }, 1000)
         this.timeDialog = false
       },
@@ -536,6 +626,7 @@
         this.$socket.send('rtc_web')
         setTimeout(() => {
           this.$socket.send('get rtc_time')
+          this.$socket.send('get system_time')
         }, 1000)
         this.timeDialog = false
       },
@@ -546,7 +637,14 @@
           const offset = current - this.rtcUpdateTime
           this.rtcUpdateTime = current
           this.rtcTime = this.rtcTime.add({ milliseconds: offset })
-          this.rtcTimeDisplayString = this.rtcTime.toDate()
+          this.rtcTimeString = this.rtcTime.toDate()
+        }
+        if (this.sysTime) {
+          const current = new Date().getTime()
+          const offset = current - this.sysUpdateTime
+          this.sysUpdateTime = current
+          this.sysTime = this.sysTime.add({ milliseconds: offset })
+          this.sysTimeString = this.sysTime.toDate()
         }
         setTimeout(() => {
           that.timeUpdater()
@@ -592,6 +690,7 @@
           if (this.timeRepeat === 0) {
             this.timeRepeat = 127
           }
+          this.setRtcAlarm()
         } else {
           this.$socket.send('rtc_alarm_disable')
           this.$socket.send('get rtc_alarm_enabled')
@@ -614,13 +713,25 @@
         }
         window.location.reload()
       },
+      chargeConfirm () {
+        this.chargeDialog = false
+        this.$socket.send(`set_battery_charging_range ${this.chargingRestartPoint},100`)
+      },
+      formatTooltip (val) {
+        return `${val}%`
+      },
       setRtcAlarm () {
         const sec = this.timeEditValue.getSeconds()
         const min = this.timeEditValue.getMinutes()
         const hour = this.timeEditValue.getHours()
         const setTime = new Moment().second(sec).minute(min).hour(hour)
         this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
-      }
+      },
+      handleBatteryClick () {
+        if (this.isNewVersion) {
+          this.chargeDialog = true
+        }
+      },
     }
   }
 </script>
@@ -636,6 +747,14 @@
     }
     10% {
       opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes breath {
+    0% {
+      opacity: 0.6;
     }
     100% {
       opacity: 0;
@@ -708,9 +827,7 @@
     position: absolute;
     left: 50%;
     top: 140px;
-    width: 120px;
     height: 30px;
-    margin-left: -75px;
     color: orange;
     padding-top: 3px;
     padding-left: 40px;
@@ -721,11 +838,25 @@
     opacity: 0;
     transition: all 0.5s ease-in-out;
     transform: translateY(80px);
+    &.flash-tag{
+      width: 120px;
+      margin-left: -75px;
+    }
+    &.plug-tag{
+      width: 140px;
+      margin-left: -85px;
+    }
     .flash{
       position: absolute;
       left: 20px;
       top: 6px;
       width: 12px;
+    }
+    .plug{
+      position: absolute;
+      left: 12px;
+      top: 2px;
+      width: 24px;
     }
     &.show{
       transform: translateY(0);
@@ -743,6 +874,7 @@
     border-radius: 6px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
     transition: all 0.5s ease-in-out;
+    cursor: pointer;
     &:before{
       display: block;
       position: absolute;
@@ -753,6 +885,28 @@
       right: -15px;
       top: 25px;
       border-radius: 6px;
+    }
+    .charging-layer{
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: calc(100% - 12px);
+      height: calc(100% - 12px);
+      border-radius: 4px;
+      overflow: hidden;
+      .line{
+        position: absolute;
+        width: 2px;
+        height: 100%;
+        background: white;
+        top: 0;
+        left: 0;
+        margin-left: -2px;
+        animation: breath 0.8s ease-in-out alternate-reverse infinite;
+        &:hover{
+          transform: scale(3, 1);
+        }
+      }
     }
     .battery-content{
       position: relative;
@@ -772,6 +926,10 @@
     }
     &:hover{
       transform: scale(1.03);
+    }
+    &:active{
+      transition: all 0.1s ease-in-out;
+      transform: scale(0.93);
     }
   }
   
@@ -862,9 +1020,31 @@
     margin-top: 10px;
     font-size: 14px;
     color: #999;
+    .time-text{
+      position: absolute;
+      top: 10px;
+      left: 80px;
+    }
     .text{
       margin-left: 10px;
+      .label{
+        display: inline-block;
+        width: 60px;
+      }
     }
   }
-
+  .time-text{
+    .text{
+      margin-left: 15px;
+      .label{
+        display: inline-block;
+        width: 60px;
+      }
+    }
+  }
+  .charging-desc{
+    display: block;
+    margin-top: 10px;
+    color: #999;
+  }
 </style>

@@ -12,8 +12,9 @@ import locale from 'element-ui/lib/locale/lang/en'
 import { messages, localeOptions } from './locale'
 
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-const webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
-
+const devWsHost = 'ws://192.168.100.118:8421/ws'
+let webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
+if (!process.env.IS_WEB) webSocketHost = devWsHost
 if (!process.env.IS_WEB) Vue.use(require('vue-electron'))
 Vue.webSocketAddress = webSocketHost
 Vue.http = Vue.prototype.$http = axios
