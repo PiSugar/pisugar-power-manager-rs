@@ -5,8 +5,6 @@ if [ -e /usr/share/debconf/confmodule ]; then
 
   . /usr/share/debconf/confmodule
 
-  db_reset pisugar-server/led
-
   db_get pisugar-server/led
   OPTS="$OPTS --led $RET"
 

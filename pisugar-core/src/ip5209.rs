@@ -320,7 +320,7 @@ impl Battery for IP5209Battery {
         if self.led_amount == 2 {
             self.ip5209.is_power_plugged_2led()
         } else {
-            self.is_allow_charging()
+            self.is_charging()
         }
     }
 

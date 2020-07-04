@@ -325,7 +325,7 @@ impl Battery for IP5312Battery {
         if self.led_amount == 2 {
             self.ip5312.is_power_plugged_2led()
         } else {
-            self.is_allow_charging()
+            self.is_charging()
         }
     }
 
