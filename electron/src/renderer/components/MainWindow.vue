@@ -501,12 +501,12 @@
           }
           if (!msg.indexOf('rtc_time: ')) {
             msg = msg.replace('rtc_time: ', '').trim()
-            that.rtcTime = new Moment(msg)
+            that.rtcTime = new Moment(msg).parseZone()
             that.rtcUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('system_time: ')) {
             msg = msg.replace('system_time: ', '').trim()
-            that.sysTime = new Moment(msg)
+            that.sysTime = new Moment(msg).parseZone()
             that.sysUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
@@ -515,7 +515,7 @@
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
             msg = msg.replace('rtc_alarm_time: ', '').trim()
-            const alarmTime = new Moment(msg)
+            const alarmTime = new Moment(msg).parseZone()
             const tempTime = new Date()
             tempTime.setSeconds(alarmTime.second())
             tempTime.setMinutes(alarmTime.minute())
@@ -609,42 +609,45 @@
       syncPi2RTC () {
         this.$socket.send('rtc_pi2rtc')
         setTimeout(() => {
-          this.$socket.send('get rtc_time')
-          this.$socket.send('get system_time')
-        }, 1000)
+          this.getDeviceTime()
+        }, 1500)
         this.timeDialog = false
       },
       syncRTC2Pi () {
         this.$socket.send('rtc_rtc2pi')
         setTimeout(() => {
-          this.$socket.send('get rtc_time')
-          this.$socket.send('get system_time')
-        }, 1000)
+          this.getDeviceTime()
+        }, 1500)
         this.timeDialog = false
       },
       syncWebTime () {
         this.$socket.send('rtc_web')
         setTimeout(() => {
-          this.$socket.send('get rtc_time')
-          this.$socket.send('get system_time')
-        }, 1000)
+          this.getDeviceTime()
+        }, 1500)
         this.timeDialog = false
       },
       timeUpdater () {
         const that = this
+        const current = new Date().getTime()
+        // 相差两秒内，强行一致
+        if (this.rtcTime && this.sysTime) {
+          const diff = this.sysTime.diff(this.rtcTime)
+          if (Math.abs(diff) < 2000) {
+            this.rtcTime = this.rtcTime.add({ milliseconds: diff })
+          }
+        }
         if (this.rtcTime) {
-          const current = new Date().getTime()
-          const offset = current - this.rtcUpdateTime
+          const rtcOffset = current - this.rtcUpdateTime
           this.rtcUpdateTime = current
-          this.rtcTime = this.rtcTime.add({ milliseconds: offset })
-          this.rtcTimeString = this.rtcTime.toDate()
+          this.rtcTime = this.rtcTime.add({ milliseconds: rtcOffset })
+          this.rtcTimeString = this.rtcTime.toString(true)
         }
         if (this.sysTime) {
-          const current = new Date().getTime()
-          const offset = current - this.sysUpdateTime
+          const sysOffset = current - this.sysUpdateTime
           this.sysUpdateTime = current
-          this.sysTime = this.sysTime.add({ milliseconds: offset })
-          this.sysTimeString = this.sysTime.toDate()
+          this.sysTime = this.sysTime.add({ milliseconds: sysOffset })
+          this.sysTimeString = this.sysTime.toString(true)
         }
         setTimeout(() => {
           that.timeUpdater()
@@ -717,6 +720,10 @@
         this.chargeDialog = false
         this.$socket.send(`set_battery_charging_range ${this.chargingRestartPoint},100`)
       },
+      getDeviceTime () {
+        this.$socket.send('get rtc_time')
+        this.$socket.send('get system_time')
+      },
       formatTooltip (val) {
         return `${val}%`
       },
@@ -724,7 +731,7 @@
         const sec = this.timeEditValue.getSeconds()
         const min = this.timeEditValue.getMinutes()
         const hour = this.timeEditValue.getHours()
-        const setTime = new Moment().second(sec).minute(min).hour(hour)
+        const setTime = new Moment().second(sec).minute(min).hour(hour).parseZone()
         this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
       },
       handleBatteryClick () {
