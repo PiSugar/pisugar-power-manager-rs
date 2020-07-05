@@ -319,7 +319,8 @@
         chargeDialog: false,
         chargingMarks: {
           80: '80%',
-        }
+        },
+        timeUpdaterCount: 0
       }
     },
 
@@ -610,27 +611,28 @@
         this.$socket.send('rtc_pi2rtc')
         setTimeout(() => {
           this.getDeviceTime()
-        }, 1500)
+        }, 1000)
         this.timeDialog = false
       },
       syncRTC2Pi () {
         this.$socket.send('rtc_rtc2pi')
         setTimeout(() => {
           this.getDeviceTime()
-        }, 1500)
+        }, 1000)
         this.timeDialog = false
       },
       syncWebTime () {
         this.$socket.send('rtc_web')
         setTimeout(() => {
           this.getDeviceTime()
-        }, 1500)
+        }, 1000)
         this.timeDialog = false
       },
       timeUpdater () {
         const that = this
         const current = new Date().getTime()
-        // 相差两秒内，强行一致
+        this.timeUpdaterCount++
+        // align time if diff < 2000
         if (this.rtcTime && this.sysTime) {
           const diff = this.sysTime.diff(this.rtcTime)
           if (Math.abs(diff) < 2000) {
@@ -652,6 +654,9 @@
         setTimeout(() => {
           that.timeUpdater()
         }, 1000)
+        if (this.timeUpdaterCount % 5 === 0) {
+          this.getDeviceTime()
+        } 
       },
       timeEditChange () {
         this.setRtcAlarm()
@@ -721,6 +726,7 @@
         this.$socket.send(`set_battery_charging_range ${this.chargingRestartPoint},100`)
       },
       getDeviceTime () {
+        if (!this.socketConnect) return
         this.$socket.send('get rtc_time')
         this.$socket.send('get system_time')
       },
