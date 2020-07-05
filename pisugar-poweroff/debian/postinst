@@ -2,8 +2,10 @@
 
 if [ -e /usr/share/debconf/confmodule ]; then
   . /usr/share/debconf/confmodule
+
   db_get pisugar-poweroff/countdown
-  OPTS="--countdown $RET"
+  OPTS="$OPTS --countdown $RET"
+
   echo "OPTS=$OPTS" > /etc/default/pisugar-poweroff
 fi
 

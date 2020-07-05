@@ -4,7 +4,7 @@ use std::time::Instant;
 use rppal::i2c::I2c;
 
 use crate::battery::Battery;
-use crate::{convert_battery_voltage_to_level, I2cError, MODEL_V2_PRO};
+use crate::{convert_battery_voltage_to_level, I2cError, Model};
 use crate::{gpio_detect_tap, Result, TapType};
 use crate::{BatteryThreshold, Error};
 
@@ -234,7 +234,7 @@ impl IP5312 {
 
 pub struct IP5312Battery {
     ip5312: IP5312,
-    led_amount: u32,
+    model: Model,
     voltages: VecDeque<(Instant, f32)>,
     intensities: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
@@ -242,11 +242,11 @@ pub struct IP5312Battery {
 }
 
 impl IP5312Battery {
-    pub fn new(i2c_addr: u16, led_amount: u32) -> Result<Self> {
+    pub fn new(i2c_addr: u16, model: Model) -> Result<Self> {
         let ip5312 = IP5312::new(i2c_addr)?;
         Ok(Self {
             ip5312,
-            led_amount,
+            model,
             voltages: VecDeque::with_capacity(30),
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
@@ -257,13 +257,14 @@ impl IP5312Battery {
 
 impl Battery for IP5312Battery {
     fn init(&mut self) -> Result<()> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5312.init_gpio_2led()?;
             self.ip5312.toggle_allow_charging_2led(true)?;
         } else {
             self.ip5312.init_gpio()?;
         }
         self.ip5312.init_boost_intensity()?;
+        self.ip5312.init_auto_shutdown()?;
 
         let v = self.voltage()?;
         let now = Instant::now();
@@ -280,11 +281,11 @@ impl Battery for IP5312Battery {
     }
 
     fn model(&self) -> String {
-        return MODEL_V2_PRO.to_string();
+        return self.model.to_string();
     }
 
     fn led_amount(&self) -> Result<u32> {
-        Ok(self.led_amount)
+        Ok(self.model.led_amount())
     }
 
     fn voltage(&self) -> Result<f32> {
@@ -320,7 +321,7 @@ impl Battery for IP5312Battery {
     }
 
     fn is_power_plugged(&self) -> Result<bool> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5312.is_power_plugged_2led()
         } else {
             self.is_charging()
@@ -328,7 +329,7 @@ impl Battery for IP5312Battery {
     }
 
     fn is_allow_charging(&self) -> Result<bool> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5312.allow_charging_2led()
         } else {
             Ok(true)
@@ -336,7 +337,7 @@ impl Battery for IP5312Battery {
     }
 
     fn toggle_allow_charging(&self, enable: bool) -> Result<()> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5312.toggle_allow_charging_2led(enable)
         } else {
             Err(I2cError::FeatureNotSupported.into())

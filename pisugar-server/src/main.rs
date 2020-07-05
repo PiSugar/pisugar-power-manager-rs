@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::remove_file;
 use std::io;
@@ -30,7 +30,7 @@ use tokio_util::codec::{BytesCodec, Framed};
 use websocket_codec::{Message, Opcode};
 
 use pisugar_core::{
-    execute_shell, notify_shutdown_soon, sys_write_time, Error, PiSugarConfig, PiSugarCore, SD3078Time,
+    execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, SD3078Time,
     I2C_READ_INTERVAL, TIME_HOST,
 };
 
@@ -77,6 +77,10 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 .charging_range()
                                 .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
                             "battery_charging" => core.charging().map(|c| c.to_string()),
+                            "full_charge_duration" => Ok(core
+                                .config()
+                                .full_charge_duration
+                                .map_or("".to_string(), |d| d.to_string())),
                             "system_time" => Ok(Local::now().to_rfc3339()),
                             "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
                             "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
@@ -150,6 +154,17 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             err
                         }
                     };
+                }
+                "set_full_charge_duration" => {
+                    if parts.len() > 1 {
+                        if let Ok(d) = parts[1].parse::<u64>() {
+                            core.config_mut().full_charge_duration = Some(d);
+                            if core.save_config().is_ok() {
+                                return format!("{}: done\n", parts[0]);
+                            }
+                        }
+                    }
+                    return err;
                 }
                 "rtc_clear_flag" => {
                     return match core.clear_alarm_flag() {
@@ -628,6 +643,13 @@ async fn main() -> std::io::Result<()> {
                 .default_value("4")
                 .help("2-led or 4-led"),
         )
+        .arg(
+            Arg::with_name("model")
+                .long("model")
+                .takes_value(true)
+                .required(true)
+                .help("PiSugar 2 (4-LEDs)/PiSugar 2 (2-LEDs)/PiSugar 2 Pro"),
+        )
         .get_matches();
 
     // init logging
@@ -635,17 +657,18 @@ async fn main() -> std::io::Result<()> {
     let syslog = matches.is_present("syslog");
     init_logging(debug, syslog);
 
-    // led
-    let led_amount = matches.value_of("led").unwrap_or("4").parse().unwrap_or(4);
+    // model
+    let m = matches.value_of("model").unwrap();
+    let model = Model::try_from(m).expect(format!("Unknown PiSugar model: {}", m).as_str());
 
     // core
     let core;
     loop {
         let c = if matches.is_present("config") {
-            PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true, led_amount)
+            PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true, model)
         } else {
             let config = PiSugarConfig::default();
-            PiSugarCore::new(config, led_amount)
+            PiSugarCore::new(config, model)
         };
         if c.is_ok() {
             core = Arc::new(Mutex::new(c.unwrap()));

@@ -2,9 +2,9 @@
 
 . /usr/share/debconf/confmodule
 
-db_reset pisugar-server/led || true
+db_reset pisugar-server/model || true
 
-db_input critical pisugar-server/led || true
+db_input critical pisugar-server/model || true
 db_go
 
 db_input medium pisugar-server/address || true

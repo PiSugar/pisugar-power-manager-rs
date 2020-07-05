@@ -4,7 +4,7 @@ use std::time::Instant;
 use rppal::i2c::I2c;
 
 use crate::battery::Battery;
-use crate::{convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Result, TapType, MODEL_V2};
+use crate::{convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Model, Result, TapType};
 
 /// Battery threshold curve
 pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
@@ -230,7 +230,7 @@ impl IP5209 {
 
 pub struct IP5209Battery {
     ip5209: IP5209,
-    led_amount: u32,
+    model: Model,
     voltages: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
     intensities: VecDeque<(Instant, f32)>,
@@ -238,11 +238,11 @@ pub struct IP5209Battery {
 }
 
 impl IP5209Battery {
-    pub fn new(i2c_addr: u16, led_amount: u32) -> Result<Self> {
+    pub fn new(i2c_addr: u16, model: Model) -> Result<Self> {
         let ip5209 = IP5209::new(i2c_addr)?;
         Ok(Self {
             ip5209,
-            led_amount,
+            model,
             voltages: VecDeque::with_capacity(30),
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
@@ -253,12 +253,13 @@ impl IP5209Battery {
 
 impl Battery for IP5209Battery {
     fn init(&mut self) -> Result<()> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5209.init_gpio_2led()?;
             self.ip5209.toggle_allow_charging_2led(true)?;
         } else {
             self.ip5209.init_gpio()?;
         }
+        self.ip5209.init_auto_shutdown()?;
 
         let v = self.voltage()?;
         let now = Instant::now();
@@ -275,11 +276,11 @@ impl Battery for IP5209Battery {
     }
 
     fn model(&self) -> String {
-        return MODEL_V2.to_string();
+        return self.model.to_string();
     }
 
     fn led_amount(&self) -> Result<u32> {
-        Ok(self.led_amount)
+        Ok(self.model.led_amount())
     }
 
     fn voltage(&self) -> Result<f32> {
@@ -315,7 +316,7 @@ impl Battery for IP5209Battery {
     }
 
     fn is_power_plugged(&self) -> Result<bool> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5209.is_power_plugged_2led()
         } else {
             self.is_charging()
@@ -323,7 +324,7 @@ impl Battery for IP5209Battery {
     }
 
     fn is_allow_charging(&self) -> Result<bool> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5209.allow_charging_2led()
         } else {
             Ok(true)
@@ -331,7 +332,7 @@ impl Battery for IP5209Battery {
     }
 
     fn toggle_allow_charging(&self, enable: bool) -> Result<()> {
-        if self.led_amount == 2 {
+        if self.model.led_amount() == 2 {
             self.ip5209.toggle_allow_charging_2led(enable)
         } else {
             Err(Error::Other("Not supported".to_string()))
@@ -367,7 +368,7 @@ impl Battery for IP5209Battery {
         self.intensities.push_back((now, intensity));
 
         let gpio_value = self.ip5209.read_gpio_tap()?;
-        let tapped = if self.led_amount == 2 {
+        let tapped = if self.model.led_amount() == 2 {
             gpio_value & 0b0000_0010 != 0 // GPIO1 in 2-led
         } else {
             gpio_value & 0b0001_0000 != 0 // GPIO4 in 4-led

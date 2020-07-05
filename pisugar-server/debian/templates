@@ -26,5 +26,6 @@ Description: PiSugar 2 battery status-indicating LED amount (choose 2 for PiSuga
 
 Template: pisugar-server/model
 Type: select
-Choices: PiSugar 2 with 4 LEDs, PiSugar 2 with 2 LEDs, PiSugar 2 Pro with 4 LEDs, PiSugar 2 Pro with no LEDs
-Description: PiSugar model.
+Choices: PiSugar 2 (4-LEDs), PiSugar 2 (2-LEDs), PiSugar 2 Pro
+Description: PiSugar model. Select the correct model, otherwise pisugar-server could not work as expected.
+    Don't worry, it could be reconfigured with 'sudo dpkg-reconfigure pisugar-server'.

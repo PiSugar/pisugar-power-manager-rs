@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Datelike, Local, Timelike};
 use rppal::i2c::Error as I2cError;
@@ -15,16 +15,15 @@ use serde::export::Result::Err;
 use serde::{Deserialize, Serialize};
 
 use crate::battery::Battery;
-use crate::ip5209::IP5209Battery;
-use crate::ip5312::IP5312Battery;
-pub use ip5209::IP5209;
-pub use ip5312::IP5312;
 pub use sd3078::*;
 
 mod battery;
 mod ip5209;
 mod ip5312;
+mod model;
 mod sd3078;
+
+pub use model::Model;
 
 /// Time host
 pub const TIME_HOST: &str = "http://cdn.pisugar.com";
@@ -38,11 +37,8 @@ const I2C_ADDR_RTC: u16 = 0x32;
 /// Battery address, IP5209/IP5312
 const I2C_ADDR_BAT: u16 = 0x75;
 
-/// Battery charging delay 5min after full, 20min, should be adjust as needed
-const BAT_CHARGING_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
-
-pub const MODEL_V2: &str = "PiSugar 2";
-pub const MODEL_V2_PRO: &str = "PiSugar 2 Pro";
+/// Battery full charge 5min after full, 5min, should be adjust as needed
+const BAT_FULL_CHARGE_DURATION: u64 = 5 * 60;
 
 /// PiSugar error
 #[derive(Debug)]
@@ -119,7 +115,7 @@ pub fn sys_write_time(dt: DateTime<Local>) {
 }
 
 /// PiSugar configuration
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct PiSugarConfig {
     #[serde(default)]
     pub auto_wake_time: Option<DateTime<Local>>,
@@ -153,6 +149,9 @@ pub struct PiSugarConfig {
 
     #[serde(default)]
     pub auto_charging_range: Option<(f32, f32)>,
+
+    #[serde(default)]
+    pub full_charge_duration: Option<u64>,
 }
 
 impl PiSugarConfig {
@@ -245,15 +244,8 @@ pub struct PiSugarCore {
 }
 
 impl PiSugarCore {
-    pub fn new(config: PiSugarConfig, led_amount: u32) -> Result<Self> {
-        let mut battery: Box<dyn Battery + Send> = Box::new(IP5312Battery::new(I2C_ADDR_BAT, led_amount)?);
-        match battery.voltage() {
-            Ok(_) => {}
-            Err(Error::I2c(I2cError::FeatureNotSupported)) => {
-                battery = Box::new(IP5209Battery::new(I2C_ADDR_BAT, led_amount)?)
-            }
-            Err(e) => return Err(e),
-        }
+    pub fn new(config: PiSugarConfig, model: Model) -> Result<Self> {
+        let mut battery: Box<dyn Battery + Send> = model.bind(I2C_ADDR_BAT)?;
         battery.init()?;
 
         let rtc = SD3078::new(I2C_ADDR_RTC)?;
@@ -268,13 +260,13 @@ impl PiSugarCore {
         })
     }
 
-    pub fn new_with_path(config_path: &str, auto_recovery: bool, led_amount: u32) -> Result<Self> {
+    pub fn new_with_path(config_path: &str, auto_recovery: bool, model: Model) -> Result<Self> {
         let config_path = PathBuf::from(config_path);
         if config_path.is_dir() {
             return Err(Error::Other("Not a file".to_string()));
         }
 
-        match Self::load_config(config_path.as_path(), led_amount) {
+        match Self::load_config(config_path.as_path(), model) {
             Ok(core) => {
                 if let Some(datetime) = core.config.auto_wake_time {
                     match core.set_alarm(datetime.into(), core.config.auto_wake_repeat) {
@@ -288,7 +280,7 @@ impl PiSugarCore {
                 log::warn!("Load configuration failed, auto recovery...");
                 if auto_recovery {
                     let config = PiSugarConfig::default();
-                    let mut core = Self::new(config, led_amount)?;
+                    let mut core = Self::new(config, model)?;
                     core.config_path = Some(config_path.to_string_lossy().to_string());
                     match core.save_config() {
                         Ok(_) => log::info!("Auto recovery success"),
@@ -302,11 +294,11 @@ impl PiSugarCore {
         }
     }
 
-    fn load_config(path: &Path, led_amount: u32) -> Result<Self> {
+    fn load_config(path: &Path, model: Model) -> Result<Self> {
         if path.exists() && path.is_file() {
             let mut config = PiSugarConfig::default();
             if config.load(path).is_ok() {
-                let mut core = Self::new(config, led_amount)?;
+                let mut core = Self::new(config, model)?;
                 core.config_path = Some(path.to_string_lossy().to_string());
                 return Ok(core);
             }
@@ -499,7 +491,10 @@ impl PiSugarCore {
                             false
                         } else {
                             let full_at = self.battery_full_at.unwrap();
-                            now.duration_since(full_at) > BAT_CHARGING_DELAY
+                            let delay = Duration::from_secs(
+                                self.config.full_charge_duration.unwrap_or(BAT_FULL_CHARGE_DURATION),
+                            );
+                            now.duration_since(full_at) > delay
                         };
                         if should_stop {
                             let is_ok = self.battery.toggle_allow_charging(false).map_or("fail", |_| "ok");

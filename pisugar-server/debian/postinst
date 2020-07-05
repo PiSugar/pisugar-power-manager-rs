@@ -5,8 +5,8 @@ if [ -e /usr/share/debconf/confmodule ]; then
 
   . /usr/share/debconf/confmodule
 
-  db_get pisugar-server/led
-  OPTS="$OPTS --led $RET"
+  db_get pisugar-server/model
+  OPTS="$OPTS --model '$RET'"
 
   db_get pisugar-server/address
   ADDR="$RET"
