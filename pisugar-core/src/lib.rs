@@ -353,6 +353,10 @@ impl PiSugarCore {
         self.battery.is_allow_charging()
     }
 
+    pub fn toggle_allow_charging(&self, enable: bool) -> Result<()> {
+        self.battery.toggle_allow_charging(enable)
+    }
+
     pub fn charging(&self) -> Result<bool> {
         self.battery.is_charging()
     }
