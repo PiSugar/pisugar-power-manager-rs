@@ -723,7 +723,11 @@
       },
       chargeConfirm () {
         this.chargeDialog = false
-        this.$socket.send(`set_battery_charging_range ${this.chargingRestartPoint},100`)
+        if (this.chargingRestartPoint === 100) {
+          this.$socket.send(`set_battery_charging_range`)
+        } else {
+          this.$socket.send(`set_battery_charging_range ${this.chargingRestartPoint},100`)
+        }
       },
       getDeviceTime () {
         if (!this.socketConnect) return
