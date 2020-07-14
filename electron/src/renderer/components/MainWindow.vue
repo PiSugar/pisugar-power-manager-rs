@@ -318,7 +318,7 @@
         languageOptions: localeOptions,
         chargeDialog: false,
         chargingMarks: {
-          80: '80%',
+          80: '80%'
         },
         timeUpdaterCount: 0
       }
@@ -417,17 +417,17 @@
         }
       },
       chargingDesc () {
-        switch(this.$i18n.locale) {
-          case 'zh-CN': 
-            return this.chargingRestartPoint !== 100 ?
-              `电池电量低于${this.chargingRestartPoint}%时重启充电。`
+        switch (this.$i18n.locale) {
+          case 'zh-CN':
+            return this.chargingRestartPoint !== 100
+              ? `电池电量低于${this.chargingRestartPoint}%时重启充电。`
               : `连接电源时一直保持充电状态。`
           default:
-            return this.chargingRestartPoint !== 100 ?
-              `Start charging when the battery level is lower than ${this.chargingRestartPoint}%.`
+            return this.chargingRestartPoint !== 100
+              ? `Start charging when the battery level is lower than ${this.chargingRestartPoint}%.`
               : `Always keep charging when USB is connected.`
         }
-      },
+      }
     },
 
     watch: {
@@ -656,7 +656,7 @@
         }, 1000)
         if (this.timeUpdaterCount % 5 === 0) {
           this.getDeviceTime()
-        } 
+        }
       },
       timeEditChange () {
         this.setRtcAlarm()
@@ -748,7 +748,7 @@
         if (this.isNewVersion) {
           this.chargeDialog = true
         }
-      },
+      }
     }
   }
 </script>

@@ -75,7 +75,10 @@ function createWindow () {
     height: 580,
     // frame: false,
     resizable: true,
-    webPreferences: { webSecurity: false }
+    webPreferences: {
+      webSecurity: false,
+      nodeIntegration: true,
+    }
   })
 
   mainWindow.loadURL(winURL)
