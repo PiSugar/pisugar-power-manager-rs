@@ -510,6 +510,7 @@ async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, ev
     }
 }
 
+/// Handle http request, /ws to websocket
 async fn handle_http_req(
     req: Request<Body>,
     static_: hyper_staticfile::Static,

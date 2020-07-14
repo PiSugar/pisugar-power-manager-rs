@@ -1,7 +1,12 @@
+v1.4.4
+1. Bugs fixed
+
+
 v1.4.3
 1. Support latest model PiSugar 2 with 2-LEDs and PiSugar 2 Pro with no LEDs
    (improved charging control)
 2. Set RTC timezone to UTC
+
 
 v1.4.1
 1. Some updates

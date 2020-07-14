@@ -2,7 +2,7 @@ Template: pisugar-server/address
 Type: select
 Choices: 0.0.0.0, 127.0.0.1
 Default: 0.0.0.0
-Description: PiSugar server listening address (choose 127.0.0.1 to prohibit public access).
+Description: PiSugar server listening address ('127.0.0.1' to disallow public access).
 
 Template: pisugar-server/web
 Type: boolean
