@@ -59,7 +59,7 @@ done
 package_server="pisugar-server_${version}_armhf.deb"
 package_poweroff="pisugar-poweroff_${version}_armhf.deb"
 local_host="`hostname --fqdn`"
-local_ip=$(ip addr |grep inet |grep -v inet6 |grep -E "wlan0|usb0" |awk '{print $2}' |awk -F "/" '{print $1}')
+local_ip=$(ip addr |grep inet |grep -v inet6 |grep -E -m 1 "wlan0|usb0" |awk '{print $2}' |awk -F "/" '{print $1}')
 
 $echo -e "\033[1;34mDownload PiSugar-server and PiSugar-poweroff package \033[0m"
 wget -O /tmp/$package_server http://cdn.pisugar.com/${channel}/${package_server}
