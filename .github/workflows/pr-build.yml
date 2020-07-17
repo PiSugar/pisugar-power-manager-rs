@@ -1,8 +1,6 @@
-name: PR build on master
+name: PR
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -107,48 +105,3 @@ jobs:
       with:
         name: pisugar-debs
         path: target/arm-unknown-linux-musleabihf/debian
-
-    # Development Release
-    - uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        title: "Development Build"
-        prerelease: true
-        draft: false
-        files: |
-          target/arm-unknown-linux-musleabihf/debian/*
-          scripts/*
-
-    # Upload QiNiu nightly
-    - name: "Upload to QiNiu"
-      env:
-        QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
-        QINIU_AK: ${{ secrets.QINIU_AK }}
-        QINIU_SK: ${{ secrets.QINIU_SK }}
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y unzip
-
-        if [ $(uname -m) == 'x86_64' ]; then
-          wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
-          unzip qshell-linux-x64-v2.4.1.zip
-          mv qshell-linux-x64-v2.4.1 qshell
-        else
-          wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
-          unzip qshell-linux-x86-v2.4.1.zip
-          mv qshell-linux-x86-v2.4.1 qshell
-        fi
-        chmod +x qshell
-        ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
-
-        for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
-          filename=${f##*/}
-          key=nightly/${filename}
-          ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
-        done
-        for f in $(find scripts -name '*.sh' ); do
-          filename=${f##*/}
-          key=nightly/${filename}
-          ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f}
-        done
