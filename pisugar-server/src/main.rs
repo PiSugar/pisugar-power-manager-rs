@@ -671,11 +671,13 @@ async fn main() -> std::io::Result<()> {
             let config = PiSugarConfig::default();
             PiSugarCore::new(config, model)
         };
-        if c.is_ok() {
-            core = Arc::new(Mutex::new(c.unwrap()));
-            break;
+        match c {
+            Ok(_) => {
+                core = Arc::new(Mutex::new(c.unwrap()));
+                break;
+            }
+            Err(e) => log::error!("PiSugar init failed: {}", e),
         }
-        log::error!("PiSugar init failed");
         sleep(Duration::from_secs(3));
     }
 

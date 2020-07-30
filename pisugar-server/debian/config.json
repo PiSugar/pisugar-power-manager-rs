@@ -12,5 +12,6 @@
     "auto_charging_range": [
         80.0,
         100.0
-    ]
+    ],
+    "full_charge_duration": null
 }
