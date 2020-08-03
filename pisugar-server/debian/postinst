@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Enable i2c
+raspi-config nonint do_i2c 0
+
 if [ -e /usr/share/debconf/confmodule ]; then
   OPTS="--config config.json"
 
