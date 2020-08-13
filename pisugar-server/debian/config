@@ -2,7 +2,7 @@
 
 . /usr/share/debconf/confmodule
 
-db_reset pisugar-server/model || true
+# db_reset pisugar-server/model || true
 
 db_input critical pisugar-server/model || true
 db_go
