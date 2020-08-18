@@ -233,31 +233,83 @@ pub fn notify_shutdown_soon(message: &str) {
     let _ = execute_shell(shell.as_str());
 }
 
+macro_rules! call_i2c {
+    ($i2c_addr:expr, $obj:expr, $method:tt) => {
+        if let Some(obj) = $obj {
+            obj.$method()
+        } else {
+            Err(I2cError::InvalidSlaveAddress($i2c_addr).into())
+        }
+    };
+    ($i2c_addr:expr, $obj:expr, $method:tt, $($arg:tt)*) => {
+        if let Some(obj) = $obj {
+            obj.$method($($arg)*)
+        } else {
+            Err(I2cError::InvalidSlaveAddress($i2c_addr).into())
+        }
+    };
+}
+
+macro_rules! call_battery {
+    ($battery:expr, $method:tt) => {
+        call_i2c!(I2C_ADDR_BAT, $battery, $method)
+    };
+    ($battery:expr, $method:tt, $($arg:tt)*) => {
+        call_i2c!(I2C_ADDR_BAT, $battery, $method, $($arg)*)
+    }
+}
+
+macro_rules! call_rtc {
+    ($rtc:expr, $method:tt) => {
+        call_i2c!(I2C_ADDR_RTC, $rtc, $method)
+    };
+    ($rtc:expr, $method:tt, $($arg:tt)*) => {
+        call_i2c!(I2C_ADDR_RTC, $rtc, $method, $($arg)*)
+    }
+}
+
 /// Core
 pub struct PiSugarCore {
     config_path: Option<String>,
     config: PiSugarConfig,
-    battery: Box<dyn Battery + Send>,
+    model: Model,
+    battery: Option<Box<dyn Battery + Send>>,
     battery_full_at: Option<Instant>,
-    rtc: SD3078,
+    rtc: Option<SD3078>,
     poll_check_at: Instant,
 }
 
 impl PiSugarCore {
+    fn init_battery(&mut self) -> Result<()> {
+        if self.battery.is_none() {
+            let mut battery = self.model.bind(I2C_ADDR_BAT)?;
+            battery.init()?;
+            self.battery = Some(battery);
+        }
+        Ok(())
+    }
+
+    fn init_rtc(&mut self) -> Result<()> {
+        if self.rtc.is_none() {
+            let rtc = SD3078::new(I2C_ADDR_RTC)?;
+            self.rtc = Some(rtc);
+        }
+        Ok(())
+    }
+
     pub fn new(config: PiSugarConfig, model: Model) -> Result<Self> {
-        let mut battery: Box<dyn Battery + Send> = model.bind(I2C_ADDR_BAT)?;
-        battery.init()?;
-
-        let rtc = SD3078::new(I2C_ADDR_RTC)?;
-
-        Ok(Self {
+        let mut core = Self {
             config_path: None,
             config,
-            battery,
+            model,
+            battery: None,
             battery_full_at: None,
-            rtc,
+            rtc: None,
             poll_check_at: Instant::now(),
-        })
+        };
+        let _ = Self::init_battery(&mut core);
+        let _ = Self::init_rtc(&mut core);
+        Ok(core)
     }
 
     pub fn new_with_path(config_path: &str, auto_recovery: bool, model: Model) -> Result<Self> {
@@ -318,47 +370,47 @@ impl PiSugarCore {
     }
 
     pub fn model(&self) -> String {
-        self.battery.model()
+        self.model.to_string()
     }
 
     pub fn led_amount(&self) -> Result<u32> {
-        self.battery.led_amount()
+        Ok(self.model.led_amount())
     }
 
     pub fn voltage(&self) -> Result<f32> {
-        self.battery.voltage()
+        call_battery!(&self.battery, voltage)
     }
 
     pub fn voltage_avg(&self) -> Result<f32> {
-        self.battery.voltage_avg()
+        call_battery!(&self.battery, voltage_avg)
     }
 
     pub fn intensity(&self) -> Result<f32> {
-        self.battery.intensity()
+        call_battery!(&self.battery, intensity)
     }
 
     pub fn intensity_avg(&self) -> Result<f32> {
-        self.battery.intensity_avg()
+        call_battery!(&self.battery, intensity_avg)
     }
 
     pub fn level(&self) -> Result<f32> {
-        self.battery.level()
+        call_battery!(&self.battery, level)
     }
 
     pub fn power_plugged(&self) -> Result<bool> {
-        self.battery.is_power_plugged()
+        call_battery!(&self.battery, is_power_plugged)
     }
 
     pub fn allow_charging(&self) -> Result<bool> {
-        self.battery.is_allow_charging()
+        call_battery!(&self.battery, is_allow_charging)
     }
 
     pub fn toggle_allow_charging(&self, enable: bool) -> Result<()> {
-        self.battery.toggle_allow_charging(enable)
+        call_battery!(&self.battery, toggle_allow_charging, enable)
     }
 
     pub fn charging(&self) -> Result<bool> {
-        self.battery.is_charging()
+        call_battery!(&self.battery, is_charging)
     }
 
     pub fn charging_range(&self) -> Result<Option<(f32, f32)>> {
@@ -371,52 +423,51 @@ impl PiSugarCore {
                 return Err(Error::Other("Invalid charging range".to_string()));
             }
         } else {
-            self.battery.toggle_allow_charging(true)?;
+            self.toggle_allow_charging(true)?;
         }
         self.config.auto_charging_range = range;
         self.save_config()
     }
 
     pub fn read_time(&self) -> Result<DateTime<Local>> {
-        self.rtc
-            .read_time()
+        call_rtc!(&self.rtc, read_time)
             .and_then(|t| t.try_into().map_err(|_| Error::Other("Invalid datetime".to_string())))
     }
 
     pub fn read_raw_time(&self) -> Result<SD3078Time> {
-        self.rtc.read_time()
+        call_rtc!(&self.rtc, read_time)
     }
 
     pub fn write_time(&self, dt: DateTime<Local>) -> Result<()> {
-        self.rtc.write_time(dt.into())
+        call_rtc!(&self.rtc, write_time, dt.into())
     }
 
     pub fn set_alarm(&self, t: SD3078Time, weekday_repeat: u8) -> Result<()> {
-        self.rtc.set_alarm(t, weekday_repeat)
+        call_rtc!(&self.rtc, set_alarm, t, weekday_repeat)
     }
 
     pub fn read_alarm_time(&self) -> Result<SD3078Time> {
-        self.rtc.read_alarm_time()
+        call_rtc!(&self.rtc, read_alarm_time)
     }
 
     pub fn read_alarm_enabled(&self) -> Result<bool> {
-        self.rtc.read_alarm_enabled()
+        call_rtc!(&self.rtc, read_alarm_enabled)
     }
 
     pub fn read_alarm_flag(&self) -> Result<bool> {
-        self.rtc.read_alarm_flag()
+        call_rtc!(&self.rtc, read_alarm_flag)
     }
 
     pub fn clear_alarm_flag(&self) -> Result<()> {
-        self.rtc.clear_alarm_flag()
+        call_rtc!(&self.rtc, clear_alarm_flag)
     }
 
     pub fn disable_alarm(&self) -> Result<()> {
-        self.rtc.disable_alarm()
+        call_rtc!(&self.rtc, disable_alarm)
     }
 
     pub fn test_wake(&self) -> Result<()> {
-        self.rtc.set_test_wake()
+        call_rtc!(&self.rtc, set_test_wake)
     }
 
     pub fn config(&self) -> &PiSugarConfig {
@@ -433,13 +484,20 @@ impl PiSugarCore {
             let _ = execute_shell("sync");
         }
 
-        self.battery.shutdown()
+        call_battery!(&self.battery, shutdown)
     }
 
     pub fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
+        if let Err(e) = self.init_battery() {
+            log::debug!("PiSugar2 battery init failed: {}", e);
+        }
+        if let Err(e) = self.init_rtc() {
+            log::debug!("PiSugar2 rtc init failed: {}", e);
+        }
+
         // tap
         let config = &self.config;
-        let tap = self.battery.poll(now)?;
+        let tap = call_battery!(&mut self.battery, poll, now)?;
         if let Some(tap_type) = tap {
             let script = match tap_type {
                 TapType::Single => {
@@ -479,13 +537,13 @@ impl PiSugarCore {
             self.poll_check_at = now;
 
             // 2-led, auto allow charging
-            if self.battery.led_amount().unwrap_or(4) == 2 {
+            if self.led_amount().unwrap_or(4) == 2 {
                 if let Some((begin, end)) = &self.config.auto_charging_range {
                     let l = self.level().unwrap_or(0.0);
-                    let allow_charging = self.battery.is_allow_charging().unwrap_or(false);
+                    let allow_charging = self.allow_charging().unwrap_or(false);
                     if l < *begin && !allow_charging {
                         self.battery_full_at = None;
-                        let is_ok = self.battery.toggle_allow_charging(true).map_or("fail", |_| "ok");
+                        let is_ok = self.toggle_allow_charging(true).map_or("fail", |_| "ok");
                         log::info!("Battery {} <= {}, enable charging: {}", l, *begin, is_ok);
                     }
                     if (l >= *end && allow_charging) || l >= 99.9 {
@@ -501,7 +559,7 @@ impl PiSugarCore {
                             now.duration_since(full_at) > delay
                         };
                         if should_stop {
-                            let is_ok = self.battery.toggle_allow_charging(false).map_or("fail", |_| "ok");
+                            let is_ok = self.toggle_allow_charging(false).map_or("fail", |_| "ok");
                             log::info!("Battery {} >= {}, stop charging: {}", l, *end, is_ok);
                         }
                     }
@@ -509,17 +567,19 @@ impl PiSugarCore {
             }
 
             // rtc battery charging
-            if (self.rtc.read_battery_low_flag().ok() == Some(true))
-                && (self.rtc.read_battery_charging_flag().ok() == Some(false))
-            {
-                log::debug!("Enable rtc charging");
-                let _ = self.rtc.toggle_charging(true);
-            } else {
-                if (self.rtc.read_battery_high_flag().ok() == Some(true))
-                    && (self.rtc.read_battery_charging_flag().ok() == Some(true))
+            if let Some(rtc) = &self.rtc {
+                if (rtc.read_battery_low_flag().ok() == Some(true))
+                    && (rtc.read_battery_charging_flag().ok() == Some(false))
                 {
-                    log::debug!("Disable rtc charging");
-                    let _ = self.rtc.toggle_charging(false);
+                    log::debug!("Enable rtc charging");
+                    let _ = rtc.toggle_charging(true);
+                } else {
+                    if (rtc.read_battery_high_flag().ok() == Some(true))
+                        && (rtc.read_battery_charging_flag().ok() == Some(true))
+                    {
+                        log::debug!("Disable rtc charging");
+                        let _ = rtc.toggle_charging(false);
+                    }
                 }
             }
         }
