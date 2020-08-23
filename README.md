@@ -216,7 +216,9 @@ Default ports:
 | get battery_v           | BAT votage in V | battery_v: [number] |
 | get battery_charging    | charging status  | battery_charging: [true\|false] |
 | get model               | pisugar model | model: PiSugar 2 |
-| get battery_led_amount  | charging led amount (2 is for new model) | battery_led_amount: 2 |
+| get battery_led_amount  | charging led amount (2 is for new model) | battery_led_amount: [2\|4] |
+| get battery_power_plugged  | charging usb plugged (new model only) | battery_power_plugged: [true\|false] |
+| get battery_charging_range | charging range restart_point% stop_point% (new model only)  | battery_charging_range: [number, number]|
 | get rtc_time            | rtc clock | rtc_time: [ISO8601 time string] |
 | get rtc_alarm_enabled   | rtc wakeup alarm enable | rtc_alarm_enabled: [true\|false] |
 | get rtc_alarm_time      | rtc wakeup alarm time | rtc_alarm_time: [ISO8601 time string] |
@@ -234,6 +236,7 @@ Default ports:
 | set_button_shell | auto shutdown level | safe_shutdown_level [single\|double\|long] [shell] |
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level [number] |
 | set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay [number]|
+| set_battery_charging_range | set charging range | set_battery_charging_range [number, number]|
 
 Examples:
 
