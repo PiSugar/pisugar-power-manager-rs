@@ -186,10 +186,15 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     };
                 }
                 "rtc_rtc2pi" => {
-                    if let Ok(t) = core.read_time() {
-                        sys_write_time(t);
-                        format!("{}: done\n", parts[0]);
-                    } else {
+                    return match core.read_time() {
+                        Ok(t) => {
+                            sys_write_time(t);
+                            format!("{}: done\n", parts[0])
+                        }
+                        Err(e) => {
+                            log::error!("{}", e);
+                            err
+                        }
                     }
                 }
                 "rtc_web" => {
