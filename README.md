@@ -214,11 +214,12 @@ Default ports:
 | get battery             | battery level % | battery: [number] |
 | get battery_i           | BAT current in A | battery_i: [number] |
 | get battery_v           | BAT votage in V | battery_v: [number] |
-| get battery_charging    | charging status  | battery_charging: [true\|false] |
+| get battery_charging    | charging status (for new model please use battery_power_plugged and battery_allow_charging to get charging status)  | battery_charging: [true\|false] |
 | get model               | pisugar model | model: PiSugar 2 |
 | get battery_led_amount  | charging led amount (2 is for new model) | battery_led_amount: [2\|4] |
 | get battery_power_plugged  | charging usb plugged (new model only) | battery_power_plugged: [true\|false] |
 | get battery_charging_range | charging range restart_point% stop_point% (new model only)  | battery_charging_range: [number, number]|
+| get battery_allow_charging | whether charging is allowed when usb is plugged  (new model only)  | battery_allow_charging: [true\|false]|
 | get rtc_time            | rtc clock | rtc_time: [ISO8601 time string] |
 | get rtc_alarm_enabled   | rtc wakeup alarm enable | rtc_alarm_enabled: [true\|false] |
 | get rtc_alarm_time      | rtc wakeup alarm time | rtc_alarm_time: [ISO8601 time string] |
