@@ -216,6 +216,7 @@ Default ports:
 | get battery_v           | BAT votage in V | battery_v: [number] |
 | get battery_charging    | charging status  | battery_charging: [true\|false] |
 | get model               | pisugar model | model: PiSugar 2 |
+| get battery_led_amount  | charging led amount (2 is for new model) | battery_led_amount: 2 |
 | get rtc_time            | rtc clock | rtc_time: [ISO8601 time string] |
 | get rtc_alarm_enabled   | rtc wakeup alarm enable | rtc_alarm_enabled: [true\|false] |
 | get rtc_alarm_time      | rtc wakeup alarm time | rtc_alarm_time: [ISO8601 time string] |
