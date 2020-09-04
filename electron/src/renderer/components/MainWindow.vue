@@ -741,8 +741,11 @@
         const sec = this.timeEditValue.getSeconds()
         const min = this.timeEditValue.getMinutes()
         const hour = this.timeEditValue.getHours()
-        const setTime = new Moment().second(sec).minute(min).hour(hour).parseZone()
-        this.$socket.send(`rtc_alarm_set ${setTime.toISOString()} ${this.timeRepeat}`)
+        var alarmTime = new Moment().second(sec).minute(min).hour(hour).parseZone()
+        if (this.sysTime) {
+          alarmTime.utcOffset(this.sysTime.utcOffset(), true)
+        }
+        this.$socket.send(`rtc_alarm_set ${alarmTime.toISOString()} ${this.timeRepeat}`)
       },
       handleBatteryClick () {
         if (this.isNewVersion) {
