@@ -237,6 +237,7 @@ vscode RLS 配置 `.vscode/settings.json`
 | set_button_shell | auto shutdown level | safe_shutdown_level: [single\|double\|long] [shell] |
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level: 3 |
 | set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay: 30|
+| set_allow_charging | enable or disable charging | set_allow_charging [true\|false] |
 
 示例：
 

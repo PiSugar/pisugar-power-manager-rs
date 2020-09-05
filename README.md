@@ -242,6 +242,7 @@ Default ports:
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level [number] |
 | set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay [number]|
 | set_battery_charging_range | set charging range | set_battery_charging_range [number, number]|
+| set_allow_charging | enable or disable charging | set_allow_charging [true\|false] |
 
 Examples:
 
