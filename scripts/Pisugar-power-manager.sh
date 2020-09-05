@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-version=1.4.5
+version=1.4.6
 channel=release
 
 prog="$0"
