@@ -35,13 +35,17 @@
 
     For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
 
-## 开启 I2C 功能
+## 先决条件
 
-树莓派上
+树莓派上，开启 I2C 接口
 
     sudo raspi-config
 
 `Interfacing Options -> I2C -> Yes`
+
+已知冲突和问题：
+
+    HyperPixel: HyperPixel 会禁用 I2C 接口
 
 ## 模块划分
 

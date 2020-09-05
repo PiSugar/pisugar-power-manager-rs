@@ -35,13 +35,17 @@ Install script usage
 
     For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
 
-## Enable I2C interface
+## Prerequisites
 
-On raspberry pi
+On raspberry pi, enable I2C interface
 
     sudo raspi-config
 
 `Interfacing Options -> I2C -> Yes`
+
+Known conflicts and issues:
+
+    HyperPixel: HyperPixel disables I2C interface
 
 ## Modules
 
