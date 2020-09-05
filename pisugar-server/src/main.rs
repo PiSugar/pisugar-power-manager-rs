@@ -168,7 +168,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 }
                 "set_allow_charging" => {
                     if parts.len() > 1 {
-                        if let Ok(enable) = parts[1].parse()::<bool>() {
+                        if let Ok(enable) = parts[1].parse::<bool>() {
                             if core.toggle_allow_charging(enable).is_ok() {
                                 return format!("{}: done\n", parts[0]);
                             }
