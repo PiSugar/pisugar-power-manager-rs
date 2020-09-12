@@ -3,6 +3,8 @@ name = "pisugar-server"
 version = "1.4.6"
 authors = ["PiSugar"]
 edition = "2018"
+description = "PiSugar Power Manager"
+license = "gplv3"
 
 [dependencies]
 log = "0.4.8"
@@ -51,3 +53,12 @@ conf-files = [
     "/etc/default/pisugar-server",
     "/etc/pisugar-server/config.json"
 ]
+
+[package.metadata.rpm]
+package = "pisugar-server"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.targets]
+pisugar-server = { path = "/usr/bin/pisugar-server" }

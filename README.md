@@ -53,7 +53,7 @@ Known conflicts and issues:
 2. pisugar-server: Http/tcp/uds server that provide PiSugar battery status
 3. pisugar-poweroff: Systemd service that shut down PiSugar battery
 
-## Compilation
+## Compilation (TL;DR)
 
 CPU architecture of raspberry pi is different from your linux/windows PC or macbook, there are two ways of compiling the code:
 
@@ -120,7 +120,7 @@ Build
 
 Install WSL and follow the linux cross compilation steps.
 
-### Build and install deb package
+### Build and install deb packages
 
 Build web content
 
@@ -152,6 +152,26 @@ Install
 
     # Uninstall/Purge
     sudo dpkg -P pisugar-xxx
+
+To reconfigure after installation
+
+    sudo dpkg-reconfigure pisugar-server
+    sudo dpkg-reconfigure pisugar-poweroff
+
+To preconfigure before installation
+
+    sudo dpkg-preconfigure pisugar-server_<ver>_<arch>.deb
+    sudo dpkg-preconfigure pisugar-poweroff_<ver>_<arch>.deb
+
+### Build rpm packages
+
+Install cargo-rpm
+
+    cargo install cargo-rpm
+
+
+
+### Controlling systemd service
 
 Commands of controlling pisugar-server systemd service
 
@@ -186,15 +206,6 @@ Configuration files of pisugar-poweroff
 
     /etc/default/pisugar-poweroff
 
-To reconfigure after installation
-
-    sudo dpkg-reconfigure pisugar-server
-    sudo dpkg-reconfigure pisugar-poweroff
-
-To preconfigure before installation
-
-    sudo dpkg-preconfigure pisugar-server_<ver>_<arch>.deb
-    sudo dpkg-preconfigure pisugar-poweroff_<ver>_<arch>.deb
 
 ### RLS
 
