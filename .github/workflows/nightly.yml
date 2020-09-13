@@ -1,14 +1,13 @@
-name: "Pre Release"
+# Hourly build, cache not allowed
+name: Nightly build on master
 
 on:
-  push:
-    tags:
-      - "v*"
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
-  pre-release:
-    name: "Pre Release"
-    runs-on: "ubuntu-latest"
+  build-all:
+    runs-on: ubuntu-latest
     steps:
       # Checkout
       - name: Checkout
@@ -87,12 +86,14 @@ jobs:
             target/**/rpmbuild/RPMS/**/*.rpm
             scripts/*
 
-      # Draft Release
+      # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
-          draft: true
+          automatic_release_tag: "latest"
+          title: "Development Build"
+          prerelease: true
+          draft: false
           files: |
             target/**/*.deb
             target/**/rpmbuild/RPMS/**/*.rpm
@@ -120,7 +121,8 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
+          for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ) \
+            $(find target -name '*.rpm' | grep 'rpmbuild/RPMS'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}

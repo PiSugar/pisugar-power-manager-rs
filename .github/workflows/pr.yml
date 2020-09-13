@@ -1,23 +1,30 @@
-name: "Pre Release"
+name: PR
 
 on:
-  push:
-    tags:
-      - "v*"
+  pull_request:
+    branches: [master]
 
 jobs:
-  pre-release:
-    name: "Pre Release"
-    runs-on: "ubuntu-latest"
+  build-all:
+    runs-on: ubuntu-latest
     steps:
       # Checkout
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          ref: master
       - name: Fix cargo config
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
+      # Nodejs npm cache
+      - name: Nodejs npm cache
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-node-npm
+        with:
+          path: |
+            ~/.npm
+            electron/node_modules
+            electron/dist
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
       # Nodejs
       - name: Setup Nodejs
         uses: actions/setup-node@v1
@@ -29,6 +36,25 @@ jobs:
       # Nodejs build web
       - run: npm run build:web
         working-directory: electron
+
+      # Rust cache
+      - name: Rust cargo cache
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-rust-cargo
+        with:
+          path: |
+            ~/.cargo
+            target
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+      # Rust musl cross cache arm
+      - name: Rust musl cache
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-rust-musl
+        with:
+          path: /opt
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
 
       # Rust musl cross toolchain
       - name: Rust musl cross toolchain
@@ -86,47 +112,3 @@ jobs:
             target/**/*.deb
             target/**/rpmbuild/RPMS/**/*.rpm
             scripts/*
-
-      # Draft Release
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
-          draft: true
-          files: |
-            target/**/*.deb
-            target/**/rpmbuild/RPMS/**/*.rpm
-            scripts/*
-
-      # Upload QiNiu nightly
-      - name: "Upload to QiNiu"
-        env:
-          QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
-          QINIU_AK: ${{ secrets.QINIU_AK }}
-          QINIU_SK: ${{ secrets.QINIU_SK }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip
-
-          if [ $(uname -m) == 'x86_64' ]; then
-            wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
-            unzip qshell-linux-x64-v2.4.1.zip
-            mv qshell-linux-x64-v2.4.1 qshell
-          else
-            wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
-            unzip qshell-linux-x86-v2.4.1.zip
-            mv qshell-linux-x86-v2.4.1 qshell
-          fi
-          chmod +x qshell
-          ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
-
-          for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
-            filename=${f##*/}
-            key=nightly/${filename}
-            ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
-          done
-          for f in $(find scripts -name '*.sh' ); do
-            filename=${f##*/}
-            key=nightly/${filename}
-            ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f}
-          done
