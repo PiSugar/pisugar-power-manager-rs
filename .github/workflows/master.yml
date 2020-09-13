@@ -105,7 +105,7 @@ jobs:
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
           echo $LIBGCC
-          sed -e "s|\"/opt/aarch64.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1"|\"${LIBGCC%/*}\"|" -i .cargo/config
           cat .cargo/config
 
       # Rust install cargo-deb
