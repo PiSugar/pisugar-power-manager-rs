@@ -58,22 +58,25 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-build-${{ env.cache-name }}
-      # Rust musl cross cache
+
+      # Rust musl cross cache arm
       - name: Rust musl cache
         uses: actions/cache@v1
         env:
           cache-name: cache-rust-musl
         with:
-          path: arm-linux-musleabihf-cross
+          path: /opt
           key: ${{ runner.os }}-build-${{ env.cache-name }}
+
       # Rust musl cross toolchain
       - name: Rust musl cross toolchain
         run: |
-          if ! test -d arm-linux-musleabihf-cross/bin; then
+          if ! test -d /opt/arm-linux-musleabihf-cross/bin; then
             wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
             tar -xvf arm-linux-musleabihf-cross.tgz
+            mv arm-linux-musleabihf-cross /opt/
           fi
-          echo ::set-env name=PATH::$(pwd)/arm-linux-musleabihf-cross/bin:$PATH
+          echo ::set-env name=PATH::/opt/arm-linux-musleabihf-cross/bin:$PATH
       # Rust target arm-unknown-linux-musleabihf
       - name: Rust add arm-unknown-linux-musleabihf target
         uses: actions-rs/toolchain@v1
@@ -81,6 +84,28 @@ jobs:
           toolchain: stable
           target: arm-unknown-linux-musleabihf
           override: true
+
+      # Rust musl cross toolchain aarch64
+      - name: Rust musl cross toolchain
+        run: |
+          if ! test -d /opt/aarch64-linux-musl-cross/bin; then
+            wget https://more.musl.cc/$(uname -m)-linux-musl/aarch64-linux-musl-cross.tgz
+            tar -xvf aarch64-linux-musl-cross.tgz
+            mv aarch64-linux-musl-cross /opt/
+          fi
+          echo ::set-env name=PATH::/opt/aarch64-linux-musl-cross/bin:$PATH
+      # Rust target aarch64-unknown-linux-musl
+      - name: Rust add aarch64-unknown-linux-musl target
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-unknown-linux-musl
+          override: true
+      # Fix libgcc.a for aarch64
+      - run: |
+          LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
+          sed -e "s|\"/opt/aarch64.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+
       # Rust install cargo-deb
       - name: Rust install cargo-deb
         uses: actions-rs/install@v0.1
@@ -93,18 +118,41 @@ jobs:
         with:
           command: deb
           args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
+      - uses: actions-rs/cargo@v1
+        with:
+          command: deb
+          args: --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
       # Rust cargo deb - pisugar-poweroff
       - uses: actions-rs/cargo@v1
         with:
           command: deb
           args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
+      - uses: actions-rs/cargo@v1
+        with:
+          command: deb
+          args: --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
+
+      # Rust install cargo-rpm
+      - name: Rust install cargo-rpm
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-rpm
+          version: latest
+          use-tool-cache: true
+      - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabihf)
+      - run: (cd pisugar-server && cargo rpm build --target aarch64-unknown-linux-musl)
+      - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
+      - run: (cd pisugar-poweroff && cargo rpm build --target aarch64-unknown-linux-musl)
 
       # Upload artifact
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
         with:
           name: pisugar-debs
-          path: target/arm-unknown-linux-musleabihf/debian
+          path: |
+            target/**/*.deb
+            target/**/rpmbuild/RPMS/**/*.rpm
+            scripts/*
 
       # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -115,7 +163,8 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            target/arm-unknown-linux-musleabihf/debian/*
+            target/**/*.deb
+            target/**/rpmbuild/RPMS/**/*.rpm
             scripts/*
 
       # Upload QiNiu nightly
@@ -140,7 +189,8 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ); do
+          for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ) \
+            $(find target -name '*.rpm' | grep 'rpmbuild/RPMS'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}

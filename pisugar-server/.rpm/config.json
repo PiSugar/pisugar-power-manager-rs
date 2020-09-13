@@ -1,0 +1,17 @@
+{
+    "auto_wake_time": null,
+    "auto_wake_repeat": 0,
+    "single_tap_enable": false,
+    "single_tap_shell": "",
+    "double_tap_enable": false,
+    "double_tap_shell": "",
+    "long_tap_enable": false,
+    "long_tap_shell": "",
+    "auto_shutdown_level": 0.0,
+    "auto_shutdown_delay": 0.0,
+    "auto_charging_range": [
+        80.0,
+        100.0
+    ],
+    "full_charge_duration": null
+}

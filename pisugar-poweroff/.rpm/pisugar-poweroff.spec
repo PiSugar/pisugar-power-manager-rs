@@ -2,8 +2,8 @@
 %define __os_install_post %{_dbpath}/brp-compress
 %define debug_package %{nil}
 
-Name: pisugar-server
-Summary: PiSugar Power Manager
+Name: pisugar-poweroff
+Summary: PiSugar Poweroff
 Version: @@VERSION@@
 Release: @@RELEASE@@%{?dist}
 License: GPLv3
@@ -29,20 +29,14 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{_bindir}/*
-/etc/default/pisugar-server
-/etc/pisugar-server/config.json
-/lib/systemd/system/pisugar-server.service
-/usr/share/pisugar-server/*
+/etc/default/pisugar-poweroff
+/lib/systemd/system/pisugar-poweroff.service
 
 %config(noreplace)
-/etc/default/pisugar-server
-/etc/pisugar-server/config.json
+/etc/default/pisugar-poweroff
 
 %post
 systemctl daemon-reload
-
-%preun
-systemctl stop pisugar-server || true
 
 %postun
 systemctl daemon-reload

@@ -20,12 +20,13 @@ linker = "arm-linux-musleabihf-ld"
 strip = {path="arm-linux-musleabihf-strip"}
 objcpy = {path="arm-linux-musleabihf-objcopy"}
 
-[target.arm-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-gcc"
-strip = {path="arm-linux-gnueabihf-strip"}
-objcpy = {path="arm-linux-gnueabihf-objcopy"}
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-ld"
+ar = "aarch64-linux-musl-ar"
+rustflags = ["-C", "target-feature=+crt-static", "-L", "/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1", "-C", "link-arg=-lgcc"]
+strip = {path="aarch64-linux-musl-strip"}
+objcopy = {path = "aarch64-linux-musl-objcopy"}
 
-[target.armv7-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-gcc"
-strip = {path="arm-linux-gnueabihf-strip"}
-objcpy = {path="arm-linux-gnueabihf-objcopy"}
+[alias]
+build-arm = "build --target arm-unknown-linux-musleabihf"
+build-aarch64 = "build --target aarch64-unknown-linux-musl"

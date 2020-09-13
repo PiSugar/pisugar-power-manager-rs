@@ -4,7 +4,7 @@ version = "1.4.6"
 authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Poweroff"
-license = "gplv3"
+license = "GPLv3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -33,3 +33,16 @@ assets = [
 conf-files = [
     "/etc/default/pisugar-poweroff"
 ]
+
+[package.metadata.rpm]
+package = "pisugar-poweroff"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.targets]
+pisugar-poweroff = { path = "/usr/bin/pisugar-poweroff" }
+
+[package.metadata.rpm.files]
+"pisugar-poweroff.service" = { path = "/lib/systemd/system/pisugar-poweroff.service" }
+"pisugar-poweroff.default" = { path = "/etc/default/pisugar-poweroff" }

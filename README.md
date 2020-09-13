@@ -35,6 +35,17 @@ Install script usage
 
     For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
 
+**NOTE** On centos/redhat like linux, RPM could not ask question in interactive mode, PiSugar model **MUST** be configured manually. Available models are:
+
+    PiSugar 2 (4-LEDs)
+    PiSugar 2 (2-LEDs)
+    PiSugar 2 Pro
+
+Replace model in `/etc/default/pisugar-server`
+
+    sed -e "s|--model '.*' |--model '<model>' |"
+        -i /etc/default/pisugar-server
+
 ## Prerequisites
 
 On raspberry pi, enable I2C interface
@@ -77,19 +88,22 @@ Build
 
 Install cross compiler utils
 
-    brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-arm-hf
+    brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-arm-hf   # arm
+    brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-aarch64  # arm64
 
-Install rust and armv6(zero/zerow) or armv7(3b/3b+) target
+Install rust and armv6(zero/zerow) / armv7(3b/3b+) / arm64(i.e. aarch64, 4) target
 
     brew install rustup-init
     rustup update
     rustup target add arm-unknown-linux-musleabihf      # armv6
     rustup target add armv7-unknown-linux-musleabihf    # armv7
+    rustup target add aarch64-unknown-linux-musl        # arm64
 
 Build
 
     cargo build --target arm-unknown-linux-musleabihf --release     # armv6
     cargo build --target armv7-unknown-linux-musleabihf --release   # armv7
+    cargo build --target aarch64-unknown-linux-musl                 # arm64
 
 ### Cross compilation - linux/ubuntu (musl)
 
@@ -104,23 +118,33 @@ Move the toolchain into `/opt`, and add it into `PATH`
     echo 'export PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
     source ~/.bashrc
 
-Install rust and arm/armv7 target
+Arm64
+
+    wget http://more.musl.cc/$(uname -m)-linux-musl/aarch64-linux-musl-cross.tgz
+    tar -xvf aarch64-linux-musl-cross.tgz
+    sudo mv aarch64-linux-musl-cross /opt/
+    echo 'export PATH=/opt/aarch64-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+    source ~/.bashrc
+
+Install rust and arm/armv7/arm64 target
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup update
-    rustup target add arm-unknown-linux-musleabihf       # armv6
-    rustup target add armv7-unknown-linux-musleabihf     # armv7
+    rustup target add arm-unknown-linux-musleabihf      # armv6
+    rustup target add armv7-unknown-linux-musleabihf    # armv7
+    rustup target add aarch64-unknown-linux-musl        # arm64
 
 Build
 
     cargo build --target arm-unknown-linux-musleabihf --release      # armv6
     cargo build --target armv7-unknown-linux-musleabihf --release    # armv7
+    cargo build --target aarch64-unknown-linux-musl
 
 ### Cross compilation - windows
 
 Install WSL and follow the linux cross compilation steps.
 
-### Build and install deb packages
+### Build web content
 
 Build web content
 
@@ -130,20 +154,16 @@ Try other mirrors when electron could not be downloaded
 
     ELECTRON_MIRROR="https://npm.taobao.org/mirrors/electron/" npm install
 
+### Build and install deb packages
+
 Build deb with cargo-deb (need latest cargo-deb that support templates)
 
     cargo install --git https://github.com/mmstick/cargo-deb.git
 
-    # linux
-    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
-        cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
-
-    PATH="$(pwd)/arm-linux-musleabihf-cross/bin:$PATH" \
-    cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
-
-    # macos
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
+    cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
+    cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
 
 Install
 
@@ -165,11 +185,21 @@ To preconfigure before installation
 
 ### Build rpm packages
 
+Install rpm on debian-like :
+
+    sudo apt install rpm
+
 Install cargo-rpm
 
     cargo install cargo-rpm
 
+Build
 
+    cargo rpm build --target arm-unknown-linux-musleabihf
+
+Install
+
+    rpm -i pisugar-server-<ver>-<arch>.rpm
 
 ### Controlling systemd service
 

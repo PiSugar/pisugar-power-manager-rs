@@ -1,0 +1,16 @@
+[Unit]
+Description=pisugar-server
+
+[Service]
+EnvironmentFile=/etc/default/pisugar-server
+ExecStart=/usr/bin/pisugar-server $OPTS
+ExecStop=/bin/kill $MAINPID
+ExecStopPost=/bin/rm -f /tmp/pisugar-server.sock
+Type=simple
+KillMode=process
+Restart=on-failure
+RestartSec=10s
+WorkingDirectory=/etc/pisugar-server
+
+[Install]
+WantedBy=multi-user.target

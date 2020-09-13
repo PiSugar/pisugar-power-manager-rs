@@ -4,7 +4,7 @@ version = "1.4.6"
 authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Power Manager"
-license = "gplv3"
+license = "GPLv3"
 
 [dependencies]
 log = "0.4.8"
@@ -62,3 +62,10 @@ buildflags = ["--release"]
 
 [package.metadata.rpm.targets]
 pisugar-server = { path = "/usr/bin/pisugar-server" }
+
+[package.metadata.rpm.files]
+"pisugar-server.service" = { path = "/lib/systemd/system/pisugar-server.service" }
+"pisugar-server.default" = { path = "/etc/default/pisugar-server" }
+"config.json" = { path = "/etc/pisugar-server/config.json" }
+"_ws.json" = { path = "/usr/share/pisugar-server/web/_ws.json" }
+"../../electron/dist/web/" = { path = "/usr/share/pisugar-server/web" }
