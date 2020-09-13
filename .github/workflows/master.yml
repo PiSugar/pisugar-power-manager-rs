@@ -20,15 +20,10 @@ jobs:
         env:
           cache-name: cache-node-npm
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}
-      # Nodejs modules cache
-      - name: Nodejs modules cache
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-node-modules
-        with:
-          path: electron/node_modules
+          path: |
+            ~/.npm
+            electron/node_modules
+            electron/dist
           key: ${{ runner.os }}-build-${{ env.cache-name }}
       # Nodejs
       - name: Setup Nodejs
@@ -43,22 +38,15 @@ jobs:
         working-directory: electron
 
       # Rust cache
-      #    - name: Rust cargo cache
-      #      uses: actions/cache@v1
-      #      env:
-      #        cache-name: cache-rust-cargo
-      #      with:
-      #        path: ~/.cargo
-      #        key: ${{ runner.os }}-build-${{ env.cache-name }}
-      # Rust target cache
-      - name: Rust target cache
+      - name: Rust cargo cache
         uses: actions/cache@v1
         env:
-          cache-name: cache-rust-target
+          cache-name: cache-rust-cargo
         with:
-          path: target
+          path: |
+            ~/.cargo
+            target
           key: ${{ runner.os }}-build-${{ env.cache-name }}
-
       # Rust musl cross cache arm
       - name: Rust musl cache
         uses: actions/cache@v1
@@ -77,14 +65,6 @@ jobs:
             mv arm-linux-musleabihf-cross /opt/
           fi
           echo ::set-env name=PATH::/opt/arm-linux-musleabihf-cross/bin:$PATH
-      # Rust target arm-unknown-linux-musleabihf
-      - name: Rust add arm-unknown-linux-musleabihf target
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: arm-unknown-linux-musleabihf
-          override: true
-
       # Rust musl cross toolchain aarch64
       - name: Rust musl cross toolchain
         run: |
@@ -94,53 +74,30 @@ jobs:
             mv aarch64-linux-musl-cross /opt/
           fi
           echo ::set-env name=PATH::/opt/aarch64-linux-musl-cross/bin:$PATH
-      # Rust target aarch64-unknown-linux-musl
-      - name: Rust add aarch64-unknown-linux-musl target
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: aarch64-unknown-linux-musl
-          override: true
       # Fix libgcc.a for aarch64
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
           echo $LIBGCC
-          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1"|\"${LIBGCC%/*}\"|" -i .cargo/config
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1\"|\"${LIBGCC%/*}\"|" -i .cargo/config
           cat .cargo/config
 
-      # Rust install cargo-deb
-      - name: Rust install cargo-deb
-        uses: actions-rs/install@v0.1
+      # Rust toolchain
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          crate: cargo-deb
-          version: latest
-          use-tool-cache: true
-      # Rust cargo deb - pisugar-server
-      - uses: actions-rs/cargo@v1
-        with:
-          command: deb
-          args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
-      - uses: actions-rs/cargo@v1
-        with:
-          command: deb
-          args: --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
-      # Rust cargo deb - pisugar-poweroff
-      - uses: actions-rs/cargo@v1
-        with:
-          command: deb
-          args: --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
-      - uses: actions-rs/cargo@v1
-        with:
-          command: deb
-          args: --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
+          toolchain: stable
+      - run: rustup target add arm-unknown-linux-musleabihf
+      - run: rustup target add aarch64-unknown-linux-musl
+      - run: cargo install cargo-deb
+      - run: cargo install cargo-rpm
 
-      # Rust install cargo-rpm
-      - name: Rust install cargo-rpm
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-rpm
-          version: latest
-          use-tool-cache: true
+      # Rust cargo deb - pisugar-server
+      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
+      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
+      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
+      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
+
+      # Rust cargo-rpm
       - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-server && cargo rpm build --target aarch64-unknown-linux-musl)
       - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
