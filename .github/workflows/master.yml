@@ -109,10 +109,9 @@ jobs:
         with:
           name: pisugar-debs
           path: |
-            target/**/*.deb
-            target/**/*.rpm
+            target/*/debian/*.deb
+            target/*/release/rpmbuild/RPMS/*.rpm
             scripts/*
-            !**/rpmbuild/SRPMS/*
 
       # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -123,10 +122,9 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            target/**/*.deb
-            target/**/*.rpm
+            target/*/debian/*.deb
+            target/*/release/rpmbuild/RPMS/*.rpm
             scripts/*
-            !**/rpmbuild/SRPMS/*
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"

@@ -109,6 +109,6 @@ jobs:
         with:
           name: pisugar-debs
           path: |
-            target/**/*.deb
-            target/**/rpmbuild/RPMS/**/*.rpm
+            target/*/debian/*.deb
+            target/*/release/rpmbuild/RPMS/*.rpm
             scripts/*
