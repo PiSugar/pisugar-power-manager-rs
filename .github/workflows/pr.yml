@@ -100,7 +100,7 @@ jobs:
       - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
 
       # Rust cargo-rpm
-      - run: apt update && apt install -y rpm
+      - run: sudo apt update && sudo apt install -y rpm
       - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-server && cargo rpm build --target aarch64-unknown-linux-musl)
       - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
