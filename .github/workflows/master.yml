@@ -112,7 +112,7 @@ jobs:
           name: pisugar-debs
           path: |
             target/**/debian/*.deb
-            target/**/release/rpmbuild/RPMS/*.rpm
+            target/**/release/rpmbuild/RPMS/**/*.rpm
             scripts/*
 
       # Development Release
@@ -125,7 +125,7 @@ jobs:
           draft: false
           files: |
             target/**/debian/*.deb
-            target/**/release/rpmbuild/RPMS/*.rpm
+            target/**/release/rpmbuild/RPMS/**/*.rpm
             scripts/*
 
       # Upload QiNiu nightly
