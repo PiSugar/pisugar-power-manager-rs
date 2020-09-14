@@ -115,11 +115,11 @@ jobs:
         with:
           name: pisugar-artifacts
           path: |
-            target/aarch64-unknown-linux-musl/debian/*
-            target/arm-unknown-linux-musleabihf/debian/*
-            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
-            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
-            scripts/*
+            target/aarch64-unknown-linux-musl/debian/
+            target/arm-unknown-linux-musleabihf/debian/
+            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/
+            scripts/
 
       # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
