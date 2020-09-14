@@ -103,14 +103,16 @@ jobs:
       - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-poweroff && cargo rpm build --target aarch64-unknown-linux-musl)
 
+      - run: tree
+
       # Upload artifact
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
         with:
           name: pisugar-debs
           path: |
-            target/*/debian/*.deb
-            target/*/release/rpmbuild/RPMS/*.rpm
+            target/**/debian/*.deb
+            target/**/release/rpmbuild/RPMS/*.rpm
             scripts/*
 
       # Development Release
@@ -122,8 +124,8 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            target/*/debian/*.deb
-            target/*/release/rpmbuild/RPMS/*.rpm
+            target/**/debian/*.deb
+            target/**/release/rpmbuild/RPMS/*.rpm
             scripts/*
 
       # Upload QiNiu nightly

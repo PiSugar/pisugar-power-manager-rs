@@ -35,7 +35,7 @@ Install script usage
 
     For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
 
-**NOTE** On centos/redhat like linux, RPM could not ask question in interactive mode, PiSugar model **MUST** be configured manually. Available models are:
+**NOTE** In centos/redhat like linux, RPM could not ask question in interactive mode, PiSugar model **MUST** be configured manually. Available models are:
 
     PiSugar 2 (4-LEDs)
     PiSugar 2 (2-LEDs)
@@ -71,7 +71,17 @@ CPU architecture of raspberry pi is different from your linux/windows PC or macb
 1. directly on raspberry pi
 2. cross compilation
 
-NOTE: Remove `replace-with=...` in .cargo/config if cargo reports `warning: spurious network error`.
+**NOTE** Remove `replace-with=...` in .cargo/config if cargo reports `warning: spurious network error`.
+
+**NOTE** Need a static link with libgcc when cross compiling for Pi4 with aarch64
+
+    # linux
+    LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
+    sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+
+    # macos
+    LIBGCC=$(find find /usr/local/Cellar/musl-cross -name libgcc.a | grep aarch64)
+    sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1\"|\"${LIBGCC%/*}\"|" -i .cargo/config
 
 ### On raspberry pi
 
