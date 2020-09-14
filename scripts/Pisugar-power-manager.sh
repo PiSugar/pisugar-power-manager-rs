@@ -1,8 +1,35 @@
 #!/bin/bash
 set -e
 
-version=1.4.6
+# version
+version=1.4.7
+
+# channel: nightly or release
 channel=release
+
+# arch: arm or arm64
+arch=arm
+
+# type: deb or rpm
+type=deb
+
+# rpm build number, default 1
+rpm_n=1
+
+# check distribution
+if which apt && which dpkg ; then 
+    type=deb
+elif which rpm ; then
+    type=rpm
+else
+    echo "Unsupported linux distribution, dpkg/rpm not found"
+    exit 1
+fi
+
+# check arch
+if uname -m | grep aarch64; then
+    arch=arm64
+fi
 
 prog="$0"
 
@@ -18,6 +45,8 @@ OPTIONS:
     -h|--help       Print this usage.
     -v|--version    Install a specified version, default: $version
     -c|--channel    Choose nightly or release channel, default: $channel
+    -t|--type       Package type, deb or rpm, default: $type
+    --rpm-build     RPM build number, default: $rpm_n
 
 For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
 
@@ -45,6 +74,11 @@ do
         -c|--channel)
             shift && channel=$1
             ;;
+        -t|--type)
+            shift && type=$1
+            ;;
+        --rpm-build)
+            shift && rpm_n=$1
         --)
             shift && break
             ;;
@@ -55,11 +89,43 @@ do
     shift
 done
 
+# package names
+if [ "$type"x == "deb"x ]; then
+    if [ "$arch"x == "arm"x ]; then
+        arch_deb=armhf
+    else
+        arch_deb=arm64
+    fi
+    package_server="pisugar-server_${version}_${arch_deb}.deb"
+    package_poweroff="pisugar-poweroff_${version}_${arch_deb}.deb"
+else
+    if [ "$arch"x == "arm"x ]; then
+        arch_rpm=armv7hl
+    else
+        arch_rpm=aarch64
+    fi
+    package_server="pisugar-server-${version}-${rpm_n}.${arch_rpm}.rpm"
+    package_poweroff="pisugar-poweroff-${version}-${rpm_n}.${arch_rpm}.rpm"
+fi
 
-package_server="pisugar-server_${version}_armhf.deb"
-package_poweroff="pisugar-poweroff_${version}_armhf.deb"
 local_host="$(hostname --fqdn)"
 local_ip=$(ip addr |grep inet |grep -v inet6 |grep wlan0|awk '{print $2}' |awk -F "/" '{print $1}')
+
+function install_pkgs() {
+    if echo "$*" | grep deb ; then
+        sudo dpkg -i $*
+    else
+        sudo rpm -i $*
+    fi
+}
+
+function uninstall_pkgs() {
+    if [ "$type"x == "deb"x ] ; then 
+        sudo dpkg -r $*
+    else
+        sudo rpm -e $*
+    fi
+}
 
 $echo -e "\033[1;34mDownload PiSugar-server and PiSugar-poweroff package \033[0m"
 wget -O "/tmp/$package_server" "http://cdn.pisugar.com/${channel}/${package_server}"
@@ -69,10 +135,10 @@ $echo -e "\033[1;34mOpen I2C Interface \033[0m"
 sudo raspi-config nonint do_i2c 0
 
 $echo -e "\033[1;34mUninstall old packages if installed\033[0m"
-sudo dpkg -r pisugar-server pisugar-poweroff
+uninstall_pkgs pisugar-server pisugar-poweroff
 
 $echo -e "\033[1;34mInstall packages\033[0m"
-sudo dpkg -i "/tmp/${package_server}"  "/tmp/${package_poweroff}"
+install_pkgs "/tmp/${package_server}"  "/tmp/${package_poweroff}"
 
 $echo -e "\033[1;34mClean up \033[0m"
 rm -f "/tmp/${package_server}"
