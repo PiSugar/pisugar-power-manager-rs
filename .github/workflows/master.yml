@@ -105,7 +105,8 @@ jobs:
       - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-poweroff && cargo rpm build --target aarch64-unknown-linux-musl)
 
-      - run: tree
+      - run: find $(pwd) -name '*.deb'
+      - run: find $(pwd) -name '*.rpm'
 
       # Upload artifact
       - name: Upload artifacts

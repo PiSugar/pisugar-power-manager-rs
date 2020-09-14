@@ -12,11 +12,13 @@ target = "arm-unknown-linux-musleabihf"
 
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
+ar = "arm-linux-musleabihf-ar"
 strip = {path="arm-linux-musleabihf-strip"}
 objcpy = {path="arm-linux-musleabihf-objcopy"}
 
 [target.armv7-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
+ar = "arm-linux-musleabihf-ar"
 strip = {path="arm-linux-musleabihf-strip"}
 objcpy = {path="arm-linux-musleabihf-objcopy"}
 
