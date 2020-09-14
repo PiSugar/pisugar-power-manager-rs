@@ -108,12 +108,13 @@ jobs:
 
       # Upload artifact
       - name: Upload artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: pisugar-artifacts
           path: |
-            target/aarch64-unknown-linux-musl/debian/
-            target/arm-unknown-linux-musleabihf/debian/
-            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/
-            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/
-            scripts/
+            target/arm-unknown-linux-musleabihf/debian/*
+            target/aarch64-unknown-linux-musl/debian/*
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
+            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
+            scripts/*
+          if-no-files-found: warn
