@@ -112,7 +112,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: pisugar-debs
+          name: pisugar-artifacts
           path: |
             target/**/debian/*.deb
             target/**/release/rpmbuild/RPMS/**/*.rpm
