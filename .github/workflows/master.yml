@@ -115,8 +115,10 @@ jobs:
         with:
           name: pisugar-artifacts
           path: |
-            target/**/debian/*.deb
-            target/**/release/rpmbuild/RPMS/**/*.rpm
+            target/aarch64-unknown-linux-musl/debian/*
+            target/arm-unknown-linux-musleabihf/debian/*
+            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             scripts/*
 
       # Development Release
@@ -128,8 +130,10 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            target/**/debian/*.deb
-            target/**/release/rpmbuild/RPMS/**/*.rpm
+            target/aarch64-unknown-linux-musl/debian/*
+            target/arm-unknown-linux-musleabihf/debian/*
+            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             scripts/*
 
       # Upload QiNiu nightly
