@@ -53,7 +53,9 @@ jobs:
         env:
           cache-name: cache-rust-musl
         with:
-          path: /opt
+          path: |
+            /opt/arm-linux-musleabihf-cross
+            /opt/aarch64-linux-musl-cross
           key: ${{ runner.os }}-build-${{ env.cache-name }}
 
       # Rust musl cross toolchain
@@ -66,7 +68,7 @@ jobs:
           fi
           echo ::set-env name=PATH::/opt/arm-linux-musleabihf-cross/bin:$PATH
       # Rust musl cross toolchain aarch64
-      - name: Rust musl cross toolchain
+      - name: Rust musl cross toolchain aarch64
         run: |
           if ! test -d /opt/aarch64-linux-musl-cross/bin; then
             wget https://more.musl.cc/$(uname -m)-linux-musl/aarch64-linux-musl-cross.tgz
@@ -109,6 +111,6 @@ jobs:
         with:
           name: pisugar-debs
           path: |
-            target/*/debian/*.deb
-            target/*/release/rpmbuild/RPMS/*.rpm
+            target/**/debian/*.deb
+            target/**/release/rpmbuild/RPMS/**/*.rpm
             scripts/*
