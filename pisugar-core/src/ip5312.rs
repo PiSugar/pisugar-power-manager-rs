@@ -195,9 +195,8 @@ impl IP5312 {
 
     /// Is power cable plugged in, 2-led
     pub fn is_power_plugged_2led(&self) -> Result<bool> {
-        let low = self.i2c.smbus_read_byte(0xdc)?;
         let high = self.i2c.smbus_read_byte(0xdd)?;
-        if low == 0xff && high == 0x1f {
+        if high == 0x1f {
             return Ok(true);
         }
         Ok(false)
