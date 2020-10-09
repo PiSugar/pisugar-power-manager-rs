@@ -113,7 +113,7 @@ pub fn sys_write_time(dt: DateTime<Local>) {
             log::warn!("Failed to set RTC");
         }
     } else {
-        log::error!("Failed to write time to system");
+        log::error!("Failed to set system time");
     }
 }
 
