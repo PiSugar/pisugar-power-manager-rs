@@ -109,9 +109,12 @@ pub fn sys_write_time(dt: DateTime<Local>) {
         let cmd = "/sbin/hwclock -w";
         if let Ok(_) = execute_shell(cmd) {
             return;
+        } else {
+            log::warn!("Failed to set RTC");
         }
+    } else {
+        log::error!("Failed to write time to system");
     }
-    log::error!("Failed to write time to system");
 }
 
 /// PiSugar configuration
