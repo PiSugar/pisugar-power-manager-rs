@@ -295,6 +295,7 @@ impl PiSugarCore {
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
             let rtc = SD3078::new(I2C_ADDR_RTC)?;
+            rtc.init()?;
             self.rtc = Some(rtc);
         }
         Ok(())

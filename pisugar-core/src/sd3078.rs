@@ -146,6 +146,11 @@ impl SD3078 {
         Ok(Self { i2c })
     }
 
+    /// Init
+    pub fn init(&self) -> Result<()> {
+        self.clear_alarm_flag()
+    }
+
     /// Disable write protect
     fn enable_write(&self) -> Result<()> {
         // ctr2 - wrtc1
