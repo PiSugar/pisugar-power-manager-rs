@@ -80,6 +80,9 @@ do
         --rpm-build)
             shift && rpm_n=$1
             ;;
+        --)
+            shift && break
+            ;;
         *)
             usage && exit 1
             ;;
