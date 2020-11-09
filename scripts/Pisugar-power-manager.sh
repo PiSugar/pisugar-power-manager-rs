@@ -17,7 +17,7 @@ type=deb
 rpm_n=1
 
 # check distribution
-if which apt && which dpkg ; then 
+if which apt && which dpkg ; then
     type=deb
 elif which rpm ; then
     type=rpm
@@ -79,8 +79,6 @@ do
             ;;
         --rpm-build)
             shift && rpm_n=$1
-        --)
-            shift && break
             ;;
         *)
             usage && exit 1
@@ -120,7 +118,7 @@ function install_pkgs() {
 }
 
 function uninstall_pkgs() {
-    if [ "$type"x == "deb"x ] ; then 
+    if [ "$type"x == "deb"x ] ; then
         sudo dpkg -r $*
     else
         sudo rpm -e $*
