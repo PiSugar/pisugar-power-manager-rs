@@ -112,6 +112,14 @@ impl IP5312 {
         Ok(())
     }
 
+    /// Disable auto shutdown under light load
+    pub fn disable_light_load_shutdown(&self) -> Result<()> {
+        let mut v = self.i2c.smbus_read_byte(0x03)?;
+        v &= 0b1101_1111;
+        self.i2c.smbus_write_byte(0x03, v)?;
+        Ok(())
+    }
+
     /// Init GPIO, 4-led
     pub fn init_gpio(&self) -> Result<()> {
         // mfp_ctl0, set l4_sel

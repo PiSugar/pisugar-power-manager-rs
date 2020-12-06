@@ -109,6 +109,14 @@ impl IP5209 {
         Ok(())
     }
 
+    /// Disable auto shutdown under light load
+    pub fn disable_light_load_shutdown(&self) -> Result<()> {
+        let mut v = self.i2c.smbus_read_byte(0x02)?;
+        v &= 0b1111_1101;
+        self.i2c.smbus_write_byte(0x02, v)?;
+        Ok(())
+    }
+
     /// Enable GPIO, 4-led
     pub fn init_gpio(&self) -> Result<()> {
         // vset
