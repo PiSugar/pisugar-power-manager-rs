@@ -352,14 +352,14 @@ impl SD3078 {
         Ok(())
     }
 
-    /// Set frequency alarm in UPS, 1Hz
+    /// Set frequency alarm in UPS, 1/2Hz
     pub fn set_frequency_alarm(&self) -> Result<()> {
         self.enable_write()?;
 
-        // CTR3 - 1Hz, FS3=1, FS2=0, FS1=1, FS0=0
+        // CTR3 - 1/2Hz, FS3=1, FS2=0, FS1=1, FS0=1
         let mut ctr3 = self.i2c.smbus_read_byte(0x11)?;
-        ctr3 |= 0b0000_1010;
-        ctr3 &= 0b1111_1010;
+        ctr3 |= 0b0000_1011;
+        ctr3 &= 0b1111_1011;
         self.i2c.smbus_write_byte(0x11, ctr3)?;
 
         // CTR2 - INTS1=1, INTS0=0, INTFE=1, and disable INTAE, INTDE
