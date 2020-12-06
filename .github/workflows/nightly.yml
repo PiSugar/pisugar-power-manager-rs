@@ -37,7 +37,7 @@ jobs:
             tar -xvf arm-linux-musleabihf-cross.tgz
             mv arm-linux-musleabihf-cross /opt/
           fi
-          echo ::set-env name=PATH::/opt/arm-linux-musleabihf-cross/bin:$PATH
+          echo /opt/arm-linux-musleabihf-cross/bin >> $GITHUB_PATH
       # Rust musl cross toolchain aarch64
       - name: Rust musl cross toolchain aarch64
         run: |
@@ -46,7 +46,7 @@ jobs:
             tar -xvf aarch64-linux-musl-cross.tgz
             mv aarch64-linux-musl-cross /opt/
           fi
-          echo ::set-env name=PATH::/opt/aarch64-linux-musl-cross/bin:$PATH
+          echo /opt/aarch64-linux-musl-cross/bin >> $GITHUB_PATH
       # Fix libgcc.a for aarch64
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
