@@ -46,6 +46,8 @@ Replace model in `/etc/default/pisugar-server`
     sed -e "s|--model '.*' |--model '<model>' |"
         -i /etc/default/pisugar-server
 
+**NOTE** UPS mode would prevent PiSugar falling into sleep, it could be useful in some cases. (since v1.4.8, `/etc/pisugar-server/config.json`)
+
 ## Prerequisites
 
 On raspberry pi, enable I2C interface

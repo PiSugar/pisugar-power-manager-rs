@@ -113,7 +113,7 @@ impl IP5312 {
     }
 
     /// Disable auto shutdown under light load
-    pub fn disable_auto_shutdown(&self) -> Result<()> {
+    pub fn disable_light_load_shutdown(&self) -> Result<()> {
         let mut v = self.i2c.smbus_read_byte(0x03)?;
         v &= 0b1101_1111;
         self.i2c.smbus_write_byte(0x03, v)?;
@@ -277,7 +277,7 @@ impl Battery for IP5312Battery {
         // NOTE: Disable auto shutdown in UPS
         self.ip5312.enable_auto_shutdown()?;
         if ups {
-            self.ip5312.disable_auto_shutdown()?;
+            self.ip5312.disable_light_load_shutdown()?;
         }
 
         let v = self.voltage()?;
