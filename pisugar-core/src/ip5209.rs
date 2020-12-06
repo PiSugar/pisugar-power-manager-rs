@@ -227,6 +227,7 @@ impl IP5209 {
 
     /// Force shutdown
     pub fn force_shutdown(&self) -> Result<()> {
+        // enable auto shutdown
         self.enable_auto_shutdown()?;
 
         // force shutdown
@@ -262,7 +263,7 @@ impl IP5209Battery {
 }
 
 impl Battery for IP5209Battery {
-    fn init(&mut self) -> Result<()> {
+    fn init(&mut self, ups: bool) -> Result<()> {
         if self.model.led_amount() == 2 {
             self.ip5209.init_gpio_2led()?;
             self.ip5209.toggle_allow_charging_2led(true)?;
@@ -271,7 +272,9 @@ impl Battery for IP5209Battery {
         }
         // NOTE: Disable auto shutdown in UPS
         self.ip5209.enable_auto_shutdown()?;
-        self.ip5209.disable_auto_shutdown()?;
+        if ups {
+            self.ip5209.disable_auto_shutdown()?;
+        }
 
         let v = self.voltage()?;
         let now = Instant::now();

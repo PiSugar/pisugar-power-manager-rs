@@ -155,6 +155,9 @@ pub struct PiSugarConfig {
 
     #[serde(default)]
     pub full_charge_duration: Option<u64>,
+
+    #[serde(default)]
+    pub ups: Option<bool>,
 }
 
 impl PiSugarConfig {
@@ -286,7 +289,7 @@ impl PiSugarCore {
     fn init_battery(&mut self) -> Result<()> {
         if self.battery.is_none() {
             let mut battery = self.model.bind(I2C_ADDR_BAT)?;
-            battery.init()?;
+            battery.init(self.config.ups.unwrap_or(false))?;
             self.battery = Some(battery);
         }
         Ok(())
@@ -295,7 +298,7 @@ impl PiSugarCore {
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
             let rtc = SD3078::new(I2C_ADDR_RTC)?;
-            rtc.init()?;
+            rtc.init(self.config.ups.unwrap_or(false))?;
             self.rtc = Some(rtc);
         }
         Ok(())
@@ -486,6 +489,10 @@ impl PiSugarCore {
         // exec 30 sync before shutdown
         for _ in 0..30 {
             let _ = execute_shell("sync");
+        }
+
+        if let Some(rtc) = &self.rtc {
+            let _ = rtc.force_shutdown();
         }
 
         call_battery!(&self.battery, shutdown)

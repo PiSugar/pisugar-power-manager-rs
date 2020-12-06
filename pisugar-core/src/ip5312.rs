@@ -230,6 +230,7 @@ impl IP5312 {
 
     /// Force shutdown
     pub fn force_shutdown(&self) -> Result<()> {
+        // enable auto shutdown
         self.enable_auto_shutdown()?;
 
         // enable force shutdown
@@ -265,7 +266,7 @@ impl IP5312Battery {
 }
 
 impl Battery for IP5312Battery {
-    fn init(&mut self) -> Result<()> {
+    fn init(&mut self, ups: bool) -> Result<()> {
         if self.model.led_amount() == 2 {
             self.ip5312.init_gpio_2led()?;
             self.ip5312.toggle_allow_charging_2led(true)?;
@@ -275,7 +276,9 @@ impl Battery for IP5312Battery {
         self.ip5312.init_boost_intensity()?;
         // NOTE: Disable auto shutdown in UPS
         self.ip5312.enable_auto_shutdown()?;
-        self.ip5312.disable_auto_shutdown()?;
+        if ups {
+            self.ip5312.disable_auto_shutdown()?;
+        }
 
         let v = self.voltage()?;
         let now = Instant::now();
