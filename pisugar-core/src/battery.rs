@@ -5,7 +5,7 @@ use std::time::Instant;
 /// Battery chip controller
 pub trait Battery {
     /// Init battery chip
-    fn init(&mut self) -> Result<()>;
+    fn init(&mut self, ups: bool) -> Result<()>;
 
     /// Model
     fn model(&self) -> String;

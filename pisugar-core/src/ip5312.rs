@@ -78,7 +78,7 @@ impl IP5312 {
     }
 
     /// Shutdown under light load (126mA and 8s)
-    pub fn init_auto_shutdown(&self) -> Result<()> {
+    pub fn enable_auto_shutdown(&self) -> Result<()> {
         let threshold = PI_PRO_IDLE_INTENSITY * 1000.0;
         let threshold = (threshold / 4.3) as u64;
         let threshold = if threshold > 0b0011_1111 {
@@ -230,6 +230,9 @@ impl IP5312 {
 
     /// Force shutdown
     pub fn force_shutdown(&self) -> Result<()> {
+        // enable auto shutdown
+        self.enable_auto_shutdown()?;
+
         // enable force shutdown
         let mut t = self.i2c.smbus_read_byte(0x01)?;
         t &= 0b1111_1011;
@@ -263,7 +266,7 @@ impl IP5312Battery {
 }
 
 impl Battery for IP5312Battery {
-    fn init(&mut self) -> Result<()> {
+    fn init(&mut self, ups: bool) -> Result<()> {
         if self.model.led_amount() == 2 {
             self.ip5312.init_gpio_2led()?;
             self.ip5312.toggle_allow_charging_2led(true)?;
@@ -271,7 +274,11 @@ impl Battery for IP5312Battery {
             self.ip5312.init_gpio()?;
         }
         self.ip5312.init_boost_intensity()?;
-        self.ip5312.init_auto_shutdown()?;
+        // NOTE: Disable auto shutdown in UPS
+        self.ip5312.enable_auto_shutdown()?;
+        if ups {
+            self.ip5312.disable_light_load_shutdown()?;
+        }
 
         let v = self.voltage()?;
         let now = Instant::now();
