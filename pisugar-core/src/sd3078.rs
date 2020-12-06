@@ -147,8 +147,15 @@ impl SD3078 {
     }
 
     /// Init
-    pub fn init(&self) -> Result<()> {
-        self.clear_alarm_flag()
+    pub fn init(&self, ups: bool) -> Result<()> {
+        self.clear_alarm_flag()?;
+
+        // NOTE enable UPS frequency alarm
+        if ups {
+            self.set_frequency_alarm()?;
+        }
+
+        Ok(())
     }
 
     /// Disable write protect
@@ -316,10 +323,10 @@ impl SD3078 {
         // alarm time
         self.i2c.block_write(0x07, bcd_time.as_ref())?;
 
-        // CTR2 - alarm interrupt and frequency
+        // CTR2 - alarm interrupt and frequency, INTS1=0, INTS0=1, INTDE=0, INTAE=1, INTFE=0
         let mut ctr2 = self.i2c.smbus_read_byte(0x10)?;
         ctr2 |= 0b0101_0010;
-        ctr2 &= 0b1101_1111;
+        ctr2 &= 0b1101_1010;
         self.i2c.smbus_write_byte(0x10, ctr2)?;
 
         // alarm allows weekday, hour/minus/second
@@ -328,6 +335,47 @@ impl SD3078 {
         self.disable_write()?;
 
         Ok(())
+    }
+
+    /// Disable frequency alarm
+    pub fn disable_frequency_alarm(&self) -> Result<()> {
+        self.enable_write()?;
+
+        // CTR2 - INTS1=0, INTS0=1, INTFE=0
+        let mut ctr2 = self.i2c.smbus_read_byte(0x10)?;
+        ctr2 |= 0b0001_0000;
+        ctr2 &= 0b1101_1110;
+        self.i2c.smbus_write_byte(0x10, ctr2)?;
+
+        self.disable_write()?;
+
+        Ok(())
+    }
+
+    /// Set frequency alarm in UPS, 1/2Hz
+    pub fn set_frequency_alarm(&self) -> Result<()> {
+        self.enable_write()?;
+
+        // CTR3 - 1/2Hz, FS3=1, FS2=0, FS1=1, FS0=1
+        let mut ctr3 = self.i2c.smbus_read_byte(0x11)?;
+        ctr3 |= 0b0000_1011;
+        ctr3 &= 0b1111_1011;
+        self.i2c.smbus_write_byte(0x11, ctr3)?;
+
+        // CTR2 - INTS1=1, INTS0=0, INTFE=1, and disable INTAE, INTDE
+        let mut ctr2 = self.i2c.smbus_read_byte(0x10)?;
+        ctr2 |= 0b0010_0001;
+        ctr2 &= 0b1110_1001;
+        self.i2c.smbus_write_byte(0x10, ctr2)?;
+
+        self.disable_write()?;
+
+        Ok(())
+    }
+
+    /// Force shutdown
+    pub fn force_shutdown(&self) -> Result<()> {
+        self.disable_frequency_alarm()
     }
 
     /// Set a test wake up after 1 minutes
