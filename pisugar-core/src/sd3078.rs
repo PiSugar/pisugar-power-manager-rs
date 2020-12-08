@@ -153,6 +153,8 @@ impl SD3078 {
         // NOTE enable frequency alarm
         if auto_power_on {
             self.set_frequency_alarm()?;
+        } else {
+            self.disable_frequency_alarm()?;
         }
 
         Ok(())

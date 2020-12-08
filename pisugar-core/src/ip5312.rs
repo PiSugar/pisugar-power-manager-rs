@@ -367,6 +367,14 @@ impl Battery for IP5312Battery {
         Ok(false)
     }
 
+    fn toggle_light_load_shutdown(&self, enable: bool) -> Result<()> {
+        if enable {
+            self.ip5312.enable_light_load_auto_shutdown()
+        } else {
+            self.ip5312.disable_light_load_shutdown()
+        }
+    }
+
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
         let voltage = self.voltage()?;
         if self.voltages.len() >= self.voltages.capacity() {

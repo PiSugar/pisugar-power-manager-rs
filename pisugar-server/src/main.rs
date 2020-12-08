@@ -126,6 +126,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                     return err;
                                 }
                             }
+                            "auto_power_on" => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
                             _ => return err,
                         };
 
@@ -331,14 +332,10 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "set_auto_power_on" => {
                     if parts.len() > 1 {
                         if let Ok(auto_power_on) = parts[1].parse::<bool>() {
-                            core.config_mut().auto_power_on = Some(auto_power_on);
-                            if let Err(e) = core.save_config() {
+                            if let Err(e) = core.toggle_auto_power_on(auto_power_on) {
                                 log::error!("{}", e);
                             }
-                            if let Err(e) = core.init() {
-                                log::error!("{}", e);
-                            }
-                            return format!("{}: done\n", parts[0])
+                            return format!("{}: done\n", parts[0]);
                         }
                     }
                     return err;

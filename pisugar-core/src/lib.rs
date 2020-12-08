@@ -314,7 +314,8 @@ impl PiSugarCore {
             rtc: None,
             poll_check_at: Instant::now(),
         };
-        let _ = core.init();
+        let _ = core.init_rtc();
+        let _ = core.init_battery();
         Ok(core)
     }
 
@@ -363,11 +364,6 @@ impl PiSugarCore {
         }
 
         Err(Error::Other("Failed to load config file".to_string()))
-    }
-
-    pub fn init(&mut self) -> Result<()> {
-        self.init_battery()?;
-        self.init_rtc()
     }
 
     pub fn save_config(&self) -> Result<()> {
@@ -455,7 +451,9 @@ impl PiSugarCore {
 
     pub fn set_alarm(&self, t: SD3078Time, weekday_repeat: u8) -> Result<()> {
         if self.config.auto_power_on == Some(true) {
-            return Err(Error::Other("auto_power_on is in conflict with alarm function".to_string()));
+            return Err(Error::Other(
+                "auto_power_on is in conflict with alarm function".to_string(),
+            ));
         }
         call_rtc!(&self.rtc, set_alarm, t, weekday_repeat)
     }
@@ -478,6 +476,20 @@ impl PiSugarCore {
 
     pub fn disable_alarm(&self) -> Result<()> {
         call_rtc!(&self.rtc, disable_alarm)
+    }
+
+    pub fn toggle_auto_power_on(&mut self, auto_power_on: bool) -> Result<()> {
+        self.config.auto_power_on = Some(auto_power_on);
+        self.save_config()?;
+
+        if auto_power_on {
+            call_rtc!(&self.rtc, set_frequency_alarm)?;
+        } else {
+            call_rtc!(&self.rtc, disable_frequency_alarm)?;
+        }
+        call_battery!(&self.battery, toggle_light_load_shutdown, auto_power_on)?;
+
+        Ok(())
     }
 
     pub fn test_wake(&self) -> Result<()> {

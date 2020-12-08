@@ -45,6 +45,9 @@ pub trait Battery {
 
     /// Shutdown battery chip
     fn shutdown(&self) -> Result<()>;
+
+    // Enable/disable light load shutdown
+    fn toggle_light_load_shutdown(&self, enable: bool) -> Result<()>;
 }
 
 #[allow(dead_code)]
