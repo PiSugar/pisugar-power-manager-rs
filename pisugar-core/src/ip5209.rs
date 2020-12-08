@@ -270,7 +270,7 @@ impl Battery for IP5209Battery {
         } else {
             self.ip5209.init_gpio()?;
         }
-        // NOTE: Disable auto shutdown in UPS
+        // NOTE: Disable auto shutdown in auto_power_on
         self.ip5209.enable_light_load_auto_shutdown()?;
         if auto_power_on {
             self.ip5209.disable_light_load_shutdown()?;

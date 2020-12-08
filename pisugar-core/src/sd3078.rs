@@ -352,7 +352,7 @@ impl SD3078 {
         Ok(())
     }
 
-    /// Set frequency alarm in UPS, 1/2Hz
+    /// Set frequency alarm in auto_power_on, 1/2Hz
     pub fn set_frequency_alarm(&self) -> Result<()> {
         self.enable_write()?;
 

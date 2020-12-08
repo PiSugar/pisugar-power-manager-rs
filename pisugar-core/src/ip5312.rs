@@ -274,7 +274,7 @@ impl Battery for IP5312Battery {
             self.ip5312.init_gpio()?;
         }
         self.ip5312.init_boost_intensity()?;
-        // NOTE: Disable auto shutdown in UPS
+        // NOTE: Disable auto shutdown in auto_power_on
         self.ip5312.enable_light_load_auto_shutdown()?;
         if auto_power_on {
             self.ip5312.disable_light_load_shutdown()?;

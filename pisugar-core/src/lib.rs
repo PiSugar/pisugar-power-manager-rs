@@ -455,7 +455,7 @@ impl PiSugarCore {
 
     pub fn set_alarm(&self, t: SD3078Time, weekday_repeat: u8) -> Result<()> {
         if self.config.auto_power_on == Some(true) {
-            return Err(Error::Other("UPS is in conflict with alarm function".to_string()));
+            return Err(Error::Other("auto_power_on is in conflict with alarm function".to_string()));
         }
         call_rtc!(&self.rtc, set_alarm, t, weekday_repeat)
     }
