@@ -81,7 +81,7 @@ impl IP5209 {
     }
 
     /// Shutdown under light load (144mA and 8s)
-    pub fn enable_auto_shutdown(&self) -> Result<()> {
+    pub fn enable_light_load_auto_shutdown(&self) -> Result<()> {
         let threshold = PI_ZERO_IDLE_INTENSITY * 1000.0;
         let threshold = (threshold / 12.0) as u64;
         let threshold = if threshold > 0b0001_1111 {
@@ -228,7 +228,7 @@ impl IP5209 {
     /// Force shutdown
     pub fn force_shutdown(&self) -> Result<()> {
         // enable auto shutdown
-        self.enable_auto_shutdown()?;
+        self.enable_light_load_auto_shutdown()?;
 
         // force shutdown
         let mut t = self.i2c.smbus_read_byte(0x01)?;
@@ -263,7 +263,7 @@ impl IP5209Battery {
 }
 
 impl Battery for IP5209Battery {
-    fn init(&mut self, ups: bool) -> Result<()> {
+    fn init(&mut self, auto_power_on: bool) -> Result<()> {
         if self.model.led_amount() == 2 {
             self.ip5209.init_gpio_2led()?;
             self.ip5209.toggle_allow_charging_2led(true)?;
@@ -271,8 +271,8 @@ impl Battery for IP5209Battery {
             self.ip5209.init_gpio()?;
         }
         // NOTE: Disable auto shutdown in UPS
-        self.ip5209.enable_auto_shutdown()?;
-        if ups {
+        self.ip5209.enable_light_load_auto_shutdown()?;
+        if auto_power_on {
             self.ip5209.disable_light_load_shutdown()?;
         }
 

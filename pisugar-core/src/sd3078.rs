@@ -147,11 +147,11 @@ impl SD3078 {
     }
 
     /// Init
-    pub fn init(&self, ups: bool) -> Result<()> {
+    pub fn init(&self, auto_power_on: bool) -> Result<()> {
         self.clear_alarm_flag()?;
 
-        // NOTE enable UPS frequency alarm
-        if ups {
+        // NOTE enable frequency alarm
+        if auto_power_on {
             self.set_frequency_alarm()?;
         }
 

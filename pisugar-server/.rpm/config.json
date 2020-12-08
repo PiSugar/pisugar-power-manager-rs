@@ -14,5 +14,5 @@
         100.0
     ],
     "full_charge_duration": null,
-    "ups": false
+    "auto_power_on": false
 }
