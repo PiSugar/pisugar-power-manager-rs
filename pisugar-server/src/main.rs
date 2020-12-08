@@ -335,6 +335,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             if let Err(e) = core.save_config() {
                                 log::error!("{}", e);
                             }
+                            if let Err(e) = core.init() {
+                                log::error!("{}", e);
+                            }
                             return format!("{}: done\n", parts[0])
                         }
                     }

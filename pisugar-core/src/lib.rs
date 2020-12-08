@@ -314,8 +314,7 @@ impl PiSugarCore {
             rtc: None,
             poll_check_at: Instant::now(),
         };
-        let _ = Self::init_battery(&mut core);
-        let _ = Self::init_rtc(&mut core);
+        let _ = core.init();
         Ok(core)
     }
 
@@ -364,6 +363,11 @@ impl PiSugarCore {
         }
 
         Err(Error::Other("Failed to load config file".to_string()))
+    }
+
+    pub fn init(&mut self) -> Result<()> {
+        self.init_battery()?;
+        self.init_rtc()
     }
 
     pub fn save_config(&self) -> Result<()> {
