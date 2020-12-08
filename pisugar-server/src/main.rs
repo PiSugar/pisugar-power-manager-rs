@@ -331,7 +331,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "set_auto_power_on" => {
                     if parts.len() > 1 {
                         if let Ok(auto_power_on) = parts[1].parse::<bool>() {
-                            core.config_mut().auto_power_on = auto_power_on;
+                            core.config_mut().auto_power_on = Some(auto_power_on);
                             if let Err(e) = core.save_config() {
                                 log::error!("{}", e);
                             }
