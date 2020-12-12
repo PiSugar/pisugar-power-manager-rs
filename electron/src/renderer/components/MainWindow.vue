@@ -403,7 +403,6 @@
         switch (this.alarmOptionValue) {
           case 0:
             return `${this.$t('wakeUpOffDesc')}`
-            break
           case 1:
             let repeatMessage = ''
             if (this.timeRepeat === 127) {
@@ -419,7 +418,6 @@
               repeatMessage = `${this.$t('repeatOn')} ${repeatArray.join(', ')}`
             }
             return `${this.$t('wakeUpDesc')} ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
-            break
           case 2:
             return this.$t('powerWakeDesc')
           default:

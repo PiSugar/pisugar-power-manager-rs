@@ -77,7 +77,7 @@ function createWindow () {
     resizable: true,
     webPreferences: {
       webSecurity: false,
-      nodeIntegration: true,
+      nodeIntegration: true
     }
   })
 
