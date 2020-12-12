@@ -9,6 +9,8 @@ module.exports = {
   disabled: 'Disabled',
   onPowerRestore: 'On Power Restore',
   powerWakeDesc: '** Please use two independent USB chargers to charge the Pi & PiSugar respectively, and keep the power switch of PiSugar on. It will automatically turn on when the external power is restored.',
+  powerWakeOffWarning: 'You have turned off the wake-on-power-restore function, please do not separately supply external power to the Raspberry Pi.',
+  powerWakeOffTitle: 'Note',
   wakeUpFeature: 'Schedule Wake Up',
   repeat: 'Repeat',
   repeatEveryday: 'repeat everyday.',

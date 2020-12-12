@@ -439,7 +439,7 @@
     },
 
     watch: {
-      alarmOptionValue: function (val) {
+      alarmOptionValue: function (val, oldVal) {
         if (val) {
           if (this.timeRepeat === 0) {
             this.timeRepeat = 127
@@ -449,6 +449,11 @@
           this.$socket.send('rtc_alarm_disable')
           this.$socket.send('get rtc_alarm_enabled')
           this.$socket.send('get rtc_alarm_time')
+        }
+        if (oldVal === 2 && val !== 2) {
+          this.$alert(this.$t('powerWakeOffWarning'), this.$t('powerWakeOffTitle'), {
+            confirmButtonText: '确定'
+          })
         }
       },
       timeRepeat: function (val) {

@@ -9,6 +9,8 @@ module.exports = {
   disabled: '关闭',
   onPowerRestore: '来电开机',
   powerWakeDesc: '** 请使用两个独立的USB充电器分别为树莓派和PiSugar充电，并保持PiSugar的电源开关在打开状态，这样在外部电源恢复的时候会自动开机。',
+  powerWakeOffWarning: '您已关闭来电开机功能，请不要单独给树莓派外接电源。',
+  powerWakeOffTitle: '提示',
   wakeUpFeature: '定时开机',
   repeat: '重复',
   repeatEveryday: '每天重复。',
