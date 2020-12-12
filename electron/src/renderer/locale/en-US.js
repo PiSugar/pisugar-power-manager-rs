@@ -7,6 +7,8 @@ module.exports = {
   chargingDesc: 'Start charging when the battery level is lower than ',
   enabled: 'Enabled',
   disabled: 'Disabled',
+  onPowerRestore: 'On Power Restore',
+  powerWakeDesc: '** Please use two independent USB chargers to charge the Pi & PiSugar respectively, and keep the power switch of PiSugar on. It will automatically turn on when the external power is restored.',
   wakeUpFeature: 'Schedule Wake Up',
   repeat: 'Repeat',
   repeatEveryday: 'repeat everyday.',

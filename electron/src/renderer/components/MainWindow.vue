@@ -41,6 +41,7 @@
           <el-time-picker
                   class="time-picker"
                   v-model="timeEditValue"
+                  v-if="alarmOptionValue !== 2"
                   :disabled="alarmOptionValue === 0 || !socketConnect"
                   :picker-options="{
                     selectableRange: '00:00:00 - 23:59:59'
@@ -131,6 +132,7 @@
             <div class="text sys"><span class="label">{{$t('sysTime')}}</span> : {{ sysTimeString }}</div>
           </div>
         </div>
+        <div class="version">{{version && `PiSugar-server version ${version}`}}</div>
       </div>
 
       <el-dialog :title="$t('repeat')" :visible.sync="repeatDialog">
@@ -233,6 +235,7 @@
     components: { },
     data () {
       return {
+        version: '',
         rtcTime: null,
         rtcUpdateTime: new Date().getTime(),
         rtcTimeString: '',
@@ -247,8 +250,8 @@
         model: '...',
         alarmOption: [
           { label: this.$t('disabled'), value: 0 },
-          { label: this.$t('enabled'), value: 1 }
-          // { label: 'CircleSet', value: 2 }
+          { label: this.$t('enabled'), value: 1 },
+          { label: this.$t('onPowerRestore'), value: 2 }
         ],
         alarmOptionValue: 0,
         timeEditValue: new Date(2019, 8, 1, 18, 40, 30),
@@ -397,23 +400,30 @@
         }
       },
       alarmMessage () {
-        if (this.alarmOptionValue === 1) {
-          let repeatMessage = ''
-          if (this.timeRepeat === 127) {
-            repeatMessage = this.$t('repeatEveryday')
-          } else {
-            let repeatArray = []
-            let days = ['Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon', 'Sun'].reverse()
-            for (let i = 0; i < 7; i++) {
-              if (this.getBit(this.timeRepeat, i)) {
-                repeatArray.push(this.$t(`weekDayShort.${days[i]}`))
+        switch (this.alarmOptionValue) {
+          case 0:
+            return `${this.$t('wakeUpOffDesc')}`
+            break
+          case 1:
+            let repeatMessage = ''
+            if (this.timeRepeat === 127) {
+              repeatMessage = this.$t('repeatEveryday')
+            } else {
+              let repeatArray = []
+              let days = ['Sat', 'Fri', 'Thu', 'Wed', 'Tue', 'Mon', 'Sun'].reverse()
+              for (let i = 0; i < 7; i++) {
+                if (this.getBit(this.timeRepeat, i)) {
+                  repeatArray.push(this.$t(`weekDayShort.${days[i]}`))
+                }
               }
+              repeatMessage = `${this.$t('repeatOn')} ${repeatArray.join(', ')}`
             }
-            repeatMessage = `${this.$t('repeatOn')} ${repeatArray.join(', ')}`
-          }
-          return `${this.$t('wakeUpDesc')} ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
-        } else {
-          return `${this.$t('wakeUpOffDesc')}`
+            return `${this.$t('wakeUpDesc')} ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
+            break
+          case 2:
+            return this.$t('powerWakeDesc')
+          default:
+            break
         }
       },
       chargingDesc () {
@@ -476,6 +486,9 @@
           if (msg.indexOf('model:') > -1) {
             that.model = msg.replace('model: ', '')
           }
+          if (msg.indexOf('version:') > -1) {
+            that.version = msg.replace('version: ', '')
+          }
           if (!msg.indexOf('battery:')) {
             that.batteryPercent = parseInt(msg.replace('battery: ', ''))
           }
@@ -512,6 +525,10 @@
           }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
             that.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
+            console.log(msg, that.alarmOptionValue)
+          }
+          if (!msg.indexOf('auto_power_on: ')) {
+            that.alarmOptionValue = (msg.replace('auto_power_on: ', '').trim() === 'true') ? 2 : this.alarmOptionValue
             console.log(msg, that.alarmOptionValue)
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
@@ -571,6 +588,7 @@
         if (this.$socket.readyState === 1) {
           if (!this.socketConnect) {
             this.bindSocket()
+            this.$socket.send('get version')
             this.$socket.send('get model')
             this.$socket.send('get rtc_time')
             this.$socket.send('get system_time')
@@ -587,6 +605,7 @@
             this.$socket.send('get safe_shutdown_delay')
             this.$socket.send('get battery_charging_range')
             this.$socket.send('get battery_led_amount')
+            this.$socket.send('get auto_power_on')
           }
           this.socketConnect = true
           this.$socket.send('get battery')
@@ -694,15 +713,25 @@
         this.$socket.send(`set_safe_shutdown_delay ${this.safeShutdownDelay}`)
       },
       alarmOptionValueChange () {
-        if (this.alarmOptionValue) {
-          if (this.timeRepeat === 0) {
-            this.timeRepeat = 127
-          }
-          this.setRtcAlarm()
-        } else {
-          this.$socket.send('rtc_alarm_disable')
-          this.$socket.send('get rtc_alarm_enabled')
-          this.$socket.send('get rtc_alarm_time')
+        switch (this.alarmOptionValue) {
+          case 0:
+            this.$socket.send('set_auto_power_on false')
+            this.$socket.send('rtc_alarm_disable')
+            this.$socket.send('get rtc_alarm_enabled')
+            this.$socket.send('get rtc_alarm_time')
+            break
+          case 1:
+            this.$socket.send('set_auto_power_on false')
+            if (this.timeRepeat === 0) {
+              this.timeRepeat = 127
+            }
+            this.setRtcAlarm()
+            break
+          case 2:
+            this.$socket.send('set_auto_power_on true')
+            break
+          default:
+            break
         }
       },
       languageChange (value) {
@@ -1040,6 +1069,13 @@
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
+    .version{
+      position: absolute;
+      right: 0;
+      bottom: -20px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+    }
   }
   .sys-info{
     margin-top: 10px;
