@@ -327,10 +327,12 @@ impl PiSugarCore {
 
         match Self::load_config(config_path.as_path(), model) {
             Ok(core) => {
-                if let Some(datetime) = core.config.auto_wake_time {
-                    match core.set_alarm(datetime.into(), core.config.auto_wake_repeat) {
-                        Ok(_) => log::info!("Init alarm success"),
-                        Err(e) => log::warn!("Init alarm failed: {}", e),
+                if core.config.auto_power_on != Some(true) {
+                    if let Some(datetime) = core.config.auto_wake_time {
+                        match core.set_alarm(datetime.into(), core.config.auto_wake_repeat) {
+                            Ok(_) => log::info!("Init alarm success"),
+                            Err(e) => log::warn!("Init alarm failed: {}", e),
+                        }
                     }
                 }
                 Ok(core)
@@ -510,7 +512,7 @@ impl PiSugarCore {
             let _ = execute_shell("sync");
         }
 
-        call_rtc!(&self.rtc, force_shutdown)?;
+        let _ = call_rtc!(&self.rtc, force_shutdown);
         call_battery!(&self.battery, shutdown)
     }
 
