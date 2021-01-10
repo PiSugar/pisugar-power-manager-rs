@@ -580,7 +580,6 @@ async fn serve_http(http_addr: SocketAddr, web_dir: String, core: Arc<Mutex<PiSu
 fn init_logging(debug: bool, syslog: bool) {
     if syslog {
         // logging
-        println!("Log to syslog");
         let pid = unsafe { libc::getpid() };
         let formatter = Formatter3164 {
             facility: Facility::LOG_USER,
