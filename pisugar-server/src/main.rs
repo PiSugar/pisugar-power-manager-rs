@@ -580,6 +580,7 @@ async fn serve_http(http_addr: SocketAddr, web_dir: String, core: Arc<Mutex<PiSu
 fn init_logging(debug: bool, syslog: bool) {
     if syslog {
         // logging
+        println!("Log to syslog");
         let pid = unsafe { libc::getpid() };
         let formatter = Formatter3164 {
             facility: Facility::LOG_USER,
@@ -628,6 +629,7 @@ async fn main() -> std::io::Result<()> {
                 .short("u")
                 .long("uds")
                 .value_name("FILE")
+                .default_value("/tmp/pisugar-server.sock")
                 .help("Unix domain socket file, e.g. /tmp/pisugar-server.sock"),
         )
         .arg(
@@ -642,13 +644,14 @@ async fn main() -> std::io::Result<()> {
                 .requires_all(&["http"])
                 .long("web")
                 .value_name("DIR")
+                .default_value("/usr/share/pisugar-server/web")
                 .help("Web content directory, e.g. web"),
         )
         .arg(
             Arg::with_name("http")
                 .long("http")
                 .value_name("ADDR")
-                .default_value("0.0.0.0:8080")
+                .default_value("0.0.0.0:8421")
                 .help("Http server listen address, e.g. 0.0.0.0:8421"),
         )
         .arg(
