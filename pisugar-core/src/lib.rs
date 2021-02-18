@@ -488,6 +488,11 @@ impl PiSugarCore {
             call_rtc!(&self.rtc, set_frequency_alarm)?;
         } else {
             call_rtc!(&self.rtc, disable_frequency_alarm)?;
+
+            // restore clock alarm
+            if let Some(wakeup_time) = self.config.auto_wake_time {
+                self.set_alarm(wakeup_time.into(), self.config.auto_wake_repeat)?;
+            }
         }
         call_battery!(&self.battery, toggle_light_load_shutdown, auto_power_on)?;
 

@@ -1,6 +1,6 @@
 [package]
 name = "pisugar-core"
-version = "1.4.8"
+version = "1.4.9"
 authors = ["PiSugare"]
 edition = "2018"
 license = "gplv3"

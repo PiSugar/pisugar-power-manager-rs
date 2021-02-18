@@ -1,3 +1,6 @@
+v1.4.9
+1. Fix auto_power_on and alarm
+
 v1.4.8
 1. Add auto_power_on mode (conflict with alarm)
 

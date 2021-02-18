@@ -251,7 +251,13 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 }
                 "rtc_alarm_disable" => {
                     return match core.disable_alarm() {
-                        Ok(_) => format!("{}: done\n", parts[0]),
+                        Ok(_) => {
+                            core.config_mut().auto_wake_time = None;
+                            if let Err(e) = core.save_config() {
+                                log::warn!("{}", e);
+                            }
+                            format!("{}: done\n", parts[0])
+                        },
                         Err(_) => err,
                     };
                 }
