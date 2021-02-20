@@ -147,7 +147,7 @@ impl SD3078 {
     }
 
     /// Init
-    pub fn init(&self, auto_power_on: bool) -> Result<()> {
+    pub fn init(&self, auto_power_on: bool, auto_wakeup_time: Option<DateTime<Local>>, wakeup_repeat: u8) -> Result<()> {
         self.clear_alarm_flag()?;
 
         // NOTE enable frequency alarm
@@ -155,6 +155,9 @@ impl SD3078 {
             self.set_frequency_alarm()?;
         } else {
             self.disable_frequency_alarm()?;
+            if let Some(auto_wakeup_time) = auto_wakeup_time {
+                self.set_alarm(auto_wakeup_time.into(), wakeup_repeat)?;
+            }
         }
 
         Ok(())

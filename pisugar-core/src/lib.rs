@@ -298,7 +298,7 @@ impl PiSugarCore {
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
             let rtc = SD3078::new(I2C_ADDR_RTC)?;
-            rtc.init(self.config.auto_power_on.unwrap_or(false))?;
+            rtc.init(self.config.auto_power_on.unwrap_or(false), self.config.auto_wake_time, self.config.auto_wake_repeat)?;
             self.rtc = Some(rtc);
         }
         Ok(())
