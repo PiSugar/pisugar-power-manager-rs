@@ -328,10 +328,9 @@
     },
 
     mounted () {
-      const that = this
       this.createWebSocketClient()
       setTimeout(() => {
-        that.timeUpdater()
+        this.timeUpdater()
       }, 1000)
       this.locale = this.$i18n.locale
       console.log(this.$i18n.locale)
@@ -458,6 +457,7 @@
       },
       timeRepeat: function (val) {
         if (!this.repeatDialog) return
+        // 改了timeRepeat则开启定时开机
         this.alarmOptionValue = val === 0 ? 0 : 1
         this.setRtcAlarm()
       }
@@ -475,64 +475,62 @@
         }
       },
       createWebSocketClient () {
-        const that = this
-        this.$socket.onopen = function () {
+        this.$socket.onopen = () => {
           console.log(`[Websocket CLIENT] open()`)
-          that.getBatteryInfo(true)
+          this.getBatteryInfo(true)
         }
       },
       bindSocket () {
-        const that = this
-        this.$socket.onmessage = async function (e) {
+        this.$socket.onmessage = async (e) => {
           let msg = e.data
           if (msg.indexOf('battery') < 0) console.log(msg)
           if (msg.indexOf('model:') > -1) {
-            that.model = msg.replace('model: ', '')
+            this.model = msg.replace('model: ', '')
           }
           if (msg.indexOf('version:') > -1) {
-            that.version = msg.replace('version: ', '')
+            this.version = msg.replace('version: ', '')
           }
           if (!msg.indexOf('battery:')) {
-            that.batteryPercent = parseInt(msg.replace('battery: ', ''))
+            this.batteryPercent = parseInt(msg.replace('battery: ', ''))
           }
           if (!msg.indexOf('battery_charging: ')) {
-            that.batteryCharging = msg.indexOf('true') > 0
+            this.batteryCharging = msg.indexOf('true') > 0
           }
           if (!msg.indexOf('battery_charging_range: ')) {
             const res = msg.replace('battery_charging_range: ', '')
             if (res.trim()) {
-              that.chargingRange = res.split(',').map(i => parseInt(i))
+              this.chargingRange = res.split(',').map(i => parseInt(i))
             } else {
-              that.chargingRange = [100, 100]
+              this.chargingRange = [100, 100]
             }
-            that.chargingRestartPoint = that.chargingRange[0]
+            this.chargingRestartPoint = this.chargingRange[0]
           }
           if (!msg.indexOf('battery_led_amount: ')) {
-            that.isNewVersion = msg.indexOf('2') > 0
+            this.isNewVersion = msg.indexOf('2') > 0
           }
           if (!msg.indexOf('battery_power_plugged: ')) {
-            that.batteryPlugged = msg.indexOf('true') > 0
+            this.batteryPlugged = msg.indexOf('true') > 0
           }
           if (!msg.indexOf('battery_allow_charging: ')) {
-            that.batteryAllowCharging = msg.indexOf('true') > 0
+            this.batteryAllowCharging = msg.indexOf('true') > 0
           }
           if (!msg.indexOf('rtc_time: ')) {
             msg = msg.replace('rtc_time: ', '').trim()
-            that.rtcTime = new Moment(msg).parseZone()
-            that.rtcUpdateTime = new Date().getTime()
+            this.rtcTime = new Moment(msg).parseZone()
+            this.rtcUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('system_time: ')) {
             msg = msg.replace('system_time: ', '').trim()
-            that.sysTime = new Moment(msg).parseZone()
-            that.sysUpdateTime = new Date().getTime()
+            this.sysTime = new Moment(msg).parseZone()
+            this.sysUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
-            that.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
-            console.log(msg, that.alarmOptionValue)
+            this.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
+            // console.log(msg, this.alarmOptionValue)
           }
           if (!msg.indexOf('auto_power_on: ')) {
-            that.alarmOptionValue = (msg.replace('auto_power_on: ', '').trim() === 'true') ? 2 : that.alarmOptionValue
-            console.log(msg, that.alarmOptionValue)
+            this.alarmOptionValue = (msg.replace('auto_power_on: ', '').trim() === 'true') ? 2 : this.alarmOptionValue
+            // console.log(msg, this.alarmOptionValue)
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
             msg = msg.replace('rtc_alarm_time: ', '').trim()
@@ -541,28 +539,28 @@
             tempTime.setSeconds(alarmTime.second())
             tempTime.setMinutes(alarmTime.minute())
             tempTime.setHours(alarmTime.hour())
-            that.timeEditValue = tempTime
+            this.timeEditValue = tempTime
           }
           if (!msg.indexOf('alarm_repeat: ')) {
             const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
-            that.timeRepeat = alarmRepeat
-            if (!that.timeRepeat) that.alarmOptionValue = 0
-            // that.timeRepeat2checkbox()
+            this.timeRepeat = alarmRepeat
+            if (!this.timeRepeat) this.alarmOptionValue = 0
+            // this.timeRepeat2checkbox()
           }
           if (!msg.indexOf('safe_shutdown_level: ')) {
-            that.safeShutdown = parseInt(msg.replace('safe_shutdown_level: ', ''))
+            this.safeShutdown = parseInt(msg.replace('safe_shutdown_level: ', ''))
           }
           if (!msg.indexOf('safe_shutdown_delay: ')) {
-            that.safeShutdownDelay = parseInt(msg.replace('safe_shutdown_delay: ', ''))
+            this.safeShutdownDelay = parseInt(msg.replace('safe_shutdown_delay: ', ''))
           }
           if (!msg.indexOf('button_enable')) {
             let msgArr = msg.split(' ')
-            that.buttonFuncForm[msgArr[1]].enable = (msgArr[2].trim() === 'true')
+            this.buttonFuncForm[msgArr[1]].enable = (msgArr[2].trim() === 'true')
           }
           if (!msg.indexOf('button_shell')) {
             let msgArr = msg.split(' ')
             let shell = msg.replace(msgArr[0] + ' ' + msgArr[1] + ' ', '').replace('\n', '')
-            let button = that.buttonFuncForm[msgArr[1]]
+            let button = this.buttonFuncForm[msgArr[1]]
             button.shell = shell
             if (button.enable) {
               button.func = shell === 'sudo shutdown now' ? 2 : 1
@@ -570,24 +568,23 @@
           }
           if (['single', 'double', 'long'].indexOf(msg) >= 0) {
             if (msg === 'single') {
-              that.singleTrigger = false
+              this.singleTrigger = false
             }
             if (msg === 'double') {
-              that.doubleTrigger = false
+              this.doubleTrigger = false
             }
             if (msg === 'long') {
-              that.longTrigger = false
+              this.longTrigger = false
             }
             setTimeout(() => {
-              that.singleTrigger = true
-              that.doubleTrigger = true
-              that.longTrigger = true
+              this.singleTrigger = true
+              this.doubleTrigger = true
+              this.longTrigger = true
             }, 100)
           }
         }
       },
       getBatteryInfo (loop) {
-        const that = this
         if (this.$socket.readyState === 1) {
           if (!this.socketConnect) {
             this.bindSocket()
@@ -625,7 +622,7 @@
         }
         if (loop) {
           setTimeout(() => {
-            that.getBatteryInfo(true)
+            this.getBatteryInfo(true)
           }, 1000)
         }
       },
@@ -651,7 +648,6 @@
         this.timeDialog = false
       },
       timeUpdater () {
-        const that = this
         const current = new Date().getTime()
         this.timeUpdaterCount++
         // align time if diff < 2000
@@ -674,7 +670,7 @@
           this.sysTimeString = this.sysTime.toString(true)
         }
         setTimeout(() => {
-          that.timeUpdater()
+          this.timeUpdater()
         }, 1000)
         if (this.timeUpdaterCount % 5 === 0) {
           this.getDeviceTime()
