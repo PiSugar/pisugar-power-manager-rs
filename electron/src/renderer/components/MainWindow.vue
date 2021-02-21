@@ -531,7 +531,7 @@
             console.log(msg, that.alarmOptionValue)
           }
           if (!msg.indexOf('auto_power_on: ')) {
-            that.alarmOptionValue = (msg.replace('auto_power_on: ', '').trim() === 'true') ? 2 : this.alarmOptionValue
+            that.alarmOptionValue = (msg.replace('auto_power_on: ', '').trim() === 'true') ? 2 : that.alarmOptionValue
             console.log(msg, that.alarmOptionValue)
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
