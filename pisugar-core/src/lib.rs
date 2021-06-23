@@ -117,9 +117,16 @@ pub fn sys_write_time(dt: DateTime<Local>) {
     }
 }
 
+fn default_i2c_bus() -> u8 {
+    1
+}
+
 /// PiSugar configuration
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct PiSugarConfig {
+    #[serde(default = "default_i2c_bus")]
+    pub i2c_bus: u8,
+
     #[serde(default)]
     pub auto_wake_time: Option<DateTime<Local>>,
 
@@ -288,7 +295,7 @@ pub struct PiSugarCore {
 impl PiSugarCore {
     fn init_battery(&mut self) -> Result<()> {
         if self.battery.is_none() {
-            let mut battery = self.model.bind(I2C_ADDR_BAT)?;
+            let mut battery = self.model.bind(self.config.i2c_bus, I2C_ADDR_BAT)?;
             battery.init(self.config.auto_power_on.unwrap_or(false))?;
             self.battery = Some(battery);
         }
@@ -298,7 +305,11 @@ impl PiSugarCore {
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
             let rtc = SD3078::new(I2C_ADDR_RTC)?;
-            rtc.init(self.config.auto_power_on.unwrap_or(false), self.config.auto_wake_time, self.config.auto_wake_repeat)?;
+            rtc.init(
+                self.config.auto_power_on.unwrap_or(false),
+                self.config.auto_wake_time,
+                self.config.auto_wake_repeat,
+            )?;
             self.rtc = Some(rtc);
         }
         Ok(())

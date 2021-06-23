@@ -30,8 +30,8 @@ pub struct IP5209 {
 
 impl IP5209 {
     /// Create new IP5209
-    pub fn new(i2c_addr: u16) -> Result<Self> {
-        let mut i2c = I2c::new()?;
+    pub fn new(i2c_bus: u8, i2c_addr: u16) -> Result<Self> {
+        let mut i2c = I2c::with_bus(i2c_bus)?;
         i2c.set_slave_address(i2c_addr)?;
         Ok(Self { i2c })
     }
@@ -249,8 +249,8 @@ pub struct IP5209Battery {
 }
 
 impl IP5209Battery {
-    pub fn new(i2c_addr: u16, model: Model) -> Result<Self> {
-        let ip5209 = IP5209::new(i2c_addr)?;
+    pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
+        let ip5209 = IP5209::new(i2c_bus, i2c_addr)?;
         Ok(Self {
             ip5209,
             model,

@@ -257,7 +257,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 log::warn!("{}", e);
                             }
                             format!("{}: done\n", parts[0])
-                        },
+                        }
                         Err(_) => err,
                     };
                 }

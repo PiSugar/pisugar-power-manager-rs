@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -28,16 +29,26 @@ fn main() {
                 .default_value("3")
                 .help("Countdown seconds, e.g. 3"),
         )
+        .arg(
+            Arg::with_name("configfile")
+                .short("f")
+                .long("config")
+                .value_name("CONFIG")
+                .default_value("/etc/pisugar/config.json")
+                .help("Configuration file"),
+        )
         .get_matches();
 
     let countdown: u64 = matches.value_of("countdown").unwrap().parse().unwrap();
+    let config_file: &str = matches.value_of("config").unwrap();
     for i in 0..countdown {
         eprint!("{} ", countdown - i);
         sleep(Duration::from_secs(1));
     }
     eprint!("0...\n");
 
-    let config = PiSugarConfig::default();
+    let mut config = PiSugarConfig::default();
+    let _ = config.load(Path::new(config_file));
     let _ = shutdown(config.clone(), Model::PiSugar_2_Pro);
     let _ = shutdown(config, Model::PiSugar_2_4LEDs);
 }
