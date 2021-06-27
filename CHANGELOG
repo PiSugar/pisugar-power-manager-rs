@@ -1,3 +1,7 @@
+v1.5.0
+1. Add 'i2c_bus' configuration option
+2. Fix Web UI
+
 v1.4.9
 1. Fix auto_power_on and alarm
 

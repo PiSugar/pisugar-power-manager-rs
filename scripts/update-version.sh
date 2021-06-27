@@ -2,7 +2,7 @@
 
 set -e
 
-CUR_DIR=$(cd $(pwd $0); pwd)
+CUR_DIR=$(cd $(dirname $0); pwd)
 ROOT_DIR=$(cd "$CUR_DIR/.."; pwd)
 
 function usage() {
@@ -16,5 +16,5 @@ if [ x"$version" == x"" ]; then
 fi
 
 for dir in pisugar-server pisugar-core pisugar-poweroff ; do
-  sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" "$ROOT_DIR/$dir/Cargo.toml"
+  sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "$ROOT_DIR/$dir/Cargo.toml"
 done
