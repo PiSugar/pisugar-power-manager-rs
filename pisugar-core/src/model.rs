@@ -28,11 +28,11 @@ impl Model {
         }
     }
 
-    pub fn bind(&self, i2c_addr: u16) -> Result<Box<dyn Battery + Send>> {
+    pub fn bind(&self, i2c_bus: u8, i2c_addr: u16) -> Result<Box<dyn Battery + Send>> {
         let b: Box<dyn Battery + Send> = match *self {
-            Model::PiSugar_2_4LEDs => Box::new(IP5209Battery::new(i2c_addr, *self)?),
-            Model::PiSugar_2_2LEDs => Box::new(IP5209Battery::new(i2c_addr, *self)?),
-            Model::PiSugar_2_Pro => Box::new(IP5312Battery::new(i2c_addr, *self)?),
+            Model::PiSugar_2_4LEDs => Box::new(IP5209Battery::new(i2c_bus, i2c_addr, *self)?),
+            Model::PiSugar_2_2LEDs => Box::new(IP5209Battery::new(i2c_bus, i2c_addr, *self)?),
+            Model::PiSugar_2_Pro => Box::new(IP5312Battery::new(i2c_bus, i2c_addr, *self)?),
         };
         Ok(b)
     }

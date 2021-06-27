@@ -1,0 +1,35 @@
+# Maintainer: Your Name <youremail@domain.com>
+pkgname=pisugar-bin
+pkgver=1.4.9
+pkgrel=1
+pkgdesc="PiSugar"
+arch=('armv6h' 'armv7h' 'aarch64')
+url="https://github.com/PiSugar/pisugar-power-manager-rs"
+license=('GPL')
+groups=()
+depends=()
+makedepends=()
+optdepends=()
+provides=('pisugar-server' 'pisugar-poweroff')
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=("https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
+noextract=()
+md5sums=() #autofill using updpkgsums
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 pisugar-server -t "$pkgdir/usr/bin/"
+  install -Dm644 pisugar-server.default -t "$pkgdir/etc/default"
+  install -Dm644 pisugar-server.service -t "$pkgdir/lib/systemd/system"
+  install -Dm644 config.json -t "$pkgdir/etc/pisugar-server"
+  install -Dm644 web -t "$pkgdir/usr/share/pisugar-server"
+  install -Dm644 _ws.json -t "$pkgdir/usr/share/pisugar-server"
+  install -Dm755 pisugar-poweroff -t "$pkgdir/usr/bin/"
+  install -Dm644 pisugar-poweroff.default -t "$pkgdir/etc/default"
+  install -Dm644 pisugar-poweroff.service -t "$pkgdir/lib/systemd/system"
+}

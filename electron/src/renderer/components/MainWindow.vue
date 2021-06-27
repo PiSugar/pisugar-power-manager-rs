@@ -303,7 +303,10 @@
           { label: this.$t('disabled'), value: 0 },
           { label: `${this.$t('batteryLevel')} <= 1%`, value: 1 },
           { label: `${this.$t('batteryLevel')} <= 3%`, value: 3 },
-          { label: `${this.$t('batteryLevel')} <= 5%`, value: 5 }
+          { label: `${this.$t('batteryLevel')} <= 5%`, value: 5 },
+          { label: `${this.$t('batteryLevel')} <= 10%`, value: 10 },
+          { label: `${this.$t('batteryLevel')} <= 20%`, value: 20 },
+          { label: `${this.$t('batteryLevel')} <= 30%`, value: 30 }
         ],
         safeShutdownDelay: 0,
         safeShutdownDelayOpts: Array(121).fill(0).map((i, k) => {

@@ -147,7 +147,12 @@ impl SD3078 {
     }
 
     /// Init
-    pub fn init(&self, auto_power_on: bool, auto_wakeup_time: Option<DateTime<Local>>, wakeup_repeat: u8) -> Result<()> {
+    pub fn init(
+        &self,
+        auto_power_on: bool,
+        auto_wakeup_time: Option<DateTime<Local>>,
+        wakeup_repeat: u8,
+    ) -> Result<()> {
         self.clear_alarm_flag()?;
 
         // NOTE enable frequency alarm
