@@ -15,18 +15,18 @@ PiSugar power manager in rust language.
 
 These packages are hosted in QiNiu CDN (For zero/zerowh/pi3/pi3b/pi4 with 32bit os only, you need to download and install packages manually in pi4 with 64bit os)
 
-    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo bash
+    curl http://cdn.pisugar.com/release/pisugar-power-manager.sh | sudo bash
 
 or
 
-    wget http://cdn.pisugar.com/release/Pisugar-power-manager.sh
-    bash Pisugar-power-manager.sh -c release
+    wget http://cdn.pisugar.com/release/pisugar-power-manager.sh
+    bash pisugar-power-manager.sh -c release
 
 Install script usage
 
     Install pisugar power manager tools.
 
-    USAGE: Pisugar-power-manager.sh [OPTIONS]
+    USAGE: pisugar-power-manager.sh [OPTIONS]
 
     OPTIONS:
         -h|--help       Print this usage.

@@ -15,18 +15,18 @@
 
 安装包托管在七牛云。
 
-    curl http://cdn.pisugar.com/release/Pisugar-power-manager.sh | sudo bash
+    curl http://cdn.pisugar.com/release/pisugar-power-manager.sh | sudo bash
 
 或
 
-    wget http://cdn.pisugar.com/release/Pisugar-power-manager.sh
-    bash Pisugar-power-manager.sh -c release
+    wget http://cdn.pisugar.com/release/pisugar-power-manager.sh
+    bash pisugar-power-manager.sh -c release
 
 安装脚本使用方式：
 
     Install pisugar power manager tools.
 
-    USAGE: Pisugar-power-manager.sh [OPTIONS]
+    USAGE: pisugar-power-manager.sh [OPTIONS]
 
     OPTIONS:
         -h|--help       Print this usage.
