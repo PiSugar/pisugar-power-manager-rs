@@ -34,13 +34,13 @@ fn main() {
                 .short("f")
                 .long("config")
                 .value_name("CONFIG")
-                .default_value("/etc/pisugar/config.json")
+                .default_value("/etc/pisugar-server/config.json")
                 .help("Configuration file"),
         )
         .get_matches();
 
     let countdown: u64 = matches.value_of("countdown").unwrap().parse().unwrap();
-    let config_file: &str = matches.value_of("config").unwrap();
+    let config_file: &str = matches.value_of("configfile").unwrap();
     for i in 0..countdown {
         eprint!("{} ", countdown - i);
         sleep(Duration::from_secs(1));
