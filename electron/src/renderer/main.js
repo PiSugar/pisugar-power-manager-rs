@@ -13,7 +13,7 @@ import { messages, localeOptions } from './locale'
 
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 // const devWsHost = 'ws://allen.320.io:61682/ws'
-const devWsHost = 'ws://192.168.0.101:8421/ws'
+const devWsHost = 'ws://192.168.100.120:8421/ws'
 
 let webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
 if (!process.env.IS_WEB) webSocketHost = devWsHost

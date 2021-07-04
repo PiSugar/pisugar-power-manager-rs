@@ -528,7 +528,7 @@
             this.sysUpdateTime = new Date().getTime()
           }
           if (!msg.indexOf('rtc_alarm_enabled: ')) {
-            this.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : 0
+            this.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : this.alarmOptionValue
             // console.log(msg, this.alarmOptionValue)
           }
           if (!msg.indexOf('auto_power_on: ')) {
