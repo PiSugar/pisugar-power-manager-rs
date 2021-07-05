@@ -2,7 +2,7 @@
 set -e
 
 # version
-version=1.5.1
+version=1.5.2
 
 # channel: nightly or release
 channel=release

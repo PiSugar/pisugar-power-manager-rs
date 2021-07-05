@@ -19,4 +19,5 @@ for dir in pisugar-server pisugar-core pisugar-poweroff ; do
   sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "$ROOT_DIR/$dir/Cargo.toml"
 done
 
-sed -e "s/^version=.*/version=$version/" -i "$CUR_DIR/Pisugar-power-manager.sh"
+sed -e "s/^version=.*/version=$version/" -i "$CUR_DIR/pisugar-power-manager.sh"
+
