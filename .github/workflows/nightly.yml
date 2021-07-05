@@ -127,8 +127,7 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          for f in $(find target/arm-unknown-linux-musleabihf -name '*.deb' ) \
-            $(find target -name '*.rpm' | grep 'rpmbuild/RPMS'); do
+          for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
