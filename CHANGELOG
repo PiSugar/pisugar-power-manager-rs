@@ -1,3 +1,9 @@
+v1.5.2
+1. Fix webui
+
+v1.5.1
+1. Fix pisugar-poweroff
+
 v1.5.0
 1. Add 'i2c_bus' configuration option
 2. Fix Web UI
