@@ -11,7 +11,6 @@ use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Datelike, Local, Timelike};
 use rppal::i2c::Error as I2cError;
-use serde::export::Result::Err;
 use serde::{Deserialize, Serialize};
 
 use crate::battery::Battery;

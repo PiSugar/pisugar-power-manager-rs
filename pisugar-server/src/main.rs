@@ -9,15 +9,15 @@ use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Instant;
 
-use bytes::*;
 use chrono::prelude::*;
 use clap::{App, Arg};
 use env_logger::Env;
 use futures::prelude::*;
 use futures::SinkExt;
 use futures_channel::mpsc::unbounded;
+use hyper::client::Client;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Client, Response};
+use hyper::{Body, Response};
 use hyper::{Request, Server};
 use hyper_websocket_lite::{server_upgrade, AsyncClient};
 use log::LevelFilter;
@@ -48,7 +48,7 @@ fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
     log::debug!("Polling state");
     let now = Instant::now();
     if let Ok(Some(tap_type)) = core.poll(now) {
-        let _ = tx.broadcast(format!("{}", tap_type));
+        let _ = tx.send(format!("{}", tap_type));
     }
 }
 
@@ -207,7 +207,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             log::error!("{}", e);
                             err
                         }
-                    }
+                    };
                 }
                 "rtc_web" => {
                     tokio::spawn(async move {
@@ -366,13 +366,13 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
     err
 }
 
-async fn _handle_stream<T>(core: Arc<Mutex<PiSugarCore>>, stream: T, event_rx: EventRx) -> io::Result<()>
+async fn _handle_stream<T>(core: Arc<Mutex<PiSugarCore>>, stream: T, mut event_rx: EventRx) -> io::Result<()>
 where
     T: 'static + AsyncRead + AsyncWrite + Send,
 {
     let framed = Framed::new(stream, BytesCodec::new());
     let (sink, mut stream) = framed.split();
-    let (tx, rx) = unbounded();
+    let (mut tx, rx) = unbounded();
 
     // handle request
     let mut tx_cloned = tx.clone();
@@ -389,13 +389,21 @@ where
             }
         }
         // delay for 100 millis
-        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         tx_cloned.send(None).await.expect("Channel failed");
         log::debug!("Stream close");
     });
 
     // button event
-    tokio::spawn(event_rx.map(|event| Ok(Some(event))).forward(tx));
+    // tokio::spawn(event_rx.map(|event| Ok(Some(event))).forward(tx));
+    tokio::spawn(async move {
+        while event_rx.changed().await.is_ok() {
+            let s = event_rx.borrow().clone();
+            tx.send(Some(s)).await.expect("Channel failed");
+        }
+        log::debug!("Event watcher close");
+        tx.send(None).await.expect("Channel failed");
+    });
 
     // send back
     tokio::spawn(
@@ -422,7 +430,11 @@ async fn handle_tcp_stream(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, eve
 }
 
 /// Handle websocket request
-async fn handle_ws_connection(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, event_rx: EventRx) -> io::Result<()> {
+async fn handle_ws_connection(
+    core: Arc<Mutex<PiSugarCore>>,
+    stream: TcpStream,
+    mut event_rx: EventRx,
+) -> io::Result<()> {
     log::info!("Incoming ws connection from: {}", stream.peer_addr()?);
 
     let ws_stream = tokio_tungstenite::accept_async(stream)
@@ -430,7 +442,7 @@ async fn handle_ws_connection(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, 
         .await?;
     log::info!("WS connection established");
 
-    let (tx, rx) = unbounded();
+    let (mut tx, rx) = unbounded();
     let (sink, mut stream) = ws_stream.split();
 
     // handle request
@@ -445,13 +457,20 @@ async fn handle_ws_connection(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, 
                 tx_cloned.send(Some(resp)).await.expect("Channel failed");
             }
         }
-        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         tx_cloned.send(None).await.expect("Channel failed");
         log::debug!("WS stream close")
     });
 
     // button event
-    tokio::spawn(event_rx.map(|e| Ok(Some(e))).forward(tx));
+    tokio::spawn(async move {
+        while event_rx.changed().await.is_ok() {
+            let s = event_rx.borrow().clone();
+            tx.send(Some(s)).await.expect("Channel failed");
+        }
+        log::debug!("Event watcher close");
+        tx.send(None).await.expect("Channel failed");
+    });
 
     // send back
     tokio::spawn(
@@ -507,8 +526,8 @@ fn clean_up(uds: Option<String>, web_dir: Option<String>) {
     exit(0)
 }
 
-async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, event_rx: EventRx) {
-    let (tx, mut rx) = unbounded();
+async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, mut event_rx: EventRx) {
+    let (mut tx, mut rx) = unbounded();
     let (mut sink, mut s) = stream_mut.split();
 
     // req
@@ -530,13 +549,20 @@ async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, ev
                 tx_cloned.send(resp_msg).await.expect("Channel failed");
             }
         }
-        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         tx_cloned.send(None).await.expect("Channel failed");
         log::info!("Websocket closed");
     });
 
     // button event
-    tokio::spawn(event_rx.map(|e| Ok(Some(Message::text(e)))).forward(tx));
+    tokio::spawn(async move {
+        while event_rx.changed().await.is_ok() {
+            let s = event_rx.borrow().clone();
+            tx.send(Some(Message::text(s))).await.expect("Channel failed");
+        }
+        log::debug!("Event watcher close");
+        tx.send(None).await.expect("Channel failed");
+    });
 
     // send back
     while let Some(Some(rsp)) = rx.next().await {
@@ -734,10 +760,11 @@ async fn main() -> std::io::Result<()> {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
         match TcpListener::bind(tcp_addr).await {
-            Ok(mut tcp_listener) => {
+            Ok(tcp_listener) => {
                 tokio::spawn(async move {
                     log::info!("TCP listening...");
-                    while let Some(Ok(stream)) = tcp_listener.incoming().next().await {
+                    while let Ok((stream, addr)) = tcp_listener.accept().await {
+                        log::info!("TCP from {}", addr);
                         let core = core_cloned.clone();
                         let _ = handle_tcp_stream(core, stream, event_rx_cloned.clone()).await;
                     }
@@ -756,10 +783,11 @@ async fn main() -> std::io::Result<()> {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
         match tokio::net::TcpListener::bind(ws_addr).await {
-            Ok(mut ws_listener) => {
+            Ok(ws_listener) => {
                 tokio::spawn(async move {
                     log::info!("WS listening...");
-                    while let Some(Ok(stream)) = ws_listener.incoming().next().await {
+                    while let Ok((stream, addr)) = ws_listener.accept().await {
+                        log::info!("WS from {}", addr);
                         let core = core_cloned.clone();
                         let _ = handle_ws_connection(core, stream, event_rx_cloned.clone()).await;
                     }
@@ -778,10 +806,11 @@ async fn main() -> std::io::Result<()> {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
         match tokio::net::UnixListener::bind(uds_addr) {
-            Ok(mut uds_listener) => {
+            Ok(uds_listener) => {
                 tokio::spawn(async move {
                     log::info!("UDS listening...");
-                    while let Some(Ok(stream)) = uds_listener.incoming().next().await {
+                    while let Ok((stream, addr)) = uds_listener.accept().await {
+                        log::info!("UDS from {:?}", addr);
                         let core = core_cloned.clone();
                         let _ = handle_uds_stream(core, stream, event_rx_cloned.clone()).await;
                     }
