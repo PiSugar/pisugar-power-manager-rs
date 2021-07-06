@@ -8,11 +8,11 @@ license = "GPLv3"
 
 [dependencies]
 log = "0.4.8"
-env_logger = "0.7"
+env_logger = "0.8"
 syslog = "5"
 libc = "0.2"
 clap = "2"
-bytes = "0.5.4"
+bytes = "1"
 ctrlc = "3.1.4"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }

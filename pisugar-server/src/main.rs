@@ -402,7 +402,7 @@ where
         rx.map(|s| match s {
             Some(s) => {
                 log::debug!("Sink send: {}", s);
-                Ok(Bytes::from(s))
+                Ok(hyper::body::Bytes::from(s))
             }
             None => {
                 log::debug!("Sink close");
@@ -602,9 +602,9 @@ fn init_logging(debug: bool, syslog: bool) {
             .expect("Failed to init syslog");
     } else {
         if debug {
-            env_logger::from_env(Env::default().default_filter_or("debug")).init();
+            env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
         } else {
-            env_logger::from_env(Env::default().default_filter_or("info")).init();
+            env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
         }
     }
 }
