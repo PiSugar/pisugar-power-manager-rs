@@ -12,7 +12,7 @@ pub fn dec_to_bcd(dec: u8) -> u8 {
     dec % 10 + ((dec / 10) << 4)
 }
 
-/// RTC raw time, always UTC 24hr
+/// RTC raw time, always UTC 24hr, BCD format
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct RTCRawTime(pub [u8; 7]);
 

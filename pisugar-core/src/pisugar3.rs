@@ -1,8 +1,8 @@
 use crate::battery::Battery;
 use crate::ip5312::IP5312;
-use crate::rtc::RTC;
+use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
 use crate::{Error, Model, RTCRawTime, Result, TapType};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Timelike};
 use rppal::i2c::I2c;
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -38,6 +38,32 @@ const IIC_CMD_UL_D: u8 = 0x29;
 /// Battery percent
 const IIC_CMD_P: u8 = 0x2A;
 
+/// RTC year
+const IIC_CMD_RTC_YY: u8 = 0x31;
+/// RTC month
+const IIC_CMD_RTC_MM: u8 = 0x32;
+/// RTC day of month
+const IIC_CMD_RTC_DD: u8 = 0x33;
+/// RTC weekday
+const IIC_CMD_RTC_WD: u8 = 0x34;
+/// RTC hour
+const IIC_CMD_RTC_HH: u8 = 0x35;
+/// RTC minute
+const IIC_CMD_RTC_MN: u8 = 0x36;
+/// RTC second
+const IIC_CMD_RTC_SS: u8 = 0x37;
+
+/// Alarm ctrl
+const IIC_CMD_ALM_CTR: u8 = 0x40;
+/// Alarm weekday repeat
+const IIC_CMD_ALM_WD: u8 = 0x44;
+/// Alarm hour
+const IIC_CMD_ALM_HH: u8 = 0x45;
+/// Alarm minute
+const IIC_CMD_ALM_MN: u8 = 0x46;
+/// Alarm second
+const IIC_CMD_ALM_SS: u8 = 0x47;
+
 /// PiSugar 3
 pub struct PiSugar3 {
     i2c: I2c,
@@ -58,6 +84,15 @@ impl PiSugar3 {
     pub fn write_ctr1(&self, ctr1: u8) -> Result<()> {
         self.i2c.smbus_write_byte(IIC_CMD_CTR1, ctr1)?;
         Ok(())
+    }
+
+    pub fn toggle_restore(&self, auto_restore: bool) -> Result<()> {
+        let mut ctr1 = self.read_ctr1()?;
+        ctr1 &= 0b1110_0000;
+        if auto_restore {
+            ctr1 |= 0b0001_0000;
+        }
+        self.write_ctr1(ctr1)
     }
 
     pub fn read_bat_ctr(&self) -> Result<u8> {
@@ -88,6 +123,109 @@ impl PiSugar3 {
         let oc = (oh << 8) | ol;
         Ok(oc)
     }
+
+    pub fn get_alarm_enable(&self) -> Result<bool> {
+        let ctr = self.i2c.smbus_read_byte(IIC_CMD_ALM_CTR)?;
+        Ok(ctr & (0b1000_0000) != 0)
+    }
+
+    pub fn toggle_alarm_enable(&self, enable: bool) -> Result<()> {
+        let mut ctr = self.i2c.smbus_read_byte(IIC_CMD_ALM_CTR)?;
+        ctr &= 0b0111_1111;
+        if enable {
+            ctr |= 0b1000_0000;
+        }
+        self.i2c.smbus_write_byte(IIC_CMD_ALM_CTR, ctr)?;
+        Ok(())
+    }
+
+    pub fn get_rtc_yy(&self) -> Result<u8> {
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_YY)?))
+    }
+
+    pub fn set_rtc_yy(&self, yy: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_YY, dec_to_bcd(yy))?)
+    }
+
+    pub fn get_rtc_mm(&self) -> Result<u8> {
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_MM)?))
+    }
+
+    pub fn set_rtc_mm(&self, mm: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_MM, dec_to_bcd(mm))?)
+    }
+
+    pub fn get_rtc_dd(&self) -> Result<u8> {
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_DD)?))
+    }
+
+    pub fn set_rtc_dd(&self, dd: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_DD, dec_to_bcd(dd))?)
+    }
+
+    pub fn get_rtc_weekday(&self) -> Result<u8> {
+        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_WD)?))
+    }
+
+    pub fn set_rtc_weekday(&self, wd: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_WD, dec_to_bcd(wd))?)
+    }
+
+    pub fn get_rtc_hh(&self) -> Result<u8> {
+        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_HH)?))
+    }
+
+    pub fn set_rtc_hh(&self, hh: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_HH, dec_to_bcd(hh))?)
+    }
+
+    pub fn get_rtc_mn(&self) -> Result<u8> {
+        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_MN)?))
+    }
+
+    pub fn set_rtc_mn(&self, mn: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_MN, dec_to_bcd(mn))?)
+    }
+
+    pub fn get_rtc_ss(&self) -> Result<u8> {
+        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
+    }
+
+    pub fn set_rtc_ss(&self, ss: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_RTC_SS, dec_to_bcd(ss))?)
+    }
+
+    pub fn get_alarm_weekday_repeat(&self) -> Result<u8> {
+        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_WD)?)
+    }
+
+    pub fn set_alarm_weekday_repeat(&self, wd: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_ALM_WD, wd)?)
+    }
+
+    pub fn get_alarm_hh(&self) -> Result<u8> {
+        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_HH)?)
+    }
+
+    pub fn set_alarm_hh(&self, hh: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_ALM_HH, dec_to_bcd(hh))?)
+    }
+
+    pub fn get_alarm_mn(&self) -> Result<u8> {
+        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_MN)?)
+    }
+
+    pub fn set_alarm_mn(&self, mn: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_ALM_MN, dec_to_bcd(mn))?)
+    }
+
+    pub fn get_alarm_ss(&self) -> Result<u8> {
+        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_SS)?)
+    }
+
+    pub fn set_alarm_ss(&self, ss: u8) -> Result<()> {
+        Ok(self.i2c.smbus_write_byte(IIC_CMD_ALM_SS, dec_to_bcd(ss))?)
+    }
 }
 
 /// PiSugar 3 Battery support
@@ -114,7 +252,7 @@ impl PiSugar3Battery {
 
 impl Battery for PiSugar3Battery {
     fn init(&mut self, auto_power_on: bool) -> crate::Result<()> {
-        todo!()
+        Ok(self.pisugar3.toggle_restore(auto_power_on)?)
     }
 
     fn model(&self) -> String {
@@ -219,22 +357,52 @@ impl PiSugar3RTC {
 
 impl RTC for PiSugar3RTC {
     fn init(&self, auto_power_on: bool, auto_wakeup_time: Option<DateTime<Local>>, wakeup_repeat: u8) -> Result<()> {
-        if auto_power_on {
-            //self.pisugar3.toggle_restore(true);
+        self.pisugar3.toggle_restore(auto_power_on)?;
+        if let Some(wakeup_time) = auto_wakeup_time {
+            self.pisugar3.toggle_alarm_enable(false)?;
+            self.pisugar3.set_alarm_hh(wakeup_time.hour() as u8)?;
+            self.pisugar3.set_alarm_mn(wakeup_time.minute() as u8)?;
+            self.pisugar3.set_alarm_ss(wakeup_time.second() as u8)?;
+            self.pisugar3.set_alarm_weekday_repeat(wakeup_repeat)?;
+            self.pisugar3.toggle_alarm_enable(true)?;
         }
         Ok(())
     }
 
     fn read_time(&self) -> Result<RTCRawTime> {
-        todo!()
+        Ok(RTCRawTime::from_dec([
+            self.pisugar3.get_rtc_ss()?,
+            self.pisugar3.get_rtc_mn()?,
+            self.pisugar3.get_rtc_hh()?,
+            self.pisugar3.get_rtc_weekday()?,
+            self.pisugar3.get_rtc_dd()?,
+            self.pisugar3.get_rtc_mm()?,
+            self.pisugar3.get_rtc_yy()?,
+        ]))
     }
 
-    fn write_time(&self, time: RTCRawTime) -> Result<()> {
-        todo!()
+    fn write_time(&self, raw: RTCRawTime) -> Result<()> {
+        let dec = raw.to_dec();
+        self.pisugar3.set_rtc_ss(dec[0])?;
+        self.pisugar3.set_rtc_mn(dec[1])?;
+        self.pisugar3.set_rtc_hh(dec[2])?;
+        self.pisugar3.set_rtc_weekday(dec[3])?;
+        self.pisugar3.set_rtc_dd(dec[4])?;
+        self.pisugar3.set_rtc_mm(dec[5])?;
+        self.pisugar3.set_rtc_yy(dec[6])?;
+        Ok(())
     }
 
     fn read_alarm_time(&self) -> Result<RTCRawTime> {
-        todo!()
+        Ok(RTCRawTime::from_raw([
+            dec_to_bcd(self.pisugar3.get_alarm_ss()?),
+            dec_to_bcd(self.pisugar3.get_alarm_mn()?),
+            dec_to_bcd(self.pisugar3.get_alarm_hh()?),
+            self.pisugar3.get_alarm_weekday_repeat()?,
+            dec_to_bcd(0),
+            dec_to_bcd(0),
+            dec_to_bcd(0),
+        ]))
     }
 
     fn set_alarm(&self, time: RTCRawTime, weekday_repeat: u8) -> Result<()> {
