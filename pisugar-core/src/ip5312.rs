@@ -10,7 +10,7 @@ use crate::{BatteryThreshold, Error};
 
 /// Battery threshold curve
 pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
-    (4.16, 100.0),
+    (4.10, 100.0),
     (4.05, 95.0),
     (3.90, 88.0),
     (3.80, 77.0),

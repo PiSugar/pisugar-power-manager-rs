@@ -20,8 +20,12 @@ mod battery;
 mod ip5209;
 mod ip5312;
 mod model;
+mod pisugar3;
+mod rtc;
 mod sd3078;
 
+pub use crate::rtc::RTCRawTime;
+use crate::rtc::RTC;
 pub use model::Model;
 
 /// Time host
@@ -287,7 +291,7 @@ pub struct PiSugarCore {
     model: Model,
     battery: Option<Box<dyn Battery + Send>>,
     battery_full_at: Option<Instant>,
-    rtc: Option<SD3078>,
+    rtc: Option<Box<dyn RTC + Send>>,
     poll_check_at: Instant,
 }
 
@@ -303,7 +307,7 @@ impl PiSugarCore {
 
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
-            let rtc = SD3078::new(I2C_ADDR_RTC)?;
+            let mut rtc = self.model.rtc(self.config.i2c_bus)?;
             rtc.init(
                 self.config.auto_power_on.unwrap_or(false),
                 self.config.auto_wake_time,
@@ -453,7 +457,7 @@ impl PiSugarCore {
             .and_then(|t| t.try_into().map_err(|_| Error::Other("Invalid datetime".to_string())))
     }
 
-    pub fn read_raw_time(&self) -> Result<SD3078Time> {
+    pub fn read_raw_time(&self) -> Result<RTCRawTime> {
         call_rtc!(&self.rtc, read_time)
     }
 
@@ -461,7 +465,7 @@ impl PiSugarCore {
         call_rtc!(&self.rtc, write_time, dt.into())
     }
 
-    pub fn set_alarm(&self, t: SD3078Time, weekday_repeat: u8) -> Result<()> {
+    pub fn set_alarm(&self, t: RTCRawTime, weekday_repeat: u8) -> Result<()> {
         if self.config.auto_power_on == Some(true) {
             return Err(Error::Other(
                 "auto_power_on is in conflict with alarm function".to_string(),
@@ -470,12 +474,12 @@ impl PiSugarCore {
         call_rtc!(&self.rtc, set_alarm, t, weekday_repeat)
     }
 
-    pub fn read_alarm_time(&self) -> Result<SD3078Time> {
+    pub fn read_alarm_time(&self) -> Result<RTCRawTime> {
         call_rtc!(&self.rtc, read_alarm_time)
     }
 
     pub fn read_alarm_enabled(&self) -> Result<bool> {
-        call_rtc!(&self.rtc, read_alarm_enabled)
+        call_rtc!(&self.rtc, is_alarm_enable)
     }
 
     pub fn read_alarm_flag(&self) -> Result<bool> {
@@ -487,7 +491,7 @@ impl PiSugarCore {
     }
 
     pub fn disable_alarm(&self) -> Result<()> {
-        call_rtc!(&self.rtc, disable_alarm)
+        call_rtc!(&self.rtc, toggle_alarm_enable, false)
     }
 
     pub fn toggle_auto_power_on(&mut self, auto_power_on: bool) -> Result<()> {
@@ -495,9 +499,9 @@ impl PiSugarCore {
         self.save_config()?;
 
         if auto_power_on {
-            call_rtc!(&self.rtc, set_frequency_alarm)?;
+            call_rtc!(&self.rtc, toggle_frequency_alarm, true)?;
         } else {
-            call_rtc!(&self.rtc, disable_frequency_alarm)?;
+            call_rtc!(&self.rtc, toggle_frequency_alarm, false)?;
 
             // restore clock alarm
             if let Some(wakeup_time) = self.config.auto_wake_time {
@@ -612,15 +616,11 @@ impl PiSugarCore {
 
             // rtc battery charging
             if let Some(rtc) = &self.rtc {
-                if (rtc.read_battery_low_flag().ok() == Some(true))
-                    && (rtc.read_battery_charging_flag().ok() == Some(false))
-                {
+                if rtc.read_battery_low_flag().ok() == Some(true) {
                     log::debug!("Enable rtc charging");
                     let _ = rtc.toggle_charging(true);
                 } else {
-                    if (rtc.read_battery_high_flag().ok() == Some(true))
-                        && (rtc.read_battery_charging_flag().ok() == Some(true))
-                    {
+                    if rtc.read_battery_high_flag().ok() == Some(true) {
                         log::debug!("Disable rtc charging");
                         let _ = rtc.toggle_charging(false);
                     }

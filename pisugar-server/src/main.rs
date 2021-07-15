@@ -30,7 +30,7 @@ use tokio_util::codec::{BytesCodec, Framed};
 use websocket_codec::{Message, Opcode};
 
 use pisugar_core::{
-    execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, SD3078Time,
+    execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime,
     I2C_READ_INTERVAL, TIME_HOST,
 };
 
@@ -231,7 +231,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     if parts.len() >= 3 {
                         if let Ok(datetime) = parts[1].parse::<DateTime<FixedOffset>>() {
                             let datetime: DateTime<Local> = datetime.into();
-                            let sd3078_time: SD3078Time = datetime.into();
+                            let sd3078_time: RTCRawTime = datetime.into();
                             if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
                                 match core.set_alarm(sd3078_time, weekday_repeat) {
                                     Ok(_) => {
