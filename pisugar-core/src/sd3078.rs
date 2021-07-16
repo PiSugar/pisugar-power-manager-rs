@@ -267,20 +267,6 @@ impl RTC for SD3078 {
         }
     }
 
-    /// Set a test wake up after 1 minutes
-    fn set_test_wake(&self) -> Result<()> {
-        let now = Utc::now();
-        self.write_time(now.into())?;
-
-        let duration = chrono::Duration::seconds(90);
-        let then = now + duration;
-        self.set_alarm(then.into(), 0b0111_1111)?;
-
-        log::error!("Will wake up after 1min 30sec, please power-off");
-
-        Ok(())
-    }
-
     /// Force shutdown
     fn force_shutdown(&self) -> Result<()> {
         self.disable_frequency_alarm()

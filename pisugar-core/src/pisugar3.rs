@@ -21,21 +21,11 @@ const IIC_CMD_VH: u8 = 0x22;
 /// Voltage low byte
 const IIC_CMD_VL: u8 = 0x23;
 
-/// input current High byte
-const IIC_CMD_IH: u8 = 0x24;
-/// Input current low byte
-const IIC_CMD_IL: u8 = 0x25;
 /// Output current high byte
 const IIC_CMD_OH: u8 = 0x26;
 /// Output current lob byte
 const IIC_CMD_OL: u8 = 0x27;
 
-/// Under load current 0-255mA
-const IIC_CMD_UL_C: u8 = 0x28;
-/// Under load delay (*2s)
-const IIC_CMD_UL_D: u8 = 0x29;
-
-/// Battery percent
 const IIC_CMD_P: u8 = 0x2A;
 
 /// RTC year
@@ -322,7 +312,7 @@ impl Battery for PiSugar3Battery {
         return Ok(power_plugged && allow_charging);
     }
 
-    fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {
+    fn poll(&mut self, _now: Instant) -> crate::Result<Option<TapType>> {
         // PiSugar 3 doesn't support tap
         Ok(None)
     }
@@ -382,70 +372,73 @@ impl RTC for PiSugar3RTC {
     }
 
     fn write_time(&self, raw: RTCRawTime) -> Result<()> {
-        let dec = raw.to_dec();
-        self.pisugar3.set_rtc_ss(dec[0])?;
-        self.pisugar3.set_rtc_mn(dec[1])?;
-        self.pisugar3.set_rtc_hh(dec[2])?;
-        self.pisugar3.set_rtc_weekday(dec[3])?;
-        self.pisugar3.set_rtc_dd(dec[4])?;
-        self.pisugar3.set_rtc_mm(dec[5])?;
-        self.pisugar3.set_rtc_yy(dec[6])?;
+        self.pisugar3.set_rtc_ss(raw.second())?;
+        self.pisugar3.set_rtc_mn(raw.minute())?;
+        self.pisugar3.set_rtc_hh(raw.hour())?;
+        self.pisugar3.set_rtc_weekday(raw.weekday())?;
+        self.pisugar3.set_rtc_dd(raw.day())?;
+        self.pisugar3.set_rtc_mm(raw.month())?;
+        self.pisugar3.set_rtc_yy(((raw.year() - 2000) & 0xff) as u8)?;
         Ok(())
     }
 
     fn read_alarm_time(&self) -> Result<RTCRawTime> {
-        Ok(RTCRawTime::from_raw([
-            dec_to_bcd(self.pisugar3.get_alarm_ss()?),
-            dec_to_bcd(self.pisugar3.get_alarm_mn()?),
-            dec_to_bcd(self.pisugar3.get_alarm_hh()?),
+        Ok(RTCRawTime::from_dec([
+            self.pisugar3.get_alarm_ss()?,
+            self.pisugar3.get_alarm_mn()?,
+            self.pisugar3.get_alarm_hh()?,
             self.pisugar3.get_alarm_weekday_repeat()?,
-            dec_to_bcd(0),
-            dec_to_bcd(0),
-            dec_to_bcd(0),
+            0,
+            0,
+            0,
         ]))
     }
 
     fn set_alarm(&self, time: RTCRawTime, weekday_repeat: u8) -> Result<()> {
-        todo!()
+        self.pisugar3.toggle_alarm_enable(false)?;
+        self.pisugar3.set_alarm_hh(time.hour())?;
+        self.pisugar3.set_alarm_mn(time.minute())?;
+        self.pisugar3.set_alarm_ss(time.second())?;
+        self.pisugar3.set_alarm_weekday_repeat(weekday_repeat)?;
+        self.pisugar3.toggle_alarm_enable(true)?;
+        Ok(())
     }
 
     fn is_alarm_enable(&self) -> Result<bool> {
-        todo!()
+        Ok(self.pisugar3.get_alarm_enable()?)
     }
 
     fn toggle_alarm_enable(&self, enable: bool) -> Result<()> {
-        todo!()
+        Ok(self.pisugar3.toggle_alarm_enable(enable)?)
     }
 
     fn read_alarm_flag(&self) -> Result<bool> {
-        todo!()
+        // PiSugar 3 has no alarm flag
+        Ok(false)
     }
 
     fn clear_alarm_flag(&self) -> Result<()> {
-        todo!()
+        Ok(())
     }
 
-    fn toggle_frequency_alarm(&self, enable: bool) -> Result<()> {
-        todo!()
-    }
-
-    fn set_test_wake(&self) -> Result<()> {
-        todo!()
+    fn toggle_frequency_alarm(&self, _enable: bool) -> Result<()> {
+        // PiSugar 3 has auto power restore, so frequency alarm is deprecated
+        Ok(())
     }
 
     fn force_shutdown(&self) -> Result<()> {
-        todo!()
+        Ok(())
     }
 
     fn read_battery_low_flag(&self) -> Result<bool> {
-        todo!()
+        Ok(false)
     }
 
-    fn toggle_charging(&self, enable: bool) -> Result<()> {
-        todo!()
+    fn toggle_charging(&self, _enable: bool) -> Result<()> {
+        Ok(())
     }
 
     fn read_battery_high_flag(&self) -> Result<bool> {
-        todo!()
+        Ok(true)
     }
 }

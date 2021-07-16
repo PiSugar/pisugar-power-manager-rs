@@ -307,7 +307,7 @@ impl PiSugarCore {
 
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
-            let mut rtc = self.model.rtc(self.config.i2c_bus)?;
+            let rtc = self.model.rtc(self.config.i2c_bus)?;
             rtc.init(
                 self.config.auto_power_on.unwrap_or(false),
                 self.config.auto_wake_time,
