@@ -122,12 +122,12 @@ jobs:
             scripts/*
           if-no-files-found: warn
 
-      # Development Release
+      # PiSugar3 Release
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          title: "Development Build"
+          automatic_release_tag: "pisugar-3-latest"
+          title: "PiSugar 3 Build"
           prerelease: true
           draft: false
           files: |
