@@ -298,7 +298,11 @@ pub struct PiSugarCore {
 impl PiSugarCore {
     fn init_battery(&mut self) -> Result<()> {
         if self.battery.is_none() {
-            let mut battery = self.model.bind(self.config.i2c_bus, I2C_ADDR_BAT)?;
+            let i2c_addr_bat = match self.model {
+                Model::PiSugar_3 => pisugar3::I2C_ADDR_P3,
+                _ => I2C_ADDR_BAT,
+            };
+            let mut battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
             battery.init(self.config.auto_power_on.unwrap_or(false))?;
             self.battery = Some(battery);
         }
