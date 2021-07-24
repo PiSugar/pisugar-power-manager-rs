@@ -13,8 +13,12 @@ use chrono::{DateTime, Datelike, Local, Timelike};
 use rppal::i2c::Error as I2cError;
 use serde::{Deserialize, Serialize};
 
-use crate::battery::Battery;
+pub use model::Model;
 pub use sd3078::*;
+
+use crate::battery::Battery;
+pub use crate::rtc::RTCRawTime;
+use crate::rtc::RTC;
 
 mod battery;
 mod ip5209;
@@ -23,10 +27,6 @@ mod model;
 mod pisugar3;
 mod rtc;
 mod sd3078;
-
-pub use crate::rtc::RTCRawTime;
-use crate::rtc::RTC;
-pub use model::Model;
 
 /// Time host
 pub const TIME_HOST: &str = "http://cdn.pisugar.com";

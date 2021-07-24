@@ -1,8 +1,10 @@
-use crate::Result;
-use chrono::prelude::*;
-use chrono::{DateTime, Local, LocalResult, Utc};
 use std::convert::{TryFrom, TryInto};
 use std::fmt::{self, Display};
+
+use chrono::prelude::*;
+use chrono::{DateTime, Local, LocalResult, Utc};
+
+use crate::Result;
 
 pub fn bcd_to_dec(bcd: u8) -> u8 {
     (bcd & 0x0F) + (((bcd & 0xF0) >> 4) * 10)
