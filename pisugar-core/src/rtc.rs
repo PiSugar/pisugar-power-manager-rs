@@ -9,10 +9,11 @@ pub fn bcd_to_dec(bcd: u8) -> u8 {
 }
 
 pub fn dec_to_bcd(dec: u8) -> u8 {
-    dec % 10 + ((dec / 10) << 4)
+    (dec % 10) | ((dec / 10) << 4)
 }
 
 /// RTC raw time, always UTC 24hr, BCD format
+/// ss/mn/hh/wd/dd/mm/yy
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct RTCRawTime(pub [u8; 7]);
 
@@ -26,7 +27,7 @@ impl RTCRawTime {
     pub fn from_dec(dec: [u8; 7]) -> Self {
         let mut raw = [0; 7];
         for i in 0..7 {
-            raw[i] = bcd_to_dec(dec[i]);
+            raw[i] = dec_to_bcd(dec[i]);
         }
         Self(raw)
     }

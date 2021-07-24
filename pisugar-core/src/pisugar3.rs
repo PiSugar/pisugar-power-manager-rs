@@ -1,11 +1,13 @@
+use std::collections::VecDeque;
+use std::time::Instant;
+
+use chrono::{DateTime, Duration, Local, Timelike};
+use rppal::i2c::I2c;
+
 use crate::battery::Battery;
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
 use crate::{Error, Model, RTCRawTime, Result, TapType};
-use chrono::{DateTime, Local, Timelike};
-use rppal::i2c::I2c;
-use std::collections::VecDeque;
-use std::time::Instant;
 
 /// PiSugar 3 i2c addr
 pub const I2C_ADDR_P3: u16 = 0x57;
@@ -154,7 +156,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_weekday(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_WD)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_WD)?))
     }
 
     pub fn set_rtc_weekday(&self, wd: u8) -> Result<()> {
@@ -162,7 +164,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_hh(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_HH)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_HH)?))
     }
 
     pub fn set_rtc_hh(&self, hh: u8) -> Result<()> {
@@ -170,7 +172,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_mn(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_MN)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_MN)?))
     }
 
     pub fn set_rtc_mn(&self, mn: u8) -> Result<()> {
@@ -178,7 +180,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_ss(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
     }
 
     pub fn set_rtc_ss(&self, ss: u8) -> Result<()> {
@@ -194,7 +196,7 @@ impl PiSugar3 {
     }
 
     pub fn get_alarm_hh(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_HH)?)
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_HH)?))
     }
 
     pub fn set_alarm_hh(&self, hh: u8) -> Result<()> {
@@ -202,7 +204,7 @@ impl PiSugar3 {
     }
 
     pub fn get_alarm_mn(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_MN)?)
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_MN)?))
     }
 
     pub fn set_alarm_mn(&self, mn: u8) -> Result<()> {
@@ -210,7 +212,7 @@ impl PiSugar3 {
     }
 
     pub fn get_alarm_ss(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_SS)?)
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_SS)?))
     }
 
     pub fn set_alarm_ss(&self, ss: u8) -> Result<()> {
@@ -225,17 +227,20 @@ pub struct PiSugar3Battery {
     voltages: VecDeque<(Instant, f32)>,
     intensities: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
+    poll_at: Instant,
 }
 
 impl PiSugar3Battery {
     pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
         let pisugar3 = PiSugar3::new(i2c_bus, i2c_addr)?;
+        let poll_at = Instant::now() - std::time::Duration::from_secs(10);
         Ok(Self {
             pisugar3,
             model,
             voltages: VecDeque::with_capacity(30),
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
+            poll_at,
         })
     }
 }
@@ -255,7 +260,7 @@ impl Battery for PiSugar3Battery {
 
     fn voltage(&self) -> crate::Result<f32> {
         let v = self.pisugar3.read_voltage()?;
-        Ok((v as f32) / (1000 as f32))
+        Ok((v as f32) / 1000.0)
     }
 
     fn voltage_avg(&self) -> crate::Result<f32> {
@@ -312,7 +317,31 @@ impl Battery for PiSugar3Battery {
         return Ok(power_plugged && allow_charging);
     }
 
-    fn poll(&mut self, _now: Instant) -> crate::Result<Option<TapType>> {
+    fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {
+        // slow down, 500ms
+        if self.poll_at > now || self.poll_at + std::time::Duration::from_millis(500) > now {
+            return Ok(None);
+        }
+        self.poll_at = now;
+
+        let voltage = self.voltage()?;
+        self.voltages.pop_front();
+        while self.voltages.len() < self.voltages.capacity() {
+            self.voltages.push_back((now, voltage));
+        }
+
+        let level = IP5312::parse_voltage_level(voltage);
+        self.levels.pop_front();
+        while self.levels.len() < self.levels.capacity() {
+            self.levels.push_back(level);
+        }
+
+        let intensity = self.intensity()?;
+        self.intensities.pop_front();
+        while self.intensities.len() < self.intensities.capacity() {
+            self.intensities.push_back((now, intensity));
+        }
+
         // PiSugar 3 doesn't support tap
         Ok(None)
     }
@@ -383,15 +412,17 @@ impl RTC for PiSugar3RTC {
     }
 
     fn read_alarm_time(&self) -> Result<RTCRawTime> {
-        Ok(RTCRawTime::from_dec([
+        let mut raw = RTCRawTime::from_dec([
             self.pisugar3.get_alarm_ss()?,
             self.pisugar3.get_alarm_mn()?,
             self.pisugar3.get_alarm_hh()?,
-            self.pisugar3.get_alarm_weekday_repeat()?,
             0,
             0,
             0,
-        ]))
+            0,
+        ]);
+        raw.0[3] = self.pisugar3.get_alarm_weekday_repeat()?;
+        Ok(raw)
     }
 
     fn set_alarm(&self, time: RTCRawTime, weekday_repeat: u8) -> Result<()> {
