@@ -15,6 +15,9 @@ pub const I2C_ADDR_P3: u16 = 0x57;
 /// Global ctrl 1
 const IIC_CMD_CTR1: u8 = 0x02;
 
+/// Global ctrl 2
+const IIC_CMD_CTR2: u8 = 0x03;
+
 /// Battery ctrl
 const IIC_CMD_BAT_CTR: u8 = 0x20;
 
@@ -75,6 +78,16 @@ impl PiSugar3 {
 
     pub fn write_ctr1(&self, ctr1: u8) -> Result<()> {
         self.i2c.smbus_write_byte(IIC_CMD_CTR1, ctr1)?;
+        Ok(())
+    }
+
+    pub fn read_crt2(&self) -> Result<u8> {
+        let ctr2 = self.i2c.smbus_read_byte(IIC_CMD_CTR2)?;
+        Ok(ctr2)
+    }
+
+    pub fn write_ctr2(&self, ctr1: u8) -> Result<()> {
+        self.i2c.smbus_write_byte(IIC_CMD_CTR2, ctr2)?;
         Ok(())
     }
 

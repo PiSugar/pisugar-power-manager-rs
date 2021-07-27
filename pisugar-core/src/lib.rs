@@ -127,47 +127,65 @@ fn default_i2c_bus() -> u8 {
 /// PiSugar configuration
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct PiSugarConfig {
+    /// I2C bus, default 1 (/dev/i2c-1)
     #[serde(default = "default_i2c_bus")]
     pub i2c_bus: u8,
 
+    /// Alarm time
     #[serde(default)]
     pub auto_wake_time: Option<DateTime<Local>>,
 
+    /// Alarm weekday repeat
     #[serde(default)]
     pub auto_wake_repeat: u8,
 
+    /// Single tap enable
     #[serde(default)]
     pub single_tap_enable: bool,
 
+    /// Single tap shell script
     #[serde(default)]
     pub single_tap_shell: String,
 
+    /// Double tap enable
     #[serde(default)]
     pub double_tap_enable: bool,
 
+    /// Double tap shell script
     #[serde(default)]
     pub double_tap_shell: String,
 
+    /// Long tap enable
     #[serde(default)]
     pub long_tap_enable: bool,
 
+    /// Long tap shell script
     #[serde(default)]
     pub long_tap_shell: String,
 
+    /// Auto shutdown when battery level is low
     #[serde(default)]
     pub auto_shutdown_level: f64,
 
+    /// Auto shutdown delay, seconds
     #[serde(default)]
     pub auto_shutdown_delay: f64,
 
+    /// Changing range
     #[serde(default)]
     pub auto_charging_range: Option<(f32, f32)>,
 
+    /// Keep charging duration
     #[serde(default)]
     pub full_charge_duration: Option<u64>,
 
+    /// UPS automatically power on when power recovered
     #[serde(default)]
     pub auto_power_on: Option<bool>,
+
+    /// Soft poweroff, PiSugar 3 only
+    #[serde(default)]
+    pub soft_poweroff: Option<bool>,
 }
 
 impl PiSugarConfig {
