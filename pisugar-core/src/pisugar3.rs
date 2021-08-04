@@ -1,17 +1,22 @@
+use std::collections::VecDeque;
+use std::time::Instant;
+
+use chrono::{DateTime, Duration, Local, Timelike};
+use rppal::i2c::I2c;
+
 use crate::battery::Battery;
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
 use crate::{Error, Model, RTCRawTime, Result, TapType};
-use chrono::{DateTime, Local, Timelike};
-use rppal::i2c::I2c;
-use std::collections::VecDeque;
-use std::time::Instant;
 
 /// PiSugar 3 i2c addr
 pub const I2C_ADDR_P3: u16 = 0x57;
 
 /// Global ctrl 1
 const IIC_CMD_CTR1: u8 = 0x02;
+
+/// Tap event
+const IIC_CMD_TAP: u8 = 0x08;
 
 /// Battery ctrl
 const IIC_CMD_BAT_CTR: u8 = 0x20;
@@ -83,6 +88,17 @@ impl PiSugar3 {
             ctr1 |= 0b0001_0000;
         }
         self.write_ctr1(ctr1)
+    }
+
+    pub fn read_tap_event(&self) -> Result<u8> {
+        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
+        Ok(tap & 0b0000_0011)
+    }
+
+    pub fn reset_tap(&self) -> Result<()> {
+        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
+        self.i2c.smbus_write_byte(IIC_CMD_TAP, tap & 0b1111_1100)?;
+        Ok(())
     }
 
     pub fn read_bat_ctr(&self) -> Result<u8> {
@@ -225,6 +241,7 @@ pub struct PiSugar3Battery {
     voltages: VecDeque<(Instant, f32)>,
     intensities: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
+    poll_check_at: Instant,
 }
 
 impl PiSugar3Battery {
@@ -236,6 +253,7 @@ impl PiSugar3Battery {
             voltages: VecDeque::with_capacity(30),
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
+            poll_check_at: Instant::now(),
         })
     }
 }
@@ -312,8 +330,15 @@ impl Battery for PiSugar3Battery {
         return Ok(power_plugged && allow_charging);
     }
 
-    fn poll(&mut self, _now: Instant) -> crate::Result<Option<TapType>> {
-        // PiSugar 3 doesn't support tap
+    fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {
+        if now > self.poll_check_at && (now - self.poll_check_at) > std::time::Duration::from_millis(400) {
+            return match self.pisugar3.read_tap_event()? {
+                1 => Ok(Some(TapType::Single)),
+                2 => Ok(Some(TapType::Double)),
+                3 => Ok(Some(TapType::Long)),
+                _ => Ok(None),
+            };
+        }
         Ok(None)
     }
 
