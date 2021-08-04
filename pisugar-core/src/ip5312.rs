@@ -377,22 +377,22 @@ impl Battery for IP5312Battery {
 
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
         let voltage = self.voltage()?;
-        if self.voltages.len() >= self.voltages.capacity() {
-            self.voltages.pop_front();
+        self.voltages.pop_front();
+        while self.voltages.len() < self.voltages.capacity() {
+            self.voltages.push_back((now, voltage));
         }
-        self.voltages.push_back((now, voltage));
 
         let level = IP5312::parse_voltage_level(voltage);
-        if self.levels.len() >= self.levels.capacity() {
-            self.levels.pop_front();
+        self.levels.pop_front();
+        while self.levels.len() < self.levels.capacity() {
+            self.levels.push_back(level);
         }
-        self.levels.push_back(level);
 
         let intensity = self.intensity()?;
-        if self.intensities.len() >= self.intensities.capacity() {
-            self.intensities.pop_front();
+        self.intensities.pop_front();
+        while self.intensities.len() < self.intensities.capacity() {
+            self.intensities.push_back((now, intensity));
         }
-        self.intensities.push_back((now, intensity));
 
         let gpio_value = self.ip5312.read_gpio_tap()?;
         let tapped = gpio_value != 0;

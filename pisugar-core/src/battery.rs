@@ -1,6 +1,7 @@
-use crate::{Result, TapType};
 use std::collections::VecDeque;
 use std::time::Instant;
+
+use crate::{Result, TapType};
 
 /// Battery chip controller
 pub trait Battery {

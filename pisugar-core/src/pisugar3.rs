@@ -15,8 +15,8 @@ pub const I2C_ADDR_P3: u16 = 0x57;
 /// Global ctrl 1
 const IIC_CMD_CTR1: u8 = 0x02;
 
-/// Tap event
-const IIC_CMD_TAP: u8 = 0x08;
+/// Global ctrl 2
+const IIC_CMD_CTR2: u8 = 0x03;
 
 /// Battery ctrl
 const IIC_CMD_BAT_CTR: u8 = 0x20;
@@ -81,6 +81,16 @@ impl PiSugar3 {
         Ok(())
     }
 
+    pub fn read_crt2(&self) -> Result<u8> {
+        let ctr2 = self.i2c.smbus_read_byte(IIC_CMD_CTR2)?;
+        Ok(ctr2)
+    }
+
+    pub fn write_ctr2(&self, ctr1: u8) -> Result<()> {
+        self.i2c.smbus_write_byte(IIC_CMD_CTR2, ctr2)?;
+        Ok(())
+    }
+
     pub fn toggle_restore(&self, auto_restore: bool) -> Result<()> {
         let mut ctr1 = self.read_ctr1()?;
         ctr1 &= 0b1110_0000;
@@ -88,17 +98,6 @@ impl PiSugar3 {
             ctr1 |= 0b0001_0000;
         }
         self.write_ctr1(ctr1)
-    }
-
-    pub fn read_tap_event(&self) -> Result<u8> {
-        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
-        Ok(tap & 0b0000_0011)
-    }
-
-    pub fn reset_tap(&self) -> Result<()> {
-        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
-        self.i2c.smbus_write_byte(IIC_CMD_TAP, tap & 0b1111_1100)?;
-        Ok(())
     }
 
     pub fn read_bat_ctr(&self) -> Result<u8> {
@@ -170,7 +169,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_weekday(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_WD)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_WD)?))
     }
 
     pub fn set_rtc_weekday(&self, wd: u8) -> Result<()> {
@@ -178,7 +177,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_hh(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_HH)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_HH)?))
     }
 
     pub fn set_rtc_hh(&self, hh: u8) -> Result<()> {
@@ -186,7 +185,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_mn(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_MN)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_MN)?))
     }
 
     pub fn set_rtc_mn(&self, mn: u8) -> Result<()> {
@@ -194,7 +193,7 @@ impl PiSugar3 {
     }
 
     pub fn get_rtc_ss(&self) -> Result<u8> {
-        Ok(dec_to_bcd(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
     }
 
     pub fn set_rtc_ss(&self, ss: u8) -> Result<()> {
@@ -210,7 +209,7 @@ impl PiSugar3 {
     }
 
     pub fn get_alarm_hh(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_HH)?)
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_HH)?))
     }
 
     pub fn set_alarm_hh(&self, hh: u8) -> Result<()> {
@@ -218,7 +217,7 @@ impl PiSugar3 {
     }
 
     pub fn get_alarm_mn(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_MN)?)
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_MN)?))
     }
 
     pub fn set_alarm_mn(&self, mn: u8) -> Result<()> {
@@ -226,7 +225,7 @@ impl PiSugar3 {
     }
 
     pub fn get_alarm_ss(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_SS)?)
+        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_SS)?))
     }
 
     pub fn set_alarm_ss(&self, ss: u8) -> Result<()> {
@@ -241,19 +240,20 @@ pub struct PiSugar3Battery {
     voltages: VecDeque<(Instant, f32)>,
     intensities: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
-    poll_check_at: Instant,
+    poll_at: Instant,
 }
 
 impl PiSugar3Battery {
     pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
         let pisugar3 = PiSugar3::new(i2c_bus, i2c_addr)?;
+        let poll_at = Instant::now() - std::time::Duration::from_secs(10);
         Ok(Self {
             pisugar3,
             model,
             voltages: VecDeque::with_capacity(30),
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
-            poll_check_at: Instant::now(),
+            poll_at,
         })
     }
 }
@@ -273,7 +273,7 @@ impl Battery for PiSugar3Battery {
 
     fn voltage(&self) -> crate::Result<f32> {
         let v = self.pisugar3.read_voltage()?;
-        Ok((v as f32) / (1000 as f32))
+        Ok((v as f32) / 1000.0)
     }
 
     fn voltage_avg(&self) -> crate::Result<f32> {
@@ -331,14 +331,31 @@ impl Battery for PiSugar3Battery {
     }
 
     fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {
-        if now > self.poll_check_at && (now - self.poll_check_at) > std::time::Duration::from_millis(400) {
-            return match self.pisugar3.read_tap_event()? {
-                1 => Ok(Some(TapType::Single)),
-                2 => Ok(Some(TapType::Double)),
-                3 => Ok(Some(TapType::Long)),
-                _ => Ok(None),
-            };
+        // slow down, 500ms
+        if self.poll_at > now || self.poll_at + std::time::Duration::from_millis(500) > now {
+            return Ok(None);
         }
+        self.poll_at = now;
+
+        let voltage = self.voltage()?;
+        self.voltages.pop_front();
+        while self.voltages.len() < self.voltages.capacity() {
+            self.voltages.push_back((now, voltage));
+        }
+
+        let level = IP5312::parse_voltage_level(voltage);
+        self.levels.pop_front();
+        while self.levels.len() < self.levels.capacity() {
+            self.levels.push_back(level);
+        }
+
+        let intensity = self.intensity()?;
+        self.intensities.pop_front();
+        while self.intensities.len() < self.intensities.capacity() {
+            self.intensities.push_back((now, intensity));
+        }
+
+        // PiSugar 3 doesn't support tap
         Ok(None)
     }
 
@@ -408,15 +425,17 @@ impl RTC for PiSugar3RTC {
     }
 
     fn read_alarm_time(&self) -> Result<RTCRawTime> {
-        Ok(RTCRawTime::from_dec([
+        let mut raw = RTCRawTime::from_dec([
             self.pisugar3.get_alarm_ss()?,
             self.pisugar3.get_alarm_mn()?,
             self.pisugar3.get_alarm_hh()?,
-            self.pisugar3.get_alarm_weekday_repeat()?,
             0,
             0,
             0,
-        ]))
+            0,
+        ]);
+        raw.0[3] = self.pisugar3.get_alarm_weekday_repeat()?;
+        Ok(raw)
     }
 
     fn set_alarm(&self, time: RTCRawTime, weekday_repeat: u8) -> Result<()> {
