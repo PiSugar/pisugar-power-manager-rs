@@ -18,6 +18,9 @@ const IIC_CMD_CTR1: u8 = 0x02;
 /// Global ctrl 2
 const IIC_CMD_CTR2: u8 = 0x03;
 
+/// Tap
+const IIC_CMD_TAP: u8 = 0x08;
+
 /// Battery ctrl
 const IIC_CMD_BAT_CTR: u8 = 0x20;
 
@@ -86,7 +89,7 @@ impl PiSugar3 {
         Ok(ctr2)
     }
 
-    pub fn write_ctr2(&self, ctr1: u8) -> Result<()> {
+    pub fn write_ctr2(&self, ctr2: u8) -> Result<()> {
         self.i2c.smbus_write_byte(IIC_CMD_CTR2, ctr2)?;
         Ok(())
     }
@@ -98,6 +101,17 @@ impl PiSugar3 {
             ctr1 |= 0b0001_0000;
         }
         self.write_ctr1(ctr1)
+    }
+
+    pub fn read_tap(&self) -> Result<u8> {
+        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
+        Ok(tap & 0b0000_0011)
+    }
+
+    pub fn reset_tap(&self) -> Result<()> {
+        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
+        self.i2c.smbus_write_byte(IIC_CMD_TAP, tap & 0b1111_1100)?;
+        Ok(())
     }
 
     pub fn read_bat_ctr(&self) -> Result<u8> {
@@ -355,8 +369,17 @@ impl Battery for PiSugar3Battery {
             self.intensities.push_back((now, intensity));
         }
 
-        // PiSugar 3 doesn't support tap
-        Ok(None)
+        let tap = match self.pisugar3.read_tap()? {
+            1 => Some(TapType::Single),
+            2 => Some(TapType::Double),
+            3 => Some(TapType::Long),
+            _ => None,
+        };
+        if tap.is_some() {
+            self.pisugar3.reset_tap()?;
+        }
+
+        Ok(tap)
     }
 
     fn shutdown(&self) -> crate::Result<()> {
