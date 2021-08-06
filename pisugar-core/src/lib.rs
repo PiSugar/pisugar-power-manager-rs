@@ -458,6 +458,14 @@ impl PiSugarCore {
         call_battery!(&self.battery, is_charging)
     }
 
+    pub fn input_protected(&self) -> Result<bool> {
+        call_battery!(&self.battery, is_input_protected)
+    }
+
+    pub fn toggle_input_protected(&self, enable: bool) -> Result<()> {
+        call_battery!(&self.battery, toggle_input_protected, enable)
+    }
+
     pub fn charging_range(&self) -> Result<Option<(f32, f32)>> {
         Ok(self.config.auto_charging_range)
     }
@@ -655,3 +663,15 @@ impl PiSugarCore {
 }
 
 // Fix aarch64
+
+#[cfg(test)]
+mod tests {
+
+    use super::PiSugarConfig;
+
+    #[test]
+    fn test_config() {
+        let config = PiSugarConfig::default();
+        assert!(serde_json::to_string(&config).is_ok())
+    }
+}

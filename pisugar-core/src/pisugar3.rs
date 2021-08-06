@@ -124,6 +124,21 @@ impl PiSugar3 {
         Ok(())
     }
 
+    pub fn read_bat_input_protected(&self) -> Result<bool> {
+        let ctr = self.read_bat_ctr()?;
+        Ok((ctr & 1 << 7) != 0)
+    }
+
+    pub fn toggle_bat_input_protected(&self, enable: bool) -> Result<()> {
+        let mut ctr = self.read_bat_ctr()?;
+        ctr &= 0b0111_1111;
+        if enable {
+            ctr |= 1 << 7;
+        }
+        self.write_bat_ctr(ctr)?;
+        Ok(())
+    }
+
     pub fn read_voltage(&self) -> Result<u16> {
         let vh: u16 = self.i2c.smbus_read_byte(IIC_CMD_VH)? as u16;
         let vl: u16 = self.i2c.smbus_read_byte(IIC_CMD_VL)? as u16;
@@ -342,6 +357,14 @@ impl Battery for PiSugar3Battery {
         let power_plugged = self.is_power_plugged()?;
         let allow_charging = self.is_allow_charging()?;
         return Ok(power_plugged && allow_charging);
+    }
+
+    fn is_input_protected(&self) -> Result<bool> {
+        self.pisugar3.read_bat_input_protected()
+    }
+
+    fn toggle_input_protected(&self, enable: bool) -> Result<()> {
+        self.pisugar3.toggle_bat_input_protected(enable)
     }
 
     fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {

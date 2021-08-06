@@ -412,4 +412,12 @@ impl Battery for IP5312Battery {
     fn shutdown(&self) -> Result<()> {
         self.ip5312.force_shutdown()
     }
+
+    fn is_input_protected(&self) -> Result<bool> {
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn toggle_input_protected(&self, enable: bool) -> Result<()> {
+        Err(Error::Other("Not available".to_string()))
+    }
 }

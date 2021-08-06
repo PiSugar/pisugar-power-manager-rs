@@ -41,13 +41,19 @@ pub trait Battery {
     /// Is battery charging
     fn is_charging(&self) -> Result<bool>;
 
+    /// Is input protect enabled
+    fn is_input_protected(&self) -> Result<bool>;
+
+    /// Toggle input protect
+    fn toggle_input_protected(&self, enable: bool) -> Result<()>;
+
     /// Poll and check tapped
     fn poll(&mut self, now: Instant) -> Result<Option<TapType>>;
 
     /// Shutdown battery chip
     fn shutdown(&self) -> Result<()>;
 
-    // Enable/disable light load shutdown
+    /// Enable/disable light load shutdown
     fn toggle_light_load_shutdown(&self, enable: bool) -> Result<()>;
 }
 
