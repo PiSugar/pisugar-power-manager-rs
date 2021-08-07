@@ -466,6 +466,14 @@ impl PiSugarCore {
         call_battery!(&self.battery, toggle_input_protected, enable)
     }
 
+    pub fn output_enabled(&self) -> Result<bool> {
+        call_battery!(&self.battery, output_enabled)
+    }
+
+    pub fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
+        call_battery!(&self.battery, toggle_output_enabled, enable)
+    }
+
     pub fn charging_range(&self) -> Result<Option<(f32, f32)>> {
         Ok(self.config.auto_charging_range)
     }

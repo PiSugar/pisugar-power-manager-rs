@@ -79,6 +79,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
                             "battery_charging" => core.charging().map(|c| c.to_string()),
                             "battery_input_protect_enabled" => core.input_protected().map(|c| c.to_string()),
+                            "battery_output_enabled" => core.output_enabled().map(|o| o.to_string()),
                             "full_charge_duration" => Ok(core
                                 .config()
                                 .full_charge_duration
@@ -158,10 +159,20 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         }
                     };
                 }
-                "set_battery_input_protect_enabled" => {
+                "set_battery_input_protect" => {
                     if parts.len() > 1 {
                         if let Ok(enable) = parts[1].parse::<bool>() {
                             if core.toggle_input_protected(enable).is_ok() {
+                                return format!("{}: done\n", parts[0]);
+                            }
+                        }
+                    }
+                    return err;
+                }
+                "set_battery_output" => {
+                    if parts.len() > 1 {
+                        if let Ok(enable) = parts[1].parse::<bool>() {
+                            if core.toggle_output_enabled(enable).is_ok() {
                                 return format!("{}: done\n", parts[0]);
                             }
                         }

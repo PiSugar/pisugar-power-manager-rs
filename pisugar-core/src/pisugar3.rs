@@ -94,9 +94,24 @@ impl PiSugar3 {
         Ok(())
     }
 
+    pub fn read_output_enabled(&self) -> Result<bool> {
+        let ctr1 = self.read_ctr1()?;
+        Ok(ctr1 & (1 << 5) != 0)
+    }
+
+    pub fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
+        let mut ctr1 = self.read_ctr1()?;
+        ctr1 &= !(1 << 5);
+        if enable {
+            ctr1 |= 1 << 5;
+        }
+        self.write_ctr1(ctr1)?;
+        Ok(())
+    }
+
     pub fn toggle_restore(&self, auto_restore: bool) -> Result<()> {
         let mut ctr1 = self.read_ctr1()?;
-        ctr1 &= 0b1110_0000;
+        ctr1 &= 0b1110_1111;
         if auto_restore {
             ctr1 |= 0b0001_0000;
         }
@@ -367,6 +382,14 @@ impl Battery for PiSugar3Battery {
         self.pisugar3.toggle_bat_input_protected(enable)
     }
 
+    fn output_enabled(&self) -> Result<bool> {
+        self.pisugar3.read_output_enabled()
+    }
+
+    fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
+        self.pisugar3.toggle_output_enabled(enable)
+    }
+
     fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {
         // slow down, 500ms
         if self.poll_at > now || self.poll_at + std::time::Duration::from_millis(500) > now {
@@ -403,12 +426,6 @@ impl Battery for PiSugar3Battery {
         }
 
         Ok(tap)
-    }
-
-    fn shutdown(&self) -> crate::Result<()> {
-        let mut ctr1 = self.pisugar3.read_ctr1()?;
-        ctr1 &= 0b1101_1111;
-        self.pisugar3.write_ctr1(ctr1)
     }
 
     fn toggle_light_load_shutdown(&self, enable: bool) -> crate::Result<()> {

@@ -410,15 +410,22 @@ impl Battery for IP5209Battery {
         Ok(tap_result)
     }
 
-    fn shutdown(&self) -> Result<()> {
-        self.ip5209.force_shutdown()
-    }
-
     fn is_input_protected(&self) -> Result<bool> {
         Err(Error::Other("Not available".to_string()))
     }
 
     fn toggle_input_protected(&self, enable: bool) -> Result<()> {
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn output_enabled(&self) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
+        if !enable {
+            return self.ip5209.force_shutdown();
+        }
         Err(Error::Other("Not available".to_string()))
     }
 }

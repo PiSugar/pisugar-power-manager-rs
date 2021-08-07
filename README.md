@@ -109,6 +109,7 @@ Default ports:
 | get battery_power_plugged  | charging usb plugged (new model only) | battery_power_plugged: [true\|false] |
 | get battery_charging_range | charging range restart_point% stop_point% (new model only)  | battery_charging_range: [number, number]|
 | get battery_allow_charging | whether charging is allowed when usb is plugged  (new model only)  | battery_allow_charging: [true\|false]|
+| get battery_output_enabled | battery output status | battery_output_enabled: [true\|false] |
 | get rtc_time            | rtc clock | rtc_time: [ISO8601 time string] |
 | get rtc_alarm_enabled   | rtc wakeup alarm enable | rtc_alarm_enabled: [true\|false] |
 | get rtc_alarm_time      | rtc wakeup alarm time | rtc_alarm_time: [ISO8601 time string] |
@@ -124,11 +125,12 @@ Default ports:
 | rtc_alarm_disable | disable rtc wakeup alarm | |
 | set_button_enable | auto shutdown level % | set_button_enable [single\|double\|long] [0\|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level [single\|double\|long] [shell] |
-| set_battery_input_protect_enabled | set BAT input protect | set_battery_input_protect_enabled [true\|false] |
+| set_battery_input_protect | set BAT input protect | set_battery_input_protect [true\|false] |
 | set_safe_shutdown_level | set auto shutdown level % | safe_shutdown_level [number] |
 | set_safe_shutdown_delay | set auto shutdown delay in second | safe_shutdown_delay [number]|
 | set_battery_charging_range | set charging range | set_battery_charging_range [number, number]|
 | set_allow_charging | enable or disable charging | set_allow_charging [true\|false] |
+| set_battery_output | enable or disable battery output | set_battery_output [true\|false] |
 
 Examples:
 
