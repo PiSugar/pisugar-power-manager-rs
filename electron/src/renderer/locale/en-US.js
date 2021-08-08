@@ -64,5 +64,7 @@ module.exports = {
     Fri: 'Fri',
     Sat: 'Sat',
     Sun: 'Sun'
-  }
+  },
+  batteryInputProtect: 'Battery Input Protection',
+  batteryInputProtectDesc: 'The charging process will stop when 60% ~ 80% of the battery is reached, which can effectively extend the battery life.',
 }

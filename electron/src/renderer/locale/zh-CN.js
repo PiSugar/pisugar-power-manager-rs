@@ -5,7 +5,7 @@ module.exports = {
   notCharging: '已接通电源',
   chargeSetting: '充电设置',
   chargingDesc: '电量低于指定值时启动充电',
-  enabled: '定时开机',
+  enabled: '开启',
   disabled: '关闭',
   onPowerRestore: '来电开机',
   powerWakeDesc: '** 请使用两个独立的USB充电器分别为树莓派和PiSugar充电，并保持PiSugar的电源开关在打开状态，这样在外部电源恢复的时候会自动开机。',
@@ -64,5 +64,7 @@ module.exports = {
     Fri: '周五',
     Sat: '周六',
     Sun: '周日'
-  }
+  },
+  batteryInputProtect: '充电保护',
+  batteryInputProtectDesc: '充电过程将在会60%～80%电量时停止，可有效延长电池寿命。',
 }

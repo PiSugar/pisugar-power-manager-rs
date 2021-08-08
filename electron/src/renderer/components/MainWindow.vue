@@ -204,19 +204,35 @@
       </el-dialog>
 
       <el-dialog :title="$t('chargeSetting')" :visible.sync="chargeDialog">
-        <el-row>
-          <el-slider
-            v-model="chargingRestartPoint"
-            :min="50"
-            :max="100"
-            :format-tooltip="formatTooltip"
-            :marks="chargingMarks"
-            show-input>
-          </el-slider>
-        </el-row>
-        <el-row>
-          <span class="charging-desc">{{chargingDesc}}</span>
-        </el-row>
+        <el-form>
+          <!-- version 3 -->
+          <el-form-item :label="$t('batteryInputProtect')" v-if="model.indexOf('3') >= 0">
+            <el-switch
+              v-model="inputProtectEnabled"
+              :active-text="$t('enabled')"
+              :inactive-text="$t('disabled')">
+            </el-switch>
+            <el-row v-if="inputProtectEnabled">
+              <span class="charging-desc">{{$t('batteryInputProtectDesc')}}</span>
+            </el-row>
+          </el-form-item>
+          <!-- version 2 -->
+          <el-form-item v-else>
+            <el-row>
+              <el-slider
+                v-model="chargingRestartPoint"
+                :min="50"
+                :max="100"
+                :format-tooltip="formatTooltip"
+                :marks="chargingMarks"
+                show-input>
+              </el-slider>
+            </el-row>
+            <el-row>
+              <span class="charging-desc">{{chargingDesc}}</span>
+            </el-row>
+          </el-form-item>
+        </el-form>
         <div slot="footer" class="dialog-footer">
           <el-button @click="chargeDialog = false">{{$t('cancel')}}</el-button>
           <el-button type="primary" @click="chargeConfirm">{{$t('confirm')}}</el-button>
@@ -326,7 +342,8 @@
         chargingMarks: {
           80: '80%'
         },
-        timeUpdaterCount: 0
+        timeUpdaterCount: 0,
+        inputProtectEnabled: false,
       }
     },
 
@@ -463,6 +480,11 @@
         // 改了timeRepeat则开启定时开机
         this.alarmOptionValue = val === 0 ? 0 : 1
         this.setRtcAlarm()
+      },
+      inputProtectEnabled: function(val, oldVal) {
+        if (val !== oldVal) {
+          this.$socket.send(`set_battery_input_protect ${!!val}`)
+        }
       }
     },
 
@@ -585,6 +607,9 @@
               this.longTrigger = true
             }, 100)
           }
+          if (!msg.indexOf('battery_input_protect_enabled: ')) {
+            this.inputProtectEnabled = (msg.replace('battery_input_protect_enabled: ', '').trim() === 'true')
+          }
         }
       },
       getBatteryInfo (loop) {
@@ -609,6 +634,7 @@
             this.$socket.send('get battery_charging_range')
             this.$socket.send('get battery_led_amount')
             this.$socket.send('get auto_power_on')
+            this.$socket.send('get battery_input_protect_enabled')
           }
           this.socketConnect = true
           this.$socket.send('get battery')
