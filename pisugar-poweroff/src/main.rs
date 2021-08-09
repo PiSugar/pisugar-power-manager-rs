@@ -50,5 +50,6 @@ fn main() {
     let mut config = PiSugarConfig::default();
     let _ = config.load(Path::new(config_file));
     let _ = shutdown(config.clone(), Model::PiSugar_2_Pro);
-    let _ = shutdown(config, Model::PiSugar_2_4LEDs);
+    let _ = shutdown(config.clone(), Model::PiSugar_2_4LEDs);
+    let _ = shutdown(config, Model::PiSugar_3);
 }
