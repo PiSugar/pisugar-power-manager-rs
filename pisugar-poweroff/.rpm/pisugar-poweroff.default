@@ -1,1 +1,1 @@
-OPTS="--countdown 3"
+OPTS="--model 'PiSugar 3' --countdown 3"

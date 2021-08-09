@@ -6,6 +6,9 @@ raspi-config nonint do_i2c 0
 if [ -e /usr/share/debconf/confmodule ]; then
   . /usr/share/debconf/confmodule
 
+  db_get pisugar-poweroff/model
+  OPTS="$OPTS --model '$RET'"
+
   db_get pisugar-poweroff/countdown
   OPTS="$OPTS --countdown $RET"
 

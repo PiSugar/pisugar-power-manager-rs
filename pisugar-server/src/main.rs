@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::remove_file;
 use std::io;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::{Arc, Mutex};
@@ -659,6 +659,13 @@ fn init_logging(debug: bool, syslog: bool) {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    let models = vec![
+        Model::PiSugar_3.to_string(),
+        Model::PiSugar_2_Pro.to_string(),
+        Model::PiSugar_2_2LEDs.to_string(),
+        Model::PiSugar_2_4LEDs.to_string(),
+    ];
+
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -733,7 +740,14 @@ async fn main() -> std::io::Result<()> {
                 .long("model")
                 .takes_value(true)
                 .required(true)
-                .help("PiSugar 2 (4-LEDs)/PiSugar 2 (2-LEDs)/PiSugar 2 Pro"),
+                .help(&format!("{:?}", models))
+                .validator(move |x| {
+                    if models.contains(&x) {
+                        Ok(())
+                    } else {
+                        Err("Invalid model".to_string())
+                    }
+                }),
         )
         .get_matches();
 

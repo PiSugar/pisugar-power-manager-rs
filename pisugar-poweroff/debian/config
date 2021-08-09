@@ -2,5 +2,8 @@
 
 . /usr/share/debconf/confmodule
 
+db_input critical pisugar-poweroff/model || true
+db_go
+
 db_input medium pisugar-poweroff/countdown || true
 db_go
