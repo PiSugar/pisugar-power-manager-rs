@@ -15,5 +15,6 @@
         100.0
     ],
     "full_charge_duration": null,
-    "auto_power_on": false
+    "auto_power_on": false,
+    "auto_rtc_sync": false
 }

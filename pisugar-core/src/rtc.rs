@@ -164,10 +164,13 @@ pub trait RTC {
     /// Toggle alarm enabled
     fn toggle_alarm_enable(&self, enable: bool) -> Result<()>;
 
+    /// Is alarm working
     fn read_alarm_flag(&self) -> Result<bool>;
 
+    /// Clear alarm flag
     fn clear_alarm_flag(&self) -> Result<()>;
 
+    /// Toggle frequency alarm (to prevent falling asleep)
     fn toggle_frequency_alarm(&self, enable: bool) -> Result<()>;
 
     /// Set a test wake up after 1 minutes
@@ -184,11 +187,15 @@ pub trait RTC {
         Ok(())
     }
 
+    /// Shutdown
     fn force_shutdown(&self) -> Result<()>;
 
+    /// Is battery low
     fn read_battery_low_flag(&self) -> Result<bool>;
 
+    /// Toggle battery charging
     fn toggle_charging(&self, enable: bool) -> Result<()>;
 
+    /// Is battery full
     fn read_battery_high_flag(&self) -> Result<bool>;
 }

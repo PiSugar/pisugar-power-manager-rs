@@ -44,10 +44,10 @@ type EventTx = tokio::sync::watch::Sender<String>;
 type EventRx = tokio::sync::watch::Receiver<String>;
 
 /// Poll pisugar status
-fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
+async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
     log::debug!("Polling state");
     let now = Instant::now();
-    if let Ok(Some(tap_type)) = core.poll(now) {
+    if let Ok(Some(tap_type)) = core.poll(now).await {
         let _ = tx.send(format!("{}", tap_type));
     }
 }
@@ -893,7 +893,7 @@ async fn main() -> std::io::Result<()> {
         interval.tick().await;
         log::debug!("Polling");
         let mut core = core_cloned.lock().expect("unexpected lock failed");
-        poll_pisugar_status(&mut core, &event_tx);
+        poll_pisugar_status(&mut core, &event_tx).await;
 
         // auto shutdown
         if let Ok(level) = core.level() {

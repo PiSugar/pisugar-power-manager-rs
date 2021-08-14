@@ -650,6 +650,7 @@ name = "pisugar-core"
 version = "1.5.2"
 dependencies = [
  "chrono",
+ "hyper",
  "log",
  "rppal",
  "serde",

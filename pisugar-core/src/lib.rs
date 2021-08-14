@@ -7,9 +7,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
-use chrono::{DateTime, Datelike, Local, Timelike};
+use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
+use hyper::client::Client;
 use rppal::i2c::Error as I2cError;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,7 @@ pub use sd3078::*;
 use crate::battery::Battery;
 pub use crate::rtc::RTCRawTime;
 use crate::rtc::RTC;
+use std::str::FromStr;
 
 mod battery;
 mod ip5209;
@@ -30,6 +32,9 @@ mod sd3078;
 
 /// Time host
 pub const TIME_HOST: &str = "http://cdn.pisugar.com";
+
+/// RTC Time record
+pub const RTC_TIME: &str = "rtc.time";
 
 /// I2c poll interval, no more than 1s
 pub const I2C_READ_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
@@ -186,6 +191,9 @@ pub struct PiSugarConfig {
     /// Soft poweroff, PiSugar 3 only
     #[serde(default)]
     pub soft_poweroff: Option<bool>,
+
+    /// Auto rtc sync
+    pub auto_rtc_sync: Option<bool>,
 }
 
 impl PiSugarConfig {
@@ -311,6 +319,7 @@ pub struct PiSugarCore {
     battery_full_at: Option<Instant>,
     rtc: Option<Box<dyn RTC + Send>>,
     poll_check_at: Instant,
+    rtc_sync_at: Instant,
 }
 
 impl PiSugarCore {
@@ -349,6 +358,7 @@ impl PiSugarCore {
             battery_full_at: None,
             rtc: None,
             poll_check_at: Instant::now(),
+            rtc_sync_at: Instant::now(),
         };
         let _ = core.init_rtc();
         let _ = core.init_battery();
@@ -573,7 +583,7 @@ impl PiSugarCore {
         call_battery!(&self.battery, shutdown)
     }
 
-    pub fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
+    pub async fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
         if let Err(e) = self.init_battery() {
             log::debug!("PiSugar2 battery init failed: {}", e);
         }
@@ -618,7 +628,7 @@ impl PiSugarCore {
         }
 
         // slower
-        if now > self.poll_check_at && now.duration_since(self.poll_check_at).as_secs() >= 1 {
+        if self.poll_check_at + Duration::from_secs(1) <= now {
             log::debug!("Poll check");
             self.poll_check_at = now;
 
@@ -661,6 +671,35 @@ impl PiSugarCore {
                     if rtc.read_battery_high_flag().ok() == Some(true) {
                         log::debug!("Disable rtc charging");
                         let _ = rtc.toggle_charging(false);
+                    }
+                }
+            }
+        }
+
+        // much slower
+        if self.rtc_sync_at + Duration::from_secs(10) <= now {
+            use std::fs;
+            if let Ok(t) = fs::read(RTC_TIME) {
+                if let Ok(t) = String::from_utf8(t) {
+                    if let Ok(dt) = t.parse::<DateTime<FixedOffset>>() {
+                        let dt_now: DateTime<Local> = Local::now();
+                        let rtc_dt: DateTime<Local> = dt.into();
+                        if dt_now < rtc_dt {
+                            sys_write_time(dt.into());
+                            let _ = self.write_time(dt.into());
+                        }
+                    }
+                }
+            }
+
+            if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
+                if let Some(date) = resp.headers().get("Date") {
+                    if let Ok(s) = date.to_str() {
+                        if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
+                            sys_write_time(dt.into());
+                            let _ = self.write_time(dt.into());
+                            let _ = fs::write(RTC_TIME, dt.to_string());
+                        }
                     }
                 }
             }
