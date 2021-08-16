@@ -678,6 +678,7 @@ impl PiSugarCore {
 
         // much slower
         if self.rtc_sync_at + Duration::from_secs(10) <= now {
+            self.rtc_sync_at = now;
             use std::fs;
             if let Ok(t) = fs::read(RTC_TIME) {
                 if let Ok(t) = String::from_utf8(t) {
