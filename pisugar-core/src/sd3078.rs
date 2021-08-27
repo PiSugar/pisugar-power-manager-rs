@@ -196,6 +196,10 @@ impl RTC for SD3078 {
         // always 24hr
         bcd_time[2] &= 0b0011_1111;
 
+        bcd_time[4] = 1;
+        bcd_time[5] = 1;
+        bcd_time[6] = 0;
+
         Ok(RTCRawTime(bcd_time))
     }
 

@@ -14,6 +14,22 @@ pub fn dec_to_bcd(dec: u8) -> u8 {
     (dec % 10) | ((dec / 10) << 4)
 }
 
+pub fn ensure_bcd(bcd: u8, max: u8) -> u8 {
+    let mut r1 = bcd >> 4;
+    if r1 > 9 {
+        r1 = 9;
+    }
+    let mut r2 = bcd & 0b0000_1111;
+    if r2 > 9 {
+        r2 = 9;
+    }
+    let mut r = (r1 << 4) | r2;
+    if bcd_to_dec(r) > bcd_to_dec(max) {
+        r = max;
+    }
+    r
+}
+
 /// RTC raw time, always UTC 24hr, BCD format
 /// ss/mn/hh/wd/dd/mm/yy
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
