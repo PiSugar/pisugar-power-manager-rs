@@ -493,8 +493,8 @@ impl RTC for PiSugar3RTC {
             self.pisugar3.get_alarm_mn()?,
             self.pisugar3.get_alarm_hh()?,
             0,
-            0,
-            0,
+            1,
+            1,
             0,
         ]);
         raw.0[3] = self.pisugar3.get_alarm_weekday_repeat()?;
