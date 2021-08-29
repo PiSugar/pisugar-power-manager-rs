@@ -79,24 +79,15 @@ impl IP5312 {
 
     /// Shutdown under light load (126mA and 8s)
     pub fn enable_light_load_auto_shutdown(&self) -> Result<()> {
-        let threshold = PI_PRO_IDLE_INTENSITY * 1000.0;
-        let threshold = (threshold / 4.3) as u64;
-        let threshold = if threshold > 0b0011_1111 {
-            0b0011_1111 as u8
-        } else {
-            threshold as u8
-        };
-
-        // threshold intensity, x*4.3mA = 126mA
+        // threshold intensity, x*4.3mA
         let mut v = self.i2c.smbus_read_byte(0xc9)?;
         v &= 0b1100_0000;
-        v |= threshold;
+        v |= 0x2F; // 47 * 4.3 = 200 ma
         self.i2c.smbus_write_byte(0xc9, v)?;
 
-        // time, 16s
+        // time, 8s
         let mut v = self.i2c.smbus_read_byte(0x06)?;
         v &= 0b0011_1111;
-        v |= 0b0100_0000;
         self.i2c.smbus_write_byte(0x06, v)?;
 
         // enable

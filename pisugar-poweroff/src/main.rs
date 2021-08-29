@@ -9,7 +9,6 @@ use std::convert::TryInto;
 
 fn shutdown(config: PiSugarConfig, model: Model) -> Result<()> {
     let core = PiSugarCore::new(config, model)?;
-    let _ = core.voltage()?;
     for _ in 0..3 {
         let _ = core.force_shutdown();
         sleep(Duration::from_millis(10));

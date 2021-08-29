@@ -101,7 +101,7 @@ impl PiSugar3 {
 
     pub fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
         let mut ctr1 = self.read_ctr1()?;
-        ctr1 &= !(1 << 5);
+        ctr1 &= 0b1101_1111;
         if enable {
             ctr1 |= 1 << 5;
         }
