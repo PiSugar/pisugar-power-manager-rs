@@ -193,6 +193,7 @@ pub struct PiSugarConfig {
     pub soft_poweroff: Option<bool>,
 
     /// Auto rtc sync
+    #[serde(default)]
     pub auto_rtc_sync: Option<bool>,
 }
 
@@ -677,7 +678,7 @@ impl PiSugarCore {
         }
 
         // much slower
-        if self.rtc_sync_at + Duration::from_secs(10) <= now {
+        if self.config.auto_rtc_sync == Some(true) && self.rtc_sync_at + Duration::from_secs(10) <= now {
             self.rtc_sync_at = now;
             use std::fs;
             if let Ok(t) = fs::read(RTC_TIME) {
