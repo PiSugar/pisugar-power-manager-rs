@@ -454,7 +454,7 @@
         }
         if (oldVal === 2 && val !== 2) {
           this.$alert(this.$t('powerWakeOffWarning'), this.$t('powerWakeOffTitle'), {
-            confirmButtonText: '确定'
+            confirmButtonText: this.$t('confirmButtonText')
           })
         }
       },
