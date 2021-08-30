@@ -802,7 +802,7 @@
         if (this.sysTime) {
           alarmTime.utcOffset(this.sysTime.utcOffset(), true)
         }
-        this.$socket.send(`rtc_alarm_set ${alarmTime.toISOString()} ${this.timeRepeat}`)
+        this.$socket.send(`rtc_alarm_set ${alarmTime.toISOString(true)} ${this.timeRepeat}`)
       },
       handleBatteryClick () {
         if (this.isNewVersion) {
