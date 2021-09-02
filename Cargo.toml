@@ -2,7 +2,8 @@
 members = [
     "pisugar-core",
     "pisugar-server",
-    "pisugar-poweroff"
+    "pisugar-poweroff",
+    "pisugar-programmer"
 ]
 
 [profile.release]

@@ -1,0 +1,37 @@
+[package]
+name = "pisugar-programmer"
+version = "1.6.0"
+authors = ["PiSugar"]
+edition = "2018"
+description = "PiSugar Power Manager"
+license = "GPLv3"
+
+[dependencies]
+log = "0.4.8"
+env_logger = "0.9"
+rppal = "0.12"
+clap = "2"
+
+[[bin]]
+name = "pisugar-programmer"
+
+[package.metadata.deb]
+license-file = ["../LICENSE", "0"]
+copyright = "2020, PiSugar team"
+extended-description = """\
+PiSugar 3 firmware programmer."""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/pisugar-programmer", "usr/bin/", "755"],                       # special
+]
+
+[package.metadata.rpm]
+package = "pisugar-programmer"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.targets]
+pisugar-server = { path = "/usr/bin/pisugar-programmer" }
