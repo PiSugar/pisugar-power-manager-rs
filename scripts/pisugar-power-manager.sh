@@ -2,7 +2,7 @@
 set -e
 
 # version
-version=1.6.0
+version=1.6.1
 
 # channel: nightly or release
 channel=release
@@ -99,6 +99,7 @@ if [ "$type"x == "deb"x ]; then
     fi
     package_server="pisugar-server_${version}_${arch_deb}.deb"
     package_poweroff="pisugar-poweroff_${version}_${arch_deb}.deb"
+    package_programmer="pisugar-programmer_${version}_${arch_deb}.deb"
 else
     if [ "$arch"x == "arm"x ]; then
         arch_rpm=armv7hl
@@ -107,6 +108,7 @@ else
     fi
     package_server="pisugar-server-${version}-${rpm_n}.${arch_rpm}.rpm"
     package_poweroff="pisugar-poweroff-${version}-${rpm_n}.${arch_rpm}.rpm"
+    package_programmer="pisugar-programmer_${version}-${rpm_n}.${arch_rpm}.rpm"
 fi
 
 local_host="$(hostname --fqdn)"
@@ -129,21 +131,24 @@ function uninstall_pkgs() {
 }
 
 $echo -e "\033[1;34mDownload PiSugar-server and PiSugar-poweroff package \033[0m"
-wget -O "/tmp/$package_server" "http://cdn.pisugar.com/${channel}/${package_server}"
-wget -O "/tmp/$package_poweroff" "http://cdn.pisugar.com/${channel}/${package_poweroff}"
+wget -O "/tmp/${package_server}" "http://cdn.pisugar.com/${channel}/${package_server}"
+wget -O "/tmp/${package_poweroff}" "http://cdn.pisugar.com/${channel}/${package_poweroff}"
+wget -O "/tmp/${package_programmer}" "http://cdn.pisugar.com/${channel}/${package_programmer}"
+
 
 $echo -e "\033[1;34mOpen I2C Interface \033[0m"
 sudo raspi-config nonint do_i2c 0
 
 $echo -e "\033[1;34mUninstall old packages if installed\033[0m"
-uninstall_pkgs pisugar-server pisugar-poweroff
+uninstall_pkgs pisugar-server pisugar-poweroff pisugar-programmer
 
 $echo -e "\033[1;34mInstall packages\033[0m"
-install_pkgs "/tmp/${package_server}"  "/tmp/${package_poweroff}"
+install_pkgs "/tmp/${package_server}" "/tmp/${package_poweroff}" "/tmp/${package_programmer}"
 
 $echo -e "\033[1;34mClean up \033[0m"
 rm -f "/tmp/${package_server}"
 rm -f "/tmp/${package_poweroff}"
+rm -f "/temp/${package_programmer}"
 
 $echo -e "Now navigate to \033[1;34mhttp://${local_ip}:8421\033[0m on your browser to see PiSugar power management"
 $echo -e "If you have any question,please feel free to contact us."

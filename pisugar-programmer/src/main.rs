@@ -6,7 +6,6 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use clap::{App, Arg};
-use rppal::i2c::Error as I2cError;
 use rppal::i2c::I2c;
 use rppal::i2c::Result as I2cResult;
 
@@ -23,7 +22,7 @@ const CMD_DATA: u8 = 0xdd;
 const PISUGAR_VER: u8 = 3;
 const MODE_APPLICATION: u8 = 0x0f;
 const MODE_BOOTLOADER: u8 = 0xf0;
-const SEG_SIZE: u16 = 512;
+const SEG_SIZE: usize = 512;
 
 fn show_warning() {
     println!("WARNING:");
@@ -144,7 +143,7 @@ fn main() {
     }
 
     // Upgrade
-    let mut buff = [0; 512];
+    let mut buff = [0; SEG_SIZE];
     let mut offset: u16 = 0;
     while let Ok(n) = f.read(&mut buff) {
         if n == 0 {

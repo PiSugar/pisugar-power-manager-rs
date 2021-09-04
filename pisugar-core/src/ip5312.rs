@@ -23,7 +23,7 @@ pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
 ];
 
 /// Idle intensity
-const PI_PRO_IDLE_INTENSITY: f64 = 0.25;
+const PI_PRO_IDLE_INTENSITY: f64 = 0.2;
 
 /// IP5312, pi-3/4 bat chip
 pub struct IP5312 {
@@ -80,9 +80,11 @@ impl IP5312 {
     /// Shutdown under light load (126mA and 8s)
     pub fn enable_light_load_auto_shutdown(&self) -> Result<()> {
         // threshold intensity, x*4.3mA
+        let x = PI_PRO_IDLE_INTENSITY * 1000_f64 / 4.3;
+        let x = if x > 0b0011_1111 as f64 { 0b0011_1111 } else { x as u8 };
         let mut v = self.i2c.smbus_read_byte(0xc9)?;
         v &= 0b1100_0000;
-        v |= 0x2F; // 47 * 4.3 = 200 ma
+        v |= x; // 47 * 4.3 = 200 ma
         self.i2c.smbus_write_byte(0xc9, v)?;
 
         // time, 8s
@@ -405,7 +407,7 @@ impl Battery for IP5312Battery {
         Err(Error::Other("Not available".to_string()))
     }
 
-    fn toggle_input_protected(&self, enable: bool) -> Result<()> {
+    fn toggle_input_protected(&self, _enable: bool) -> Result<()> {
         Err(Error::Other("Not available".to_string()))
     }
 

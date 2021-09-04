@@ -15,7 +15,7 @@ if [ x"$version" == x"" ]; then
   usage && exit 1
 fi
 
-for dir in pisugar-server pisugar-core pisugar-poweroff ; do
+for dir in pisugar-server pisugar-core pisugar-poweroff pisugar-programmer; do
   sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "$ROOT_DIR/$dir/Cargo.toml"
 done
 

@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::remove_file;
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::{Arc, Mutex};

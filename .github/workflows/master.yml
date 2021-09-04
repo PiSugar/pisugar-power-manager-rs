@@ -98,6 +98,8 @@ jobs:
       - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
       - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
       - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
+      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-programmer/Cargo.toml
+      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-programmer/Cargo.toml
 
       # Rust cargo-rpm
       - run: sudo apt update && sudo apt install -y rpm
@@ -105,6 +107,8 @@ jobs:
       - run: (cd pisugar-server && cargo rpm build --target aarch64-unknown-linux-musl)
       - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-poweroff && cargo rpm build --target aarch64-unknown-linux-musl)
+      - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabihf)
+      - run: (cd pisugar-programmer && cargo rpm build --target aarch64-unknown-linux-musl)
 
       - run: find $(pwd) -name '*.deb'
       - run: find $(pwd) -name '*.rpm'

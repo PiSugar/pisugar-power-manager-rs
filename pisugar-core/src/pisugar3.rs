@@ -1,7 +1,9 @@
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use chrono::{DateTime, Duration, Local, Timelike};
+use chrono::{DateTime, Local, Timelike};
 use rppal::i2c::I2c;
 
 use crate::battery::Battery;

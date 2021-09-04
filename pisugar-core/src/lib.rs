@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
 use hyper::client::Client;
@@ -20,7 +20,6 @@ pub use sd3078::*;
 use crate::battery::Battery;
 pub use crate::rtc::RTCRawTime;
 use crate::rtc::RTC;
-use std::str::FromStr;
 
 mod battery;
 mod ip5209;

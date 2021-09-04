@@ -414,7 +414,7 @@ impl Battery for IP5209Battery {
         Err(Error::Other("Not available".to_string()))
     }
 
-    fn toggle_input_protected(&self, enable: bool) -> Result<()> {
+    fn toggle_input_protected(&self, _enable: bool) -> Result<()> {
         Err(Error::Other("Not available".to_string()))
     }
 
