@@ -3,12 +3,10 @@ name = "pisugar-programmer"
 version = "1.6.0"
 authors = ["PiSugar"]
 edition = "2018"
-description = "PiSugar Power Manager"
+description = "PiSugar Firmware Programmer (For PiSugar 3)"
 license = "GPLv3"
 
 [dependencies]
-log = "0.4.8"
-env_logger = "0.9"
 rppal = "0.12"
 clap = "2"
 
@@ -34,4 +32,4 @@ package = "pisugar-programmer"
 buildflags = ["--release"]
 
 [package.metadata.rpm.targets]
-pisugar-server = { path = "/usr/bin/pisugar-programmer" }
+pisugar-programmer = { path = "/usr/bin/pisugar-programmer" }

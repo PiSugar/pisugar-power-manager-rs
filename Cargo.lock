@@ -706,8 +706,6 @@ name = "pisugar-programmer"
 version = "1.6.0"
 dependencies = [
  "clap",
- "env_logger",
- "log",
  "rppal",
 ]
 

@@ -1,5 +1,6 @@
 use std::fs;
 use std::io;
+use std::io::Read;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
@@ -30,18 +31,34 @@ fn show_warning() {
     println!("2. SYSTEMD SERVICE pisugar-server MUST BE STOPPED");
     println!("    systemctl stop pisugar-server");
     println!("OTHERWISE UPGRADE MAY NOT SUCCEED!!!");
-    print!("CONFIRM? (y or n): ");
+    println!("CONFIRM? (y or n): ");
 
     let mut confirm = String::new();
     io::stdin().read_line(&mut confirm).unwrap();
-    if !confirm.to_lowercase().eq("y") {
+    if !confirm.to_lowercase().trim_start().starts_with("y") {
         exit(0);
     }
 }
 
-fn main() {
-    env_logger::init();
+fn to_u16(s: &str) -> u16 {
+    let mut hexadecimal = false;
+    let digits;
+    if s.starts_with("0x") {
+        digits = s.trim_start_matches("0x");
+        hexadecimal = true;
+    } else if s.starts_with("0X") {
+        digits = s.trim_start_matches("0X");
+        hexadecimal = true;
+    } else {
+        digits = s;
+    }
+    if hexadecimal {
+        return u16::from_str_radix(digits, 16).unwrap();
+    }
+    return u16::from_str_radix(digits, 10).unwrap();
+}
 
+fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -63,179 +80,173 @@ fn main() {
         .arg(
             Arg::with_name("reset")
                 .short("r")
-                .default_value("false")
-                .takes_value(true)
+                .takes_value(false)
                 .help("Automatically reset to bootloader mode"),
         )
         .arg(
             Arg::with_name("file")
-                .index(1)
                 .required(true)
                 .help("Firmware file, e.g. pisugar-3-application.bin"),
         )
         .get_matches();
 
-    let bus: u8 = matches.value_of("bus").unwrap().parse().unwrap();
-    let addr: u16 = matches.value_of("addr").unwrap().parse().unwrap();
-    let reset: bool = matches.value_of("reset").unwrap().parse().unwrap();
+    let bus: u8 = to_u16(matches.value_of("bus").unwrap()) as u8;
+    let addr: u16 = to_u16(matches.value_of("addr").unwrap());
+    let reset: bool = matches.is_present("reset");
     let file = matches.value_of("file").unwrap();
 
-    let i2c = I2c::with_bus(bus).unwrap();
-    let content = fs::read(file).unwrap();
-    log::info!("Firmware size: {}", content.len());
+    let mut i2c = I2c::with_bus(bus).unwrap();
+    i2c.set_slave_address(addr).unwrap();
+
+    let mut f = fs::File::open(file).unwrap();
+    println!("Firmware size: {}", f.metadata().unwrap().len());
 
     show_warning();
 
     // Detect pisugar bootloader
     loop {
-        let mut is_bootloader = false;
-
         // Check pisugar version
         let pisugar_version = i2c.smbus_read_byte(CMD_VER);
         match pisugar_version {
             Ok(version) => {
                 if version == PISUGAR_VER {
-                    log::info!("PiSugar version: {}", version);
-                } else {
-                    log::warn!("PiSugar not ready, retry...");
-                    sleep(Duration::from_millis(100));
-                    continue;
-                }
-            }
-            _ => {
-                log::warn!("PiSugar not ready, retry...");
-                sleep(Duration::from_millis(100));
-                continue;
-            }
-        }
+                    println!("PiSugar version: {}", version);
 
-        // Check pisugar mode
-        let pisugar_mode = i2c.smbus_read_byte(CMD_MODE);
-        match pisugar_mode {
-            Ok(mode) => {
-                log::info!("PiSugar mode: {:x}", mode);
-                if mode == MODE_BOOTLOADER {
-                    is_bootloader = true;
-                    break;
-                }
-                if mode == MODE_APPLICATION {
-                    log::warn!("PiSugar Application mode detected");
-                    if reset {
-                        log::info!("Send reset to application...");
-                        send_reset(&i2c);
-                        sleep(Duration::from_millis(100));
-                        continue;
+                    // Check pisugar mode
+                    let pisugar_mode = i2c.smbus_read_byte(CMD_MODE);
+                    match pisugar_mode {
+                        Ok(mode) => {
+                            if mode == MODE_BOOTLOADER {
+                                println!("PiSugar mode: bootloader({:02x})", mode);
+                                println!("PiSugar bootloader mode detected");
+                                break;
+                            }
+                            if mode == MODE_APPLICATION {
+                                println!("PiSugar mode: application({:02x})", mode);
+                                println!("PiSugar application mode detected");
+                                if reset {
+                                    println!("Send reset to application...");
+                                    let _ = send_reset(&i2c);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("I2c error: {}", e);
+                        }
                     }
                 }
             }
             _ => {}
         }
 
-        if is_bootloader {
-            break;
-        }
-
-        log::info!("PiSugar bootloader not ready, please reset or wait, retry...");
+        println!("PiSugar bootloader not ready, please reset or wait, retry...");
         sleep(Duration::from_millis(100));
     }
 
     // Upgrade
-    for i in 0..content.len() {
-        // Seg
-        if i % SEG_SIZE as usize == 0 {
-            log::info!("Seg offset: {}", i);
+    let mut buff = [0; 512];
+    let mut offset: u16 = 0;
+    while let Ok(n) = f.read(&mut buff) {
+        if n == 0 {
+            break;
+        }
+        let buff = &buff[..n];
 
-            // Send seg
-            while send_seg(&i2c, i as u16).is_err() {
-                log::warn!("Send seg offset {} error, retry...", i);
-                sleep(Duration::from_millis(100));
-            }
+        println!();
+        println!("Seg offset: {}, size: {}", offset, n);
 
-            // Send pos
-            while send_pos(&i2c, (i - 1) as u16).is_err() {
-                log::warn!("Send pos {} error, retry...", i);
-                sleep(Duration::from_millis(100));
-            }
+        // Send seg
+        while send_seg(&i2c, offset as u16).is_err() {
+            println!("Send seg offset {} error, retry...", offset);
+            sleep(Duration::from_millis(50));
+        }
+
+        // Send seg pos
+        let (pos, _) = offset.overflowing_sub(1);
+        while send_pos(&i2c, pos).is_err() {
+            println!("Send pos {} error, retry...", pos);
+            sleep(Duration::from_millis(50));
         }
 
         // Send data
-        loop {
-            if send_data(&i2c, content[i]).is_err() {
-                log::warn!("Send data of {} error, reset pos", i);
-                while send_pos(&i2c, (i - 1) as u16).is_err() {
-                    log::warn!("Send pos {} error, retry...", i);
-                    sleep(Duration::from_millis(100));
+        for i in 0..buff.len() {
+            while send_data(&i2c, buff[i]).is_err() {
+                // reset pos to offset - 1
+                let (pos, _) = offset.overflowing_sub(1);
+                println!("Send data of {} error, reset pos to {}", offset, pos);
+                while send_pos(&i2c, pos).is_err() {
+                    println!("Send pos {} error, retry...", pos);
+                    sleep(Duration::from_millis(50));
                 }
-                continue;
             }
-            break;
+            offset += 1;
         }
 
         // Write flash
-        if i != 0 && i % (SEG_SIZE as usize) == 0 || i == content.len() - 1 {
-            let mut ctrl = 0_u8;
+        println!("Writing flash...");
+        loop {
+            let mut ctrl;
 
+            // Read ctrl
             loop {
-                // Read ctrl
-                loop {
-                    match i2c.smbus_read_byte(CMD_CTRL) {
-                        Ok(r) => {
-                            ctrl = r;
-                            break;
-                        }
-                        _ => {}
+                match i2c.smbus_read_byte(CMD_CTRL) {
+                    Ok(r) => {
+                        ctrl = r;
+                        break;
                     }
-                    log::warn!("Read upgrade ctrl error, retry...");
-                    sleep(Duration::from_millis(100));
+                    _ => {
+                        println!("Read upgrade ctrl error, retry...");
+                        sleep(Duration::from_millis(50));
+                    }
+                }
+            }
+
+            // Enable write
+            ctrl |= 1 << 7;
+            ctrl |= 1 << 5;
+            while i2c.smbus_write_byte(CMD_CTRL, ctrl).is_err() {
+                println!("Enable flash write error, retry...");
+                sleep(Duration::from_millis(50));
+            }
+
+            // Wait for result
+            sleep(Duration::from_millis(50));
+            loop {
+                match i2c.smbus_read_byte(CMD_CTRL) {
+                    Ok(r) => {
+                        ctrl = r;
+                        break;
+                    }
+                    _ => {
+                        println!("Read upgrade ctrl error, retry...");
+                        sleep(Duration::from_millis(50));
+                    }
                 }
 
-                // Enable write
-                ctrl |= 1 << 7;
-                ctrl |= 1 << 5;
-                while i2c.smbus_write_byte(CMD_CTRL, ctrl).is_err() {
-                    log::warn!("Enable flash write error, retry...");
-                    sleep(Duration::from_millis(100));
-                }
-
-                // Wait for result
-                sleep(Duration::from_millis(100));
-                loop {
-                    loop {
-                        match i2c.smbus_read_byte(CMD_CTRL) {
-                            Ok(r) => {
-                                ctrl = r;
-                                break;
-                            }
-                            _ => {}
-                        }
-                        log::warn!("Read upgrade ctrl error, retry...");
-                        sleep(Duration::from_millis(100));
-                    }
-
-                    // Not done
-                    if ctrl & (1 << 3) != 0 {
-                        log::warn!("Stilling writing, retry...");
-                        sleep(Duration::from_millis(100));
-                        continue;
-                    }
-
-                    break;
-                }
-
-                // Write error
-                if ctrl & 1 != 0 {
-                    log::warn!("Write error, retry...");
-                    sleep(Duration::from_millis(100));
+                // Not done
+                if ctrl & (1 << 3) != 0 {
+                    println!("Stilling writing, retry...");
+                    sleep(Duration::from_millis(50));
                     continue;
                 }
-
                 break;
             }
+
+            // Write error
+            if ctrl & 1 != 0 {
+                println!("Write error, retry...");
+                sleep(Duration::from_millis(50));
+                continue;
+            }
+
+            println!("Write ok");
+            break;
         }
     }
 
-    log::info!("Program finished!");
-    log::info!("Wait 1s, PiSugar will jump to application soon!");
+    println!();
+    println!("Upgrade finished!");
+    println!("Wait 1s, PiSugar will jump to application soon!");
 }
 
 fn send_reset(i2c: &I2c) -> I2cResult<()> {
@@ -267,6 +278,7 @@ fn send_pos(i2c: &I2c, offset: u16) -> I2cResult<()> {
 }
 
 fn send_data(i2c: &I2c, data: u8) -> I2cResult<()> {
+    sleep(Duration::from_millis(5));
     i2c.smbus_write_byte(CMD_DATA, data)?;
     let data2 = i2c.smbus_read_byte(CMD_DATA)?;
     if data != data2 {
