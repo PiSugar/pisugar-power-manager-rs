@@ -897,7 +897,7 @@ async fn main() -> std::io::Result<()> {
 
         // auto shutdown
         if let Ok(level) = core.level() {
-            if level as f64 <= core.config().auto_shutdown_level {
+            if (level as f64) < (core.config().auto_shutdown_level) {
                 let now = tokio::time::Instant::now();
                 let seconds = now.duration_since(shutdown_at).as_millis() as f64;
                 let remains = core.config().auto_shutdown_delay - seconds;
