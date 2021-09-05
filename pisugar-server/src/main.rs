@@ -759,6 +759,7 @@ async fn main() -> std::io::Result<()> {
     // model
     let m = matches.value_of("model").unwrap();
     let model = Model::try_from(m).expect(format!("Unknown PiSugar model: {}", m).as_str());
+    log::debug!("Running with model: {}", m);
 
     // core
     let core;
