@@ -759,7 +759,7 @@ async fn main() -> std::io::Result<()> {
     // model
     let m = matches.value_of("model").unwrap();
     let model = Model::try_from(m).expect(format!("Unknown PiSugar model: {}", m).as_str());
-    log::debug!("Running with model: {}", m);
+    log::debug!("Running with model: {}({})", model, m);
 
     // core
     let core;
@@ -899,6 +899,8 @@ async fn main() -> std::io::Result<()> {
         // auto shutdown
         if let Ok(level) = core.level() {
             if (level as f64) < (core.config().auto_shutdown_level) {
+                log::warn!("Battery low: {}", level);
+
                 let now = tokio::time::Instant::now();
                 let seconds = now.duration_since(shutdown_at).as_millis() as f64;
                 let remains = core.config().auto_shutdown_delay - seconds;
@@ -923,7 +925,7 @@ async fn main() -> std::io::Result<()> {
                 }
 
                 if remains <= 0.0 {
-                    let _ = execute_shell("/sbin/shutdown --poweroff 0");
+                    let _ = execute_shell("shutdown --poweroff 0");
                 }
             } else {
                 shutdown_at = tokio::time::Instant::now();

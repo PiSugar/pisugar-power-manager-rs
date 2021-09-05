@@ -329,6 +329,7 @@ impl PiSugarCore {
                 Model::PiSugar_3 => pisugar3::I2C_ADDR_P3,
                 _ => I2C_ADDR_BAT,
             };
+            log::debug!("Battery i2c addr: {:02x}({})", i2c_addr_bat, self.model);
             let mut battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
             battery.init(self.config.auto_power_on.unwrap_or(false))?;
             if let Some(true) = self.config.soft_poweroff {
@@ -590,10 +591,10 @@ impl PiSugarCore {
 
     pub async fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
         if let Err(e) = self.init_battery() {
-            log::debug!("PiSugar2 battery init failed: {}", e);
+            log::debug!("PiSugar battery init failed: {}", e);
         }
         if let Err(e) = self.init_rtc() {
-            log::debug!("PiSugar2 rtc init failed: {}", e);
+            log::debug!("PiSugar rtc init failed: {}", e);
         }
 
         // tap
