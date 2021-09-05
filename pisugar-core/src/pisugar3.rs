@@ -9,7 +9,7 @@ use rppal::i2c::I2c;
 use crate::battery::Battery;
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
-use crate::{Error, Model, RTCRawTime, Result, TapType};
+use crate::{execute_shell, Error, Model, RTCRawTime, Result, TapType};
 
 /// PiSugar 3 i2c addr
 pub const I2C_ADDR_P3: u16 = 0x57;
@@ -118,6 +118,20 @@ impl PiSugar3 {
             ctr1 |= 0b0001_0000;
         }
         self.write_ctr1(ctr1)
+    }
+
+    pub fn toggle_soft_poweroff(&self, enable: bool) -> Result<()> {
+        let mut ctr2 = self.read_crt2()?;
+        ctr2 &= 0b1110_0000;
+        if enable {
+            ctr2 |= 0b0001_0000;
+        }
+        self.write_ctr2(ctr2)
+    }
+
+    pub fn read_soft_poweroff_flag(&self) -> Result<bool> {
+        let ctr2 = self.read_crt2()?;
+        Ok((ctr2 & 0b0000_1000) != 0)
     }
 
     pub fn read_tap(&self) -> Result<u8> {
@@ -427,6 +441,13 @@ impl Battery for PiSugar3Battery {
             self.pisugar3.reset_tap()?;
         }
 
+        // soft poweroff
+        if let Ok(flag) = self.pisugar3.read_soft_poweroff_flag() {
+            if flag == true {
+                let _ = execute_shell("poweroff");
+            }
+        }
+
         Ok(tap)
     }
 
@@ -438,6 +459,10 @@ impl Battery for PiSugar3Battery {
         }
         self.pisugar3.write_bat_ctr(bat_ctr)?;
         Ok(())
+    }
+
+    fn toggle_soft_poweroff(&self, enable: bool) -> Result<()> {
+        self.pisugar3.toggle_soft_poweroff(enable)
     }
 }
 

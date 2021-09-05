@@ -421,4 +421,8 @@ impl Battery for IP5312Battery {
         }
         Err(Error::Other("Not available".to_string()))
     }
+
+    fn toggle_soft_poweroff(&self, _enable: bool) -> Result<()> {
+        Ok(())
+    }
 }

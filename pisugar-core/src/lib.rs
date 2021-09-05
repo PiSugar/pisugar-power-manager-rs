@@ -175,7 +175,7 @@ pub struct PiSugarConfig {
     #[serde(default)]
     pub auto_shutdown_delay: f64,
 
-    /// Changing range
+    /// Charging range
     #[serde(default)]
     pub auto_charging_range: Option<(f32, f32)>,
 
@@ -331,6 +331,11 @@ impl PiSugarCore {
             };
             let mut battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
             battery.init(self.config.auto_power_on.unwrap_or(false))?;
+            if let Some(true) = self.config.soft_poweroff {
+                let _ = battery.toggle_soft_poweroff(true);
+            } else {
+                let _ = battery.toggle_soft_poweroff(false);
+            }
             self.battery = Some(battery);
         }
         Ok(())
