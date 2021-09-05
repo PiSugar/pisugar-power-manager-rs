@@ -97,10 +97,11 @@ fn main() {
     let mut i2c = I2c::with_bus(bus).unwrap();
     i2c.set_slave_address(addr).unwrap();
 
-    let mut f = fs::File::open(file).unwrap();
-    println!("Firmware size: {}", f.metadata().unwrap().len());
-
     show_warning();
+
+    let mut f = fs::File::open(file).unwrap();
+    println!();
+    println!("Firmware size: {}", f.metadata().unwrap().len());
 
     // Detect pisugar bootloader
     loop {
@@ -277,7 +278,6 @@ fn send_pos(i2c: &I2c, offset: u16) -> I2cResult<()> {
 }
 
 fn send_data(i2c: &I2c, data: u8) -> I2cResult<()> {
-    sleep(Duration::from_millis(5));
     i2c.smbus_write_byte(CMD_DATA, data)?;
     let data2 = i2c.smbus_read_byte(CMD_DATA)?;
     if data != data2 {
