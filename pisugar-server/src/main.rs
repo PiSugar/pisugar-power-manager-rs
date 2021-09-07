@@ -94,10 +94,12 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
                             "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
                             "rtc_alarm_flag" => core.read_alarm_flag().map(|f| f.to_string()),
-                            "rtc_alarm_time" => core
-                                .read_alarm_time()
-                                .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())))
-                                .map(|t: DateTime<Local>| t.to_rfc3339()),
+                            "rtc_alarm_time" => {
+                                let t = core
+                                    .read_alarm_time()
+                                    .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())));
+                                t.map(|t: DateTime<Utc>| t.with_timezone(Local::now().offset()).to_rfc3339())
+                            }
                             "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
                             "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
                             "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
