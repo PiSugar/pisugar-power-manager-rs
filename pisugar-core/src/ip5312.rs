@@ -4,7 +4,7 @@ use std::time::Instant;
 use rppal::i2c::I2c;
 
 use crate::battery::Battery;
-use crate::{convert_battery_voltage_to_level, I2cError, Model};
+use crate::{convert_battery_voltage_to_level, I2cError, Model, PiSugarConfig};
 use crate::{gpio_detect_tap, Result, TapType};
 use crate::{BatteryThreshold, Error};
 
@@ -260,7 +260,7 @@ impl IP5312Battery {
 }
 
 impl Battery for IP5312Battery {
-    fn init(&mut self, auto_power_on: bool) -> Result<()> {
+    fn init(&mut self, config: &PiSugarConfig) -> Result<()> {
         if self.model.led_amount() == 2 {
             self.ip5312.init_gpio_2led()?;
             self.ip5312.toggle_allow_charging_2led(true)?;
@@ -270,7 +270,7 @@ impl Battery for IP5312Battery {
         self.ip5312.init_boost_intensity()?;
         // NOTE: Disable auto shutdown in auto_power_on
         self.ip5312.enable_light_load_auto_shutdown()?;
-        if auto_power_on {
+        if config.auto_power_on == Some(true) {
             self.ip5312.disable_light_load_shutdown()?;
         }
 
@@ -361,15 +361,26 @@ impl Battery for IP5312Battery {
         Ok(false)
     }
 
-    fn toggle_light_load_shutdown(&self, enable: bool) -> Result<()> {
-        if enable {
-            self.ip5312.enable_light_load_auto_shutdown()
-        } else {
-            self.ip5312.disable_light_load_shutdown()
-        }
+    fn is_input_protected(&self) -> Result<bool> {
+        Err(Error::Other("Not available".to_string()))
     }
 
-    fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
+    fn toggle_input_protected(&self, _enable: bool) -> Result<()> {
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn output_enabled(&self) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
+        if !enable {
+            return self.ip5312.force_shutdown();
+        }
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn poll(&mut self, now: Instant, _config: &PiSugarConfig) -> Result<Option<TapType>> {
         let voltage = self.voltage()?;
         self.voltages.pop_front();
         while self.voltages.len() < self.voltages.capacity() {
@@ -403,23 +414,12 @@ impl Battery for IP5312Battery {
         Ok(tap_result)
     }
 
-    fn is_input_protected(&self) -> Result<bool> {
-        Err(Error::Other("Not available".to_string()))
-    }
-
-    fn toggle_input_protected(&self, _enable: bool) -> Result<()> {
-        Err(Error::Other("Not available".to_string()))
-    }
-
-    fn output_enabled(&self) -> Result<bool> {
-        Ok(true)
-    }
-
-    fn toggle_output_enabled(&self, enable: bool) -> Result<()> {
-        if !enable {
-            return self.ip5312.force_shutdown();
+    fn toggle_light_load_shutdown(&self, enable: bool) -> Result<()> {
+        if enable {
+            self.ip5312.enable_light_load_auto_shutdown()
+        } else {
+            self.ip5312.disable_light_load_shutdown()
         }
-        Err(Error::Other("Not available".to_string()))
     }
 
     fn toggle_soft_poweroff(&self, _enable: bool) -> Result<()> {

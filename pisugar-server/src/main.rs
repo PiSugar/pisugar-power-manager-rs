@@ -47,8 +47,14 @@ type EventRx = tokio::sync::watch::Receiver<String>;
 async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
     log::debug!("Polling state");
     let now = Instant::now();
-    if let Ok(Some(tap_type)) = core.poll(now).await {
-        let _ = tx.send(format!("{}", tap_type));
+    match core.poll(now).await {
+        Ok(Some(tap_type)) => {
+            let _ = tx.send(format!("{}", tap_type));
+        }
+        Err(e) => {
+            log::warn!("Poll error: {}", e);
+        }
+        _ => {}
     }
 }
 
@@ -675,7 +681,7 @@ async fn main() -> std::io::Result<()> {
                 .short("c")
                 .long("config")
                 .value_name("FILE")
-                .help("Config file in json format, e.g. /etc/pisugar-server.json"),
+                .help("Config file in json format, e.g. /etc/pisugar-server/config.json"),
         )
         .arg(
             Arg::with_name("tcp")
@@ -889,7 +895,7 @@ async fn main() -> std::io::Result<()> {
     let core_cloned = core.clone();
     let mut interval = tokio::time::interval(I2C_READ_INTERVAL);
     let mut notify_at = tokio::time::Instant::now();
-    let mut shutdown_at = tokio::time::Instant::now();
+    let mut battery_high_at = tokio::time::Instant::now();
     loop {
         interval.tick().await;
         log::debug!("Polling");
@@ -902,7 +908,7 @@ async fn main() -> std::io::Result<()> {
                 log::warn!("Battery low: {}", level);
 
                 let now = tokio::time::Instant::now();
-                let seconds = now.duration_since(shutdown_at).as_millis() as f64;
+                let seconds = now.duration_since(battery_high_at).as_millis() as f64;
                 let remains = core.config().auto_shutdown_delay - seconds;
                 let remains = if remains < 0.0 { 0.0 } else { remains };
 
@@ -928,7 +934,7 @@ async fn main() -> std::io::Result<()> {
                     let _ = execute_shell("shutdown --poweroff 0");
                 }
             } else {
-                shutdown_at = tokio::time::Instant::now();
+                battery_high_at = tokio::time::Instant::now();
             }
         }
     }

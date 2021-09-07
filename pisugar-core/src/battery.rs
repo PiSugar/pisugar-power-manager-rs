@@ -1,12 +1,12 @@
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use crate::{Result, TapType};
+use crate::{PiSugarConfig, Result, TapType};
 
 /// Battery chip controller
 pub trait Battery {
     /// Init battery chip
-    fn init(&mut self, auto_power_on: bool) -> Result<()>;
+    fn init(&mut self, config: &PiSugarConfig) -> Result<()>;
 
     /// Model
     fn model(&self) -> String;
@@ -54,7 +54,7 @@ pub trait Battery {
     fn toggle_output_enabled(&self, enable: bool) -> Result<()>;
 
     /// Poll and check tapped
-    fn poll(&mut self, now: Instant) -> Result<Option<TapType>>;
+    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> Result<Option<TapType>>;
 
     /// Shutdown battery chip, call `toggle_output_enabled(false)`
     fn shutdown(&self) -> Result<()> {

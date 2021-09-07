@@ -2,7 +2,7 @@ use chrono::prelude::*;
 use rppal::i2c::I2c;
 
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTCRawTime, RTC};
-use crate::Result;
+use crate::{PiSugarConfig, Result};
 
 /// SD3078, rtc chip
 pub struct SD3078 {
@@ -141,16 +141,16 @@ impl SD3078 {
 
 impl RTC for SD3078 {
     /// Init
-    fn init(&self, auto_power_on: bool, auto_wakeup_time: Option<DateTime<Local>>, wakeup_repeat: u8) -> Result<()> {
+    fn init(&mut self, config: &PiSugarConfig) -> Result<()> {
         self.clear_alarm_flag()?;
 
         // NOTE enable frequency alarm
-        if auto_power_on {
+        if config.auto_power_on == Some(true) {
             self.enable_frequency_alarm()?;
         } else {
             self.disable_frequency_alarm()?;
-            if let Some(auto_wakeup_time) = auto_wakeup_time {
-                self.set_alarm(auto_wakeup_time.into(), wakeup_repeat)?;
+            if let Some(auto_wakeup_time) = config.auto_wake_time.clone() {
+                self.set_alarm(auto_wakeup_time.into(), config.auto_wake_repeat)?;
             }
         }
 

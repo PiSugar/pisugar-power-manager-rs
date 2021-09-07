@@ -4,7 +4,7 @@ use std::fmt::{self, Display};
 use chrono::prelude::*;
 use chrono::{DateTime, Local, LocalResult, Utc};
 
-use crate::Result;
+use crate::{PiSugarConfig, Result};
 
 pub fn bcd_to_dec(bcd: u8) -> u8 {
     (bcd & 0x0F) + (((bcd & 0xF0) >> 4) * 10)
@@ -160,7 +160,7 @@ impl TryFrom<RTCRawTime> for DateTime<Local> {
 /// RTC trait
 pub trait RTC {
     /// Init
-    fn init(&self, auto_power_on: bool, auto_wakeup_time: Option<DateTime<Local>>, wakeup_repeat: u8) -> Result<()>;
+    fn init(&mut self, config: &PiSugarConfig) -> Result<()>;
 
     /// Read RTC time
     fn read_time(&self) -> Result<RTCRawTime>;

@@ -320,6 +320,7 @@ pub struct PiSugarCore {
     rtc: Option<Box<dyn RTC + Send>>,
     poll_check_at: Instant,
     rtc_sync_at: Instant,
+    ready: bool,
 }
 
 impl PiSugarCore {
@@ -330,13 +331,7 @@ impl PiSugarCore {
                 _ => I2C_ADDR_BAT,
             };
             log::debug!("Battery i2c addr: {:02x}({})", i2c_addr_bat, self.model);
-            let mut battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
-            battery.init(self.config.auto_power_on.unwrap_or(false))?;
-            if let Some(true) = self.config.soft_poweroff {
-                let _ = battery.toggle_soft_poweroff(true);
-            } else {
-                let _ = battery.toggle_soft_poweroff(false);
-            }
+            let battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
             self.battery = Some(battery);
         }
         Ok(())
@@ -345,11 +340,6 @@ impl PiSugarCore {
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
             let rtc = self.model.rtc(self.config.i2c_bus)?;
-            rtc.init(
-                self.config.auto_power_on.unwrap_or(false),
-                self.config.auto_wake_time,
-                self.config.auto_wake_repeat,
-            )?;
             self.rtc = Some(rtc);
         }
         Ok(())
@@ -365,6 +355,7 @@ impl PiSugarCore {
             rtc: None,
             poll_check_at: Instant::now(),
             rtc_sync_at: Instant::now(),
+            ready: false,
         };
         let _ = core.init_rtc();
         let _ = core.init_battery();
@@ -590,16 +581,17 @@ impl PiSugarCore {
     }
 
     pub async fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
-        if let Err(e) = self.init_battery() {
-            log::debug!("PiSugar battery init failed: {}", e);
-        }
-        if let Err(e) = self.init_rtc() {
-            log::debug!("PiSugar rtc init failed: {}", e);
+        if !self.ready {
+            log::info!("Init battery...");
+            call_battery!(&mut self.battery, init, &self.config)?;
+            log::info!("Init rtc...");
+            call_rtc!(&mut self.battery, init, &self.config)?;
+            self.ready = true;
         }
 
         // tap
         let config = &self.config;
-        let tap = call_battery!(&mut self.battery, poll, now)?;
+        let tap = call_battery!(&mut self.battery, poll, now, config)?;
         if let Some(tap_type) = tap {
             let script = match tap_type {
                 TapType::Single => {

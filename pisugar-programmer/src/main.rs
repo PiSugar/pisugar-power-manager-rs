@@ -28,7 +28,7 @@ fn show_warning() {
     println!("WARNING:");
     println!("1. PLEASE CONFIRM THAT THE BATTERY IS FULLY CHARGED");
     println!("2. SYSTEMD SERVICE pisugar-server MUST BE STOPPED");
-    println!("    systemctl stop pisugar-server");
+    println!("   (sudo systemctl stop pisugar-server)");
     println!("OTHERWISE UPGRADE MAY NOT SUCCEED!!!");
     println!("CONFIRM? (y or n): ");
 

@@ -3,13 +3,13 @@
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use chrono::{DateTime, Local, Timelike};
+use chrono::Timelike;
 use rppal::i2c::I2c;
 
 use crate::battery::Battery;
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
-use crate::{execute_shell, Error, Model, RTCRawTime, Result, TapType};
+use crate::{execute_shell, Error, Model, PiSugarConfig, RTCRawTime, Result, TapType};
 
 /// PiSugar 3 i2c addr
 pub const I2C_ADDR_P3: u16 = 0x57;
@@ -71,6 +71,7 @@ pub struct PiSugar3 {
 
 impl PiSugar3 {
     pub fn new(i2c_bus: u8, i2c_addr: u16) -> Result<Self> {
+        log::debug!("PiSugar3 bus 0x{:02x} addr 0x{:02x}", i2c_bus, i2c_addr);
         let mut i2c = I2c::with_bus(i2c_bus)?;
         i2c.set_slave_address(i2c_addr)?;
         Ok(Self { i2c })
@@ -305,6 +306,7 @@ pub struct PiSugar3Battery {
 
 impl PiSugar3Battery {
     pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
+        log::info!("PiSugar3 battery bus: 0x{:02x} addr: 0x{:02x}", i2c_bus, i2c_addr);
         let pisugar3 = PiSugar3::new(i2c_bus, i2c_addr)?;
         let poll_at = Instant::now() - std::time::Duration::from_secs(10);
         Ok(Self {
@@ -319,8 +321,12 @@ impl PiSugar3Battery {
 }
 
 impl Battery for PiSugar3Battery {
-    fn init(&mut self, auto_power_on: bool) -> crate::Result<()> {
-        Ok(self.pisugar3.toggle_restore(auto_power_on)?)
+    fn init(&mut self, config: &PiSugarConfig) -> crate::Result<()> {
+        log::debug!("Toggle soft poweroff");
+        self.pisugar3.toggle_soft_poweroff(config.soft_poweroff == Some(true))?;
+
+        log::debug!("Toggle power restore");
+        self.pisugar3.toggle_restore(config.auto_power_on == Some(true))
     }
 
     fn model(&self) -> String {
@@ -406,7 +412,7 @@ impl Battery for PiSugar3Battery {
         self.pisugar3.toggle_output_enabled(enable)
     }
 
-    fn poll(&mut self, now: Instant) -> crate::Result<Option<TapType>> {
+    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> crate::Result<Option<TapType>> {
         // slow down, 500ms
         if self.poll_at > now || self.poll_at + std::time::Duration::from_millis(500) > now {
             return Ok(None);
@@ -442,9 +448,11 @@ impl Battery for PiSugar3Battery {
         }
 
         // soft poweroff
-        if let Ok(flag) = self.pisugar3.read_soft_poweroff_flag() {
-            if flag == true {
-                let _ = execute_shell("poweroff");
+        if config.soft_poweroff == Some(true) {
+            if let Ok(flag) = self.pisugar3.read_soft_poweroff_flag() {
+                if flag == true {
+                    let _ = execute_shell("shutdown --poweroff 0");
+                }
             }
         }
 
@@ -472,20 +480,21 @@ pub struct PiSugar3RTC {
 
 impl PiSugar3RTC {
     pub fn new(i2c_bus: u8, i2c_addr: u16) -> Result<Self> {
+        log::debug!("PiSugar3 rtc bus: 0x{:02x} addr: 0x{:02x}", i2c_bus, i2c_addr);
         let pisugar3 = PiSugar3::new(i2c_bus, i2c_addr)?;
         Ok(Self { pisugar3 })
     }
 }
 
 impl RTC for PiSugar3RTC {
-    fn init(&self, auto_power_on: bool, auto_wakeup_time: Option<DateTime<Local>>, wakeup_repeat: u8) -> Result<()> {
-        self.pisugar3.toggle_restore(auto_power_on)?;
-        if let Some(wakeup_time) = auto_wakeup_time {
+    fn init(&mut self, config: &PiSugarConfig) -> Result<()> {
+        self.pisugar3.toggle_restore(config.auto_power_on == Some(true))?;
+        if let Some(wakeup_time) = config.auto_wake_time.clone() {
             self.pisugar3.toggle_alarm_enable(false)?;
             self.pisugar3.set_alarm_hh(wakeup_time.hour() as u8)?;
             self.pisugar3.set_alarm_mn(wakeup_time.minute() as u8)?;
             self.pisugar3.set_alarm_ss(wakeup_time.second() as u8)?;
-            self.pisugar3.set_alarm_weekday_repeat(wakeup_repeat)?;
+            self.pisugar3.set_alarm_weekday_repeat(config.auto_wake_repeat)?;
             self.pisugar3.toggle_alarm_enable(true)?;
         }
         Ok(())
