@@ -37,3 +37,5 @@ Json format configuration file of pisugar-server:
                     default null
     soft_poweroff   PiSugar 3 only, pisugar notify pi to poweroff
                     default null
+
+    auto_rtc_sync   Automatically sync rtc time (Every 10s)
