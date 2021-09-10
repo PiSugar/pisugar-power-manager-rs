@@ -8,6 +8,7 @@ use std::time::Duration;
 use clap::{App, Arg};
 use rppal::i2c::I2c;
 use rppal::i2c::Result as I2cResult;
+use sysinfo::{ProcessExt, RefreshKind, SystemExt};
 
 const CMD_VER: u8 = 0x00;
 const CMD_MODE: u8 = 0x01;
@@ -28,9 +29,23 @@ fn show_warning() {
     println!("WARNING:");
     println!("1. PLEASE CONFIRM THAT THE BATTERY IS FULLY CHARGED");
     println!("2. SYSTEMD SERVICE pisugar-server MUST BE STOPPED");
-    println!("   (sudo systemctl stop pisugar-server)");
     println!("OTHERWISE UPGRADE MAY NOT SUCCEED!!!");
     println!("CONFIRM? (y or n): ");
+
+    loop {
+        let mut refresh_kind = RefreshKind::default();
+        let refresh_kind = refresh_kind.with_processes();
+        let mut sys = sysinfo::System::new_with_specifics(refresh_kind);
+        for (pid, p) in sys.processes() {
+            if p.name().contains("pisugar-server") {
+                println!("WARNING: pisugar-server is running, pid {}", pid);
+                println!("Run 'sudo systemctl stop pisugar-server' to stop the service");
+                sleep(Duration::from_secs(1));
+                continue;
+            }
+        }
+        break;
+    }
 
     let mut confirm = String::new();
     io::stdin().read_line(&mut confirm).unwrap();
