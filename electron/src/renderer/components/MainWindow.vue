@@ -790,9 +790,6 @@
         if (!this.socketConnect) return
         this.$socket.send('get rtc_time')
         this.$socket.send('get system_time')
-        this.$socket.send('get rtc_alarm_enabled')
-        this.$socket.send('get rtc_alarm_time')
-        this.$socket.send('get alarm_repeat')
       },
       formatTooltip (val) {
         return `${val}%`
