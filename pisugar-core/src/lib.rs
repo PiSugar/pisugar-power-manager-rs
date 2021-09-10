@@ -677,27 +677,12 @@ impl PiSugarCore {
         // much slower
         if self.config.auto_rtc_sync == Some(true) && self.rtc_sync_at + Duration::from_secs(10) <= now {
             self.rtc_sync_at = now;
-            use std::fs;
-            if let Ok(t) = fs::read(RTC_TIME) {
-                if let Ok(t) = String::from_utf8(t) {
-                    if let Ok(dt) = t.parse::<DateTime<FixedOffset>>() {
-                        let dt_now: DateTime<Local> = Local::now();
-                        let rtc_dt: DateTime<Local> = dt.into();
-                        if dt_now < rtc_dt {
-                            sys_write_time(dt.into());
-                            let _ = self.write_time(dt.into());
-                        }
-                    }
-                }
-            }
-
             if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
                 if let Some(date) = resp.headers().get("Date") {
                     if let Ok(s) = date.to_str() {
                         if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
                             sys_write_time(dt.into());
                             let _ = self.write_time(dt.into());
-                            let _ = fs::write(RTC_TIME, dt.to_string());
                         }
                     }
                 }
