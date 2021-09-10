@@ -31,6 +31,11 @@ fn show_warning() {
     println!("2. SYSTEMD SERVICE pisugar-server MUST BE STOPPED");
     println!("OTHERWISE UPGRADE MAY NOT SUCCEED!!!");
     println!("CONFIRM? (y or n): ");
+    let mut confirm = String::new();
+    io::stdin().read_line(&mut confirm).unwrap();
+    if !confirm.to_lowercase().trim_start().starts_with("y") {
+        exit(0);
+    }
 
     loop {
         let mut refresh_kind = RefreshKind::default();
@@ -49,12 +54,6 @@ fn show_warning() {
             break;
         }
         sleep(Duration::from_secs(1));
-    }
-
-    let mut confirm = String::new();
-    io::stdin().read_line(&mut confirm).unwrap();
-    if !confirm.to_lowercase().trim_start().starts_with("y") {
-        exit(0);
     }
 }
 
