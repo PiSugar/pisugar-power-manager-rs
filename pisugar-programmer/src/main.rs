@@ -36,15 +36,19 @@ fn show_warning() {
         let mut refresh_kind = RefreshKind::default();
         let refresh_kind = refresh_kind.with_processes();
         let mut sys = sysinfo::System::new_with_specifics(refresh_kind);
+        let mut running = false;
         for (pid, p) in sys.processes() {
             if p.name().contains("pisugar-server") {
                 println!("WARNING: pisugar-server is running, pid {}", pid);
                 println!("Run 'sudo systemctl stop pisugar-server' to stop the service");
-                sleep(Duration::from_secs(1));
-                continue;
+                running = true;
+                break;
             }
         }
-        break;
+        if !running {
+            break;
+        }
+        sleep(Duration::from_secs(1));
     }
 
     let mut confirm = String::new();
