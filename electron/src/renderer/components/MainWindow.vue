@@ -47,6 +47,8 @@
                     selectableRange: '00:00:00 - 23:59:59'
                   }"
                   @change="timeEditChange"
+                  @focus="isTimeEditFocused = true"
+                  @blur="isTimeEditFocused = false"
                   placeholder="select anytime">
           </el-time-picker>
           <el-button v-if="alarmOptionValue === 1" :disabled="!socketConnect" @click="repeatDialog = true">{{$t('repeat')}}</el-button>
@@ -344,6 +346,7 @@
         },
         timeUpdaterCount: 0,
         inputProtectEnabled: false,
+        isTimeEditFocused: false,
       }
     },
 
@@ -558,6 +561,8 @@
             // console.log(msg, this.alarmOptionValue)
           }
           if (!msg.indexOf('rtc_alarm_time: ')) {
+            // dont update timeEditValue when editing
+            if (this.isTimeEditFocused) return
             msg = msg.replace('rtc_alarm_time: ', '').trim()
             const alarmTime = new Moment(msg).parseZone()
             const tempTime = new Date()
@@ -565,6 +570,7 @@
             tempTime.setMinutes(alarmTime.minute())
             tempTime.setHours(alarmTime.hour())
             this.timeEditValue = tempTime
+            console.log('update alarm time', tempTime)
           }
           if (!msg.indexOf('alarm_repeat: ')) {
             const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
@@ -703,6 +709,10 @@
         }, 1000)
         if (this.timeUpdaterCount % 5 === 0) {
           this.getDeviceTime()
+        }
+        // get alarm time in every 10s
+        if (this.timeUpdaterCount % 10 === 0) {
+          this.$socket.send('get rtc_alarm_time')
         }
       },
       timeEditChange () {
