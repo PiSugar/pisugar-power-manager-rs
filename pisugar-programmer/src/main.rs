@@ -38,9 +38,9 @@ fn show_warning() {
     }
 
     loop {
-        let mut refresh_kind = RefreshKind::default();
+        let refresh_kind = RefreshKind::default();
         let refresh_kind = refresh_kind.with_processes();
-        let mut sys = sysinfo::System::new_with_specifics(refresh_kind);
+        let sys = sysinfo::System::new_with_specifics(refresh_kind);
         let mut running = false;
         for (pid, p) in sys.processes() {
             if p.name().contains("pisugar-server") {

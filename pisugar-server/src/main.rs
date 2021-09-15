@@ -102,6 +102,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             }
                             "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
                             "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
+                            "rtc_adjust_comm" => core.read_rtc_adjust_comm().map(|c| c.to_string()),
+                            "rtc_adjust_diff" => core.read_rtc_adjust_diff().map(|d| d.to_string()),
                             "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
                             "safe_shutdown_level" => Ok(core.config().auto_shutdown_level.to_string()),
                             "safe_shutdown_delay" => Ok(core.config().auto_shutdown_delay.to_string()),
@@ -290,6 +292,28 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         }
                         Err(_) => err,
                     };
+                }
+                "rtc_adjust_comm" => {
+                    if parts.len() >= 1 {
+                        if let Ok(comm) = parts[1].parse::<u8>() {
+                            match core.write_rtc_adjust_comm(comm) {
+                                Ok(()) => return format!("{}: done\n", parts[0]),
+                                Err(e) => log::error!("{}", e),
+                            }
+                        }
+                    }
+                    return err;
+                }
+                "rtc_adjust_diff" => {
+                    if parts.len() >= 1 {
+                        if let Ok(diff) = parts[1].parse::<u8>() {
+                            match core.write_rtc_adjust_diff(diff) {
+                                Ok(()) => return format!("{}: done\n", parts[0]),
+                                Err(e) => log::error!("{}", e),
+                            }
+                        }
+                    }
+                    return err;
                 }
                 "set_safe_shutdown_level" => {
                     if parts.len() >= 1 {

@@ -1,8 +1,7 @@
-use chrono::prelude::*;
 use rppal::i2c::I2c;
 
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTCRawTime, RTC};
-use crate::{PiSugarConfig, Result};
+use crate::{Error, PiSugarConfig, Result};
 
 /// SD3078, rtc chip
 pub struct SD3078 {
@@ -186,6 +185,22 @@ impl RTC for SD3078 {
         self.disable_write()?;
 
         Ok(())
+    }
+
+    fn read_adjust_comm(&self) -> Result<u8> {
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn write_adjust_comm(&self, _comm: u8) -> Result<()> {
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn read_adjust_diff(&self) -> Result<u8> {
+        Err(Error::Other("Not available".to_string()))
+    }
+
+    fn write_adjust_diff(&self, _diff: u8) -> Result<()> {
+        Err(Error::Other("Not available".to_string()))
     }
 
     /// Read alarm time
