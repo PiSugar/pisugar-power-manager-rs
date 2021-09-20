@@ -167,6 +167,18 @@
           <el-button @click="syncRTC2Pi">RTC > Pi</el-button>
           <el-button @click="syncWebTime">Web > Pi & RTC</el-button>
         </el-row>
+        <br>
+        <!-- model3 rtc adjustment setting -->
+        <el-row v-if="model.indexOf('3') > 0">
+          <el-form>
+            <el-form-item label="adjust_comm" label-width="100px">
+              <el-input-number size="small" v-model="adjustComm" controls-position="right" @change="handleCommChange" :min="0" :max="8"></el-input-number>
+            </el-form-item>
+            <el-form-item label="adjust_diff" label-width="100px">
+              <el-input-number size="small" v-model="adjustDiff" controls-position="right" @change="handleDiffChange" :min="0" :max="8"></el-input-number>
+            </el-form-item>
+          </el-form>
+        </el-row>
       </el-dialog>
 
       <el-dialog :title="editShellDialogTitle" :visible.sync="editShellDialog">
@@ -347,6 +359,8 @@
         timeUpdaterCount: 0,
         inputProtectEnabled: false,
         isTimeEditFocused: false,
+        adjustComm: 0,
+        adjustDiff: 0,
       }
     },
 
@@ -488,6 +502,12 @@
         if (val !== oldVal) {
           this.$socket.send(`set_battery_input_protect ${!!val}`)
         }
+      },
+      timeDialog: function (val) {
+        if (val) {
+          this.$socket.send('get rtc_adjust_comm')
+          this.$socket.send('get rtc_adjust_diff')
+        }
       }
     },
 
@@ -615,6 +635,12 @@
           }
           if (!msg.indexOf('battery_input_protect_enabled: ')) {
             this.inputProtectEnabled = (msg.replace('battery_input_protect_enabled: ', '').trim() === 'true')
+          }
+          if (!msg.indexOf('rtc_adjust_comm: ')) {
+            this.adjustComm = parseInt(msg.replace('rtc_adjust_comm: ', ''))
+          }
+          if (!msg.indexOf('rtc_adjust_diff: ')) {
+            this.adjustDiff = parseInt(msg.replace('rtc_adjust_diff: ', ''))
           }
         }
       },
@@ -818,7 +844,13 @@
         if (this.isNewVersion) {
           this.chargeDialog = true
         }
-      }
+      },
+      handleCommChange () {
+        this.$socket.send(`rtc_adjust_comm ${this.adjustComm}`)
+      },
+      handleDiffChange () {
+        this.$socket.send(`rtc_adjust_diff ${this.adjustDiff}`)
+      },
     }
   }
 </script>
