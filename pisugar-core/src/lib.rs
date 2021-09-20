@@ -9,7 +9,7 @@ use std::process::{Command, ExitStatus};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
+use chrono::{DateTime, Datelike, Local, Timelike};
 use hyper::client::Client;
 use rppal::i2c::Error as I2cError;
 use serde::{Deserialize, Serialize};
@@ -525,6 +525,22 @@ impl PiSugarCore {
 
     pub fn read_alarm_enabled(&self) -> Result<bool> {
         call_rtc!(&self.rtc, is_alarm_enable)
+    }
+
+    pub fn read_rtc_adjust_comm(&self) -> Result<u8> {
+        call_rtc!(&self.rtc, read_adjust_comm)
+    }
+
+    pub fn write_rtc_adjust_comm(&self, comm: u8) -> Result<()> {
+        call_rtc!(&self.rtc, write_adjust_comm, comm)
+    }
+
+    pub fn read_rtc_adjust_diff(&self) -> Result<u8> {
+        call_rtc!(&self.rtc, read_adjust_diff)
+    }
+
+    pub fn write_rtc_adjust_diff(&self, diff: u8) -> Result<()> {
+        call_rtc!(&self.rtc, write_adjust_diff, diff)
     }
 
     pub fn read_alarm_flag(&self) -> Result<bool> {
