@@ -172,10 +172,10 @@
         <el-row v-if="model.indexOf('3') > 0">
           <el-form>
             <el-form-item label="adjust_comm" label-width="100px">
-              <el-input-number size="small" v-model="adjustComm" controls-position="right" @change="handleCommChange" :min="0" :max="8"></el-input-number>
+              <el-input-number size="small" v-model="adjustComm" controls-position="right" @change="handleCommChange" :min="0" :max="15"></el-input-number>
             </el-form-item>
             <el-form-item label="adjust_diff" label-width="100px">
-              <el-input-number size="small" v-model="adjustDiff" controls-position="right" @change="handleDiffChange" :min="0" :max="8"></el-input-number>
+              <el-input-number size="small" v-model="adjustDiff" controls-position="right" @change="handleDiffChange" :min="0" :max="15"></el-input-number>
             </el-form-item>
           </el-form>
         </el-row>
