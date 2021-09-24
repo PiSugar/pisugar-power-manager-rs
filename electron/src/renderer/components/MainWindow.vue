@@ -128,7 +128,7 @@
 
       <div class="rtc-panel">
         <div class="sys-info">
-          <el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button> 
+          <el-button icon="el-icon-refresh" circle @click="timeDialog = true"></el-button>
           <div class="time-text">
             <div class="text rtc"><span class="label">{{$t('rtcTime')}}</span> : {{ rtcTimeString }}</div>
             <div class="text sys"><span class="label">{{$t('sysTime')}}</span> : {{ sysTimeString }}</div>
@@ -974,8 +974,9 @@
       margin-left: -75px;
     }
     &.plug-tag{
-      width: 140px;
+      min-width: 120px;
       margin-left: -85px;
+      padding-right: 15px;
     }
     .flash{
       position: absolute;
@@ -1035,7 +1036,7 @@
         margin-left: -2px;
         animation: breath 0.8s ease-in-out alternate-reverse infinite;
         background: linear-gradient(white 25%, transparent 0,
-         transparent 50%, white 0, 
+         transparent 50%, white 0,
          white 75%, transparent 0);
         background-size: 100% 30px;
         transition: all 0.5s ease-in-out;
@@ -1068,7 +1069,7 @@
       transform: scale(0.93);
     }
   }
-  
+
   .battery-level{
     position: absolute;
     top: 290px;
@@ -1099,7 +1100,7 @@
     left: 50%;
     margin-left: -85px;
   }
-  
+
   .website{
     position: absolute;
     width: 140px;
@@ -1119,8 +1120,8 @@
     top: 20px;
     right: 20px;
     width: 550px;
-    height: 470px;
-    padding: 10px 30px 0;
+    min-height: 470px;
+    padding: 10px 30px 20px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
@@ -1172,7 +1173,7 @@
       margin-left: 10px;
       .label{
         display: inline-block;
-        width: 60px;
+        width: 67px;
       }
     }
   }
@@ -1181,7 +1182,7 @@
       margin-left: 15px;
       .label{
         display: inline-block;
-        width: 60px;
+        width: 67px;
       }
     }
   }
