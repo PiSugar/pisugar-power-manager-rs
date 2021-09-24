@@ -169,13 +169,13 @@
         </el-row>
         <br>
         <!-- model3 rtc adjustment setting -->
-        <el-row v-if="model.indexOf('3') > 0">
+        <el-row v-if="model.indexOf('3') > -1">
           <el-form>
             <el-form-item label="adjust_comm" label-width="100px">
-              <el-input-number size="small" v-model="adjustComm" controls-position="right" @change="handleCommChange" :min="0" :max="15"></el-input-number>
+              <el-input-number size="small" v-model="adjustComm" controls-position="right" @change="handleCommChange" :min="-15" :max="15"></el-input-number>
             </el-form-item>
             <el-form-item label="adjust_diff" label-width="100px">
-              <el-input-number size="small" v-model="adjustDiff" controls-position="right" @change="handleDiffChange" :min="0" :max="15"></el-input-number>
+              <el-input-number size="small" v-model="adjustDiff" controls-position="right" @change="handleDiffChange" :min="0" :max="31"></el-input-number>
             </el-form-item>
           </el-form>
         </el-row>
@@ -637,9 +637,15 @@
             this.inputProtectEnabled = (msg.replace('battery_input_protect_enabled: ', '').trim() === 'true')
           }
           if (!msg.indexOf('rtc_adjust_comm: ')) {
-            this.adjustComm = parseInt(msg.replace('rtc_adjust_comm: ', ''))
+            // 10000000 b7 inc/dec, b3-0 value
+            const commInt = parseInt(msg.replace('rtc_adjust_comm: ', ''))
+            let bitArray = commInt.toString(2).split('')
+            bitArray = new Array(8 - bitArray.length).fill('0').concat(bitArray)
+            const [drct,,,, ...rest] = bitArray
+            this.adjustComm = parseInt(rest.join('')) * (drct === '1' ? 1 : -1)
           }
           if (!msg.indexOf('rtc_adjust_diff: ')) {
+            // 00000000 b4-0 value
             this.adjustDiff = parseInt(msg.replace('rtc_adjust_diff: ', ''))
           }
         }
@@ -846,7 +852,13 @@
         }
       },
       handleCommChange () {
-        this.$socket.send(`rtc_adjust_comm ${this.adjustComm}`)
+        // b10001111
+        let bitArray = Math.abs(this.adjustComm).toString(2).split('')
+        bitArray = new Array(8 - bitArray.length).fill('0').concat(bitArray)
+        bitArray[0] = this.adjustComm > 0 ? '1' : '0'
+        console.log(bitArray.join(''))
+        const resultInt = parseInt(bitArray.join(''), 2)
+        this.$socket.send(`rtc_adjust_comm ${resultInt}`)
       },
       handleDiffChange () {
         this.$socket.send(`rtc_adjust_diff ${this.adjustDiff}`)
