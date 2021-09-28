@@ -30,7 +30,7 @@ mod rtc;
 mod sd3078;
 
 /// Time host
-pub const TIME_HOST: &str = "http://cdn.pisugar.com";
+pub const TIME_HOST: &str = "https://cdn.pisugar.com";
 
 /// RTC Time record
 pub const RTC_TIME: &str = "rtc.time";
@@ -380,7 +380,7 @@ impl PiSugarCore {
             Ok(core) => {
                 if core.config.auto_power_on != Some(true) {
                     if let Some(datetime) = core.config.auto_wake_time {
-                        match core.set_alarm(datetime.into(), core.config.auto_wake_repeat) {
+                        match core.write_alarm(datetime.into(), core.config.auto_wake_repeat) {
                             Ok(_) => log::info!("Init alarm success"),
                             Err(e) => log::warn!("Init alarm failed: {}", e),
                         }
@@ -518,7 +518,7 @@ impl PiSugarCore {
         call_rtc!(&self.rtc, write_time, dt.into())
     }
 
-    pub fn set_alarm(&self, t: RTCRawTime, weekday_repeat: u8) -> Result<()> {
+    pub fn write_alarm(&self, t: RTCRawTime, weekday_repeat: u8) -> Result<()> {
         if self.config.auto_power_on == Some(true) {
             return Err(Error::Other(
                 "auto_power_on is in conflict with alarm function".to_string(),
@@ -574,7 +574,7 @@ impl PiSugarCore {
 
             // restore clock alarm
             if let Some(wakeup_time) = self.config.auto_wake_time {
-                self.set_alarm(wakeup_time.into(), self.config.auto_wake_repeat)?;
+                self.write_alarm(wakeup_time.into(), self.config.auto_wake_repeat)?;
             }
         }
         call_battery!(&self.battery, toggle_light_load_shutdown, auto_power_on)?;

@@ -265,7 +265,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             let datetime: DateTime<Local> = datetime.into();
                             let sd3078_time: RTCRawTime = datetime.into();
                             if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
-                                match core.set_alarm(sd3078_time, weekday_repeat) {
+                                match core.write_alarm(sd3078_time, weekday_repeat) {
                                     Ok(_) => {
                                         core.config_mut().auto_wake_repeat = weekday_repeat;
                                         core.config_mut().auto_wake_time = Some(datetime);
