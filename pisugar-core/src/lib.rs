@@ -194,6 +194,14 @@ pub struct PiSugarConfig {
     /// Auto rtc sync
     #[serde(default)]
     pub auto_rtc_sync: Option<bool>,
+
+    /// RTC ppm adjust comm (every second)
+    #[serde(default)]
+    pub adj_comm: Option<u8>,
+
+    /// RTC ppm adjust diff (in 31s)
+    #[serde(default)]
+    pub adj_diff: Option<u8>,
 }
 
 impl PiSugarConfig {

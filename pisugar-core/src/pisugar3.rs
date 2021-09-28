@@ -519,6 +519,12 @@ impl RTC for PiSugar3RTC {
             self.pisugar3.write_alarm_weekday_repeat(config.auto_wake_repeat)?;
             self.pisugar3.toggle_alarm_enable(true)?;
         }
+        if let Some(adj_comm) = config.adj_comm.clone() {
+            self.pisugar3.write_rtc_adj_comm(adj_comm)?;
+        }
+        if let Some(adj_diff) = config.adj_diff.clone() {
+            self.pisugar3.write_rtc_adj_diff(adj_diff)?;
+        }
         Ok(())
     }
 

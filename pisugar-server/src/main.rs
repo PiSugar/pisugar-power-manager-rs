@@ -296,24 +296,40 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "rtc_adjust_comm" => {
                     if parts.len() >= 1 {
                         if let Ok(comm) = parts[1].parse::<u8>() {
-                            match core.write_rtc_adjust_comm(comm) {
-                                Ok(()) => return format!("{}: done\n", parts[0]),
-                                Err(e) => log::error!("{}", e),
-                            }
+                            return match core.write_rtc_adjust_comm(comm) {
+                                Ok(()) => {
+                                    core.config_mut().adj_comm = Some(comm);
+                                    if let Err(e) = core.save_config() {
+                                        log::warn!("{}", e);
+                                    }
+                                    format!("{}: done\n", parts[0])
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    err
+                                }
+                            };
                         }
                     }
-                    return err;
                 }
                 "rtc_adjust_diff" => {
                     if parts.len() >= 1 {
                         if let Ok(diff) = parts[1].parse::<u8>() {
-                            match core.write_rtc_adjust_diff(diff) {
-                                Ok(()) => return format!("{}: done\n", parts[0]),
-                                Err(e) => log::error!("{}", e),
-                            }
+                            return match core.write_rtc_adjust_diff(diff) {
+                                Ok(()) => {
+                                    core.config_mut().adj_diff = Some(diff);
+                                    if let Err(e) = core.save_config() {
+                                        log::warn!("{}", e);
+                                    }
+                                    format!("{}: done\n", parts[0])
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                    err
+                                }
+                            };
                         }
                     }
-                    return err;
                 }
                 "set_safe_shutdown_level" => {
                     if parts.len() >= 1 {
