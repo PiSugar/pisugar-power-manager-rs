@@ -168,17 +168,8 @@ pub trait RTC {
     /// Write RTC time
     fn write_time(&self, time: RTCRawTime) -> Result<()>;
 
-    /// Read rtc adjust common
-    fn read_adjust_comm(&self) -> Result<u8>;
-
-    /// Write rtc adjust common
-    fn write_adjust_comm(&self, comm: u8) -> Result<()>;
-
-    /// Read rtc adjust diff
-    fn read_adjust_diff(&self) -> Result<u8>;
-
-    /// Write rtc adjust diff
-    fn write_adjust_diff(&self, diff: u8) -> Result<()>;
+    /// Write rtc adjust ppm
+    fn write_adjust_ppm(&self, ppm: f64) -> Result<()>;
 
     /// Read alarm time
     fn read_alarm_time(&self) -> Result<RTCRawTime>;

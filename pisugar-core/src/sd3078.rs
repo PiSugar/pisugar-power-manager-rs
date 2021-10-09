@@ -187,20 +187,9 @@ impl RTC for SD3078 {
         Ok(())
     }
 
-    fn read_adjust_comm(&self) -> Result<u8> {
-        Err(Error::Other("Not available".to_string()))
-    }
-
-    fn write_adjust_comm(&self, _comm: u8) -> Result<()> {
-        Err(Error::Other("Not available".to_string()))
-    }
-
-    fn read_adjust_diff(&self) -> Result<u8> {
-        Err(Error::Other("Not available".to_string()))
-    }
-
-    fn write_adjust_diff(&self, _diff: u8) -> Result<()> {
-        Err(Error::Other("Not available".to_string()))
+    /// Adjust ppm
+    fn write_adjust_ppm(&self, ppm: f64) -> Result<()> {
+        Ok(())
     }
 
     /// Read alarm time

@@ -202,6 +202,10 @@ pub struct PiSugarConfig {
     /// RTC ppm adjust diff (in 31s)
     #[serde(default)]
     pub adj_diff: Option<u8>,
+
+    /// RTC adjust ppm
+    #[serde(default)]
+    pub rtc_adj_ppm: Option<f64>,
 }
 
 impl PiSugarConfig {
@@ -535,20 +539,8 @@ impl PiSugarCore {
         call_rtc!(&self.rtc, is_alarm_enable)
     }
 
-    pub fn read_rtc_adjust_comm(&self) -> Result<u8> {
-        call_rtc!(&self.rtc, read_adjust_comm)
-    }
-
-    pub fn write_rtc_adjust_comm(&self, comm: u8) -> Result<()> {
-        call_rtc!(&self.rtc, write_adjust_comm, comm)
-    }
-
-    pub fn read_rtc_adjust_diff(&self) -> Result<u8> {
-        call_rtc!(&self.rtc, read_adjust_diff)
-    }
-
-    pub fn write_rtc_adjust_diff(&self, diff: u8) -> Result<()> {
-        call_rtc!(&self.rtc, write_adjust_diff, diff)
+    pub fn write_rtc_adjust_ppm(&self, ppm: f64) -> Result<()> {
+        call_rtc!(&self.rtc, write_adjust_ppm, ppm)
     }
 
     pub fn read_alarm_flag(&self) -> Result<bool> {

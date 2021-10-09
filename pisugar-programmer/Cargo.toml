@@ -9,7 +9,7 @@ license = "GPLv3"
 [dependencies]
 rppal = "0.12"
 clap = "2"
-sysinfo = "0.20"
+sysinfo = "0.20.4"
 
 [[bin]]
 name = "pisugar-programmer"

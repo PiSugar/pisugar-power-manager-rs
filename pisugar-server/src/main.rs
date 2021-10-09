@@ -102,8 +102,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             }
                             "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
                             "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
-                            "rtc_adjust_comm" => core.read_rtc_adjust_comm().map(|c| c.to_string()),
-                            "rtc_adjust_diff" => core.read_rtc_adjust_diff().map(|d| d.to_string()),
+                            "rtc_adjust_ppm" => Ok(core.config().rtc_adj_ppm.unwrap_or_default().to_string()),
                             "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
                             "safe_shutdown_level" => Ok(core.config().auto_shutdown_level.to_string()),
                             "safe_shutdown_delay" => Ok(core.config().auto_shutdown_delay.to_string()),
@@ -293,31 +292,14 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         Err(_) => err,
                     };
                 }
-                "rtc_adjust_comm" => {
+                "rtc_adjust_ppm" => {
                     if parts.len() >= 1 {
-                        if let Ok(comm) = parts[1].parse::<u8>() {
-                            return match core.write_rtc_adjust_comm(comm) {
+                        if let Ok(ppm) = parts[1].parse::<f64>() {
+                            let ppm = if ppm > 500.0 { 500.0 } else { ppm };
+                            let ppm = if ppm < -500.0 { -500.0 } else { ppm };
+                            return match core.write_rtc_adjust_ppm(ppm) {
                                 Ok(()) => {
-                                    core.config_mut().adj_comm = Some(comm);
-                                    if let Err(e) = core.save_config() {
-                                        log::warn!("{}", e);
-                                    }
-                                    format!("{}: done\n", parts[0])
-                                }
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                    err
-                                }
-                            };
-                        }
-                    }
-                }
-                "rtc_adjust_diff" => {
-                    if parts.len() >= 1 {
-                        if let Ok(diff) = parts[1].parse::<u8>() {
-                            return match core.write_rtc_adjust_diff(diff) {
-                                Ok(()) => {
-                                    core.config_mut().adj_diff = Some(diff);
+                                    core.config_mut().rtc_adj_ppm = Some(ppm);
                                     if let Err(e) = core.save_config() {
                                         log::warn!("{}", e);
                                     }

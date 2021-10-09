@@ -551,20 +551,22 @@ impl RTC for PiSugar3RTC {
         Ok(())
     }
 
-    fn read_adjust_comm(&self) -> Result<u8> {
-        self.pisugar3.read_rtc_adj_comm()
-    }
+    fn write_adjust_ppm(&self, ppm: f64) -> Result<()> {
+        let ppm_abs = ppm.abs();
+        let adj = ppm_abs * 32000000.0 / 30.517;
+        let comm = adj / 32.0;
+        let comm = if comm > 15.0 { 15 } else { comm as u8 };
+        let diff = adj - comm as f64 * 32.0;
+        let diff = if diff > 31.0 { 31 } else { diff as u8 };
 
-    fn write_adjust_comm(&self, comm: u8) -> Result<()> {
-        self.pisugar3.write_rtc_adj_comm(comm)
-    }
+        if ppm > 0.0 {
+            self.pisugar3.write_rtc_adj_comm(comm | 1 << 7)?;
+        } else {
+            self.pisugar3.write_rtc_adj_comm(comm)?;
+        }
+        self.pisugar3.write_rtc_adj_diff(diff)?;
 
-    fn read_adjust_diff(&self) -> Result<u8> {
-        self.pisugar3.read_rtc_adj_diff()
-    }
-
-    fn write_adjust_diff(&self, diff: u8) -> Result<()> {
-        self.pisugar3.write_rtc_adj_diff(diff)
+        Ok(())
     }
 
     fn read_alarm_time(&self) -> Result<RTCRawTime> {

@@ -123,15 +123,13 @@ Default ports:
 | get button_shell        | shell script when button is clicked  | button_shell: [single\|double\|long] [shell] |
 | get safe_shutdown_level | auto shutdown level | safe_shutdown_level: [number] |
 | get safe_shutdown_delay | auto shutdown delay | safe_shutdown_delay: [number] |
-| get rtc_adjust_comm | (pisugar3) adjust rtc ppm common (every second, 32khz) | rtc_adjust_comm: [number] |
-| get rtc_adjust_diff | (pisugar3) adjust rtc ppm diff (in 31s, 32khz) | rtc_adjust_diff: [number] |
+| get rtc_adjust_ppm | (pisugar3) adjust rtc ppm | rtc_adjust_ppm: [number] |
 | rtc_pi2rtc | sync time pi => rtc | |
 | rtc_rtc2pi | sync time rtc => pi | |
 | rtc_web | sync time web => rtc & pi | |
 | rtc_alarm_set | set rtc wakeup alarm | rtc_alarm_set [ISO8601 time string] [repeat] |
 | rtc_alarm_disable | disable rtc wakeup alarm | rtc_alarm_disable |
-| rtc_adjust_comm | (pisugar3) adjust rtc ppm common, b7 inc/dec, b3-0 value | |
-| rtc_adjust_diff | (pisugar3) adjust rtc ppm diff, b4-0 value | |
+| rtc_adjust_ppm | (pisugar3) adjust rtc ppm, -500.0 to 500.0 | rtc_adjust_ppm [number] |
 | set_button_enable | auto shutdown level % | set_button_enable [single\|double\|long] [0\|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level [single\|double\|long] [shell] |
 | set_battery_input_protect | set BAT input protect | set_battery_input_protect [true\|false] |
