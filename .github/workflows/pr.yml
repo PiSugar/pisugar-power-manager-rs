@@ -54,12 +54,19 @@ jobs:
           cache-name: cache-rust-musl
         with:
           path: |
-            /opt/arm-linux-musleabihf-cross
-            /opt/aarch64-linux-musl-cross
+            /opt
           key: ${{ runner.os }}-build-${{ env.cache-name }}
 
       # Rust musl cross toolchain
-      - name: Rust musl cross toolchain
+      - name: Rust musl cross toolchain arm
+        run: |
+          if ! test -d /opt/arm-linux-musleabi-cross/bin; then
+            wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
+            tar -xvf arm-linux-musleabi-cross.tgz
+            mv arm-linux-musleabi-cross /opt/
+          fi
+          echo /opt/arm-linux-musleabi-cross/bin >> $GITHUB_PATH
+      - name: Rust musl cross toolchain armhf
         run: |
           if ! test -d /opt/arm-linux-musleabihf-cross/bin; then
             wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
@@ -67,7 +74,6 @@ jobs:
             mv arm-linux-musleabihf-cross /opt/
           fi
           echo /opt/arm-linux-musleabihf-cross/bin >> $GITHUB_PATH
-      # Rust musl cross toolchain aarch64
       - name: Rust musl cross toolchain aarch64
         run: |
           if ! test -d /opt/aarch64-linux-musl-cross/bin; then
@@ -88,23 +94,37 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - run: rustup target add arm-unknown-linux-musleabi
       - run: rustup target add arm-unknown-linux-musleabihf
       - run: rustup target add aarch64-unknown-linux-musl
       - run: cargo install cargo-deb
       - run: cargo install cargo-rpm
 
       # Rust cargo deb - pisugar-server
+      - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-server/Cargo.toml
       - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
       - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
+      - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-poweroff/Cargo.toml
       - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
       - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
+      - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-programmer/Cargo.toml
+      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-programmer/Cargo.toml
+      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-programmer/Cargo.toml
 
       # Rust cargo-rpm
       - run: sudo apt update && sudo apt install -y rpm
+      - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabi)
       - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-server && cargo rpm build --target aarch64-unknown-linux-musl)
+      - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabi)
       - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-poweroff && cargo rpm build --target aarch64-unknown-linux-musl)
+      - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabi)
+      - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabihf)
+      - run: (cd pisugar-programmer && cargo rpm build --target aarch64-unknown-linux-musl)
+
+      - run: find $(pwd) -name '*.deb'
+      - run: find $(pwd) -name '*.rpm'
 
       # Upload artifact
       - name: Upload artifacts
@@ -112,8 +132,10 @@ jobs:
         with:
           name: pisugar-artifacts
           path: |
+            target/arm-unknown-linux-musleabi/debian/*
             target/arm-unknown-linux-musleabihf/debian/*
             target/aarch64-unknown-linux-musl/debian/*
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7l/*
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
             scripts/*

@@ -36,7 +36,7 @@ jobs:
           if ! test -d /opt/arm-linux-musleabi-cross/bin; then
             wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
             tar -xvf arm-linux-musleabi-cross.tgz
-            mv arm-linux-musleabihf-cross /opt/
+            mv arm-linux-musleabi-cross /opt/
           fi
           echo /opt/arm-linux-musleabi-cross/bin >> $GITHUB_PATH
       - name: Rust musl cross toolchain armhf
