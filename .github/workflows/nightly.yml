@@ -107,7 +107,7 @@ jobs:
             target/arm-unknown-linux-musleabi/debian/*
             target/arm-unknown-linux-musleabihf/debian/*
             target/aarch64-unknown-linux-musl/debian/*
-            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7l/*
+            target/arm-unknown-linux-musleabi/release/rpmbuild/RPMS/armv7l/*
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
             scripts/*
@@ -125,7 +125,7 @@ jobs:
             target/arm-unknown-linux-musleabi/debian/*
             target/arm-unknown-linux-musleabihf/debian/*
             target/aarch64-unknown-linux-musl/debian/*
-            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7l/*
+            target/arm-unknown-linux-musleabi/release/rpmbuild/RPMS/armv7l/*
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
             scripts/*
