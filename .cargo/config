@@ -13,6 +13,12 @@ registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index/"
 [build]
 target = "arm-unknown-linux-musleabihf"
 
+[target.arm-unknown-linux-musleabi]
+linker = "arm-linux-musleabi-ld"
+ar = "arm-linux-musleabi-ar"
+strip = {path="arm-linux-musleabi-strip"}
+objcpy = {path="arm-linux-musleabi-objcopy"}
+
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-ld"
 ar = "arm-linux-musleabihf-ar"

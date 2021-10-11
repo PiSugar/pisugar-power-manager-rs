@@ -62,6 +62,14 @@ Move the toolchain into `/opt`, and add it into `PATH`
     echo 'export PATH=/opt/arm-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
     source ~/.bashrc
 
+Arm
+
+    wget http://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
+    tar -xvf arm-linux-musleabi-cross.tgz
+    sudo mv arm-linux-musleabi-cross /opt/
+    echo 'export PATH=/opt/arm-linux-musleabi-cross/bin:$PATH' >> ~/.bashrc
+    source ~/.bashrc
+
 Arm64
 
     wget http://more.musl.cc/$(uname -m)-linux-musl/aarch64-linux-musl-cross.tgz
@@ -74,15 +82,17 @@ Install rust and arm/armv7/arm64 target
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup update
+    rustup target add arm-unknown-linux-musleabi        # arm
     rustup target add arm-unknown-linux-musleabihf      # armv6
     rustup target add armv7-unknown-linux-musleabihf    # armv7
     rustup target add aarch64-unknown-linux-musl        # arm64
 
 Build
 
-    cargo build --target arm-unknown-linux-musleabihf --release      # armv6
-    cargo build --target armv7-unknown-linux-musleabihf --release    # armv7
-    cargo build --target aarch64-unknown-linux-musl
+    cargo build --target arm-unknown-linux-musleabi --release       # arm
+    cargo build --target arm-unknown-linux-musleabihf --release     # armv6
+    cargo build --target armv7-unknown-linux-musleabihf --release   # armv7
+    cargo build --target aarch64-unknown-linux-musl                 # arm64
 
 ## Cross compilation - windows
 
@@ -104,6 +114,8 @@ Build deb with cargo-deb (need latest cargo-deb that support templates)
 
     cargo install --git https://github.com/mmstick/cargo-deb.git
 
+    cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-server/Cargo.toml
+    cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-poweroff/Cargo.toml
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
     cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
     cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
@@ -139,6 +151,7 @@ Install cargo-rpm
 
 Build
 
+    cargo rpm build --target arm-unknown-linux-musleabi
     cargo rpm build --target arm-unknown-linux-musleabihf
 
 Install
