@@ -171,13 +171,12 @@
         <!-- model3 rtc adjustment setting -->
         <el-row v-if="model.indexOf('3') > -1">
           <el-form>
-            <el-form-item label="adjust_comm" label-width="100px">
-              <el-input-number size="small" v-model="adjustComm" controls-position="right" @change="handleCommChange" :min="-15" :max="15"></el-input-number>
-            </el-form-item>
-            <el-form-item label="adjust_diff" label-width="100px">
-              <el-input-number size="small" v-model="adjustDiff" controls-position="right" @change="handleDiffChange" :min="0" :max="31"></el-input-number>
+            <el-form-item label="Adjust(ms per hour)" label-width="130px">
+              <el-input-number size="small" v-model="adjustMsPerHour" controls-position="right" @change="handleAdjustChange" :min="-1800" :max="1800"></el-input-number>
+              <div>ppm: {{adjustPPM}}</div>
             </el-form-item>
           </el-form>
+          
         </el-row>
       </el-dialog>
 
@@ -259,6 +258,8 @@
 <script>
   import Moment from 'moment'
   import { localeOptions } from '../locale'
+  import { ms2ppm, ppm2ms } from '../utils'
+
   export default {
     name: 'index-page',
     debug: true,
@@ -359,8 +360,8 @@
         timeUpdaterCount: 0,
         inputProtectEnabled: false,
         isTimeEditFocused: false,
-        adjustComm: 0,
-        adjustDiff: 0,
+        adjustPPM: 0,
+        adjustMsPerHour: 0,
       }
     },
 
@@ -498,15 +499,14 @@
         this.alarmOptionValue = val === 0 ? 0 : 1
         this.setRtcAlarm()
       },
-      inputProtectEnabled: function(val, oldVal) {
+      inputProtectEnabled: function (val, oldVal) {
         if (val !== oldVal) {
           this.$socket.send(`set_battery_input_protect ${!!val}`)
         }
       },
       timeDialog: function (val) {
         if (val) {
-          this.$socket.send('get rtc_adjust_comm')
-          this.$socket.send('get rtc_adjust_diff')
+          this.$socket.send('get rtc_adjust_ppm')
         }
       }
     },
@@ -636,17 +636,9 @@
           if (!msg.indexOf('battery_input_protect_enabled: ')) {
             this.inputProtectEnabled = (msg.replace('battery_input_protect_enabled: ', '').trim() === 'true')
           }
-          if (!msg.indexOf('rtc_adjust_comm: ')) {
-            // 10000000 b7 inc/dec, b3-0 value
-            const commInt = parseInt(msg.replace('rtc_adjust_comm: ', ''))
-            let bitArray = commInt.toString(2).split('')
-            bitArray = new Array(8 - bitArray.length).fill('0').concat(bitArray)
-            const [drct,,,, ...rest] = bitArray
-            this.adjustComm = parseInt(rest.join('')) * (drct === '1' ? 1 : -1)
-          }
-          if (!msg.indexOf('rtc_adjust_diff: ')) {
-            // 00000000 b4-0 value
-            this.adjustDiff = parseInt(msg.replace('rtc_adjust_diff: ', ''))
+          if (!msg.indexOf('rtc_adjust_ppm: ')) {
+            this.adjustPPM = parseInt(msg.replace('rtc_adjust_ppm: ', ''))
+            this.adjustMsPerHour = ppm2ms(this.adjustPPM)
           }
         }
       },
@@ -851,18 +843,10 @@
           this.chargeDialog = true
         }
       },
-      handleCommChange () {
-        // b10001111
-        let bitArray = Math.abs(this.adjustComm).toString(2).split('')
-        bitArray = new Array(8 - bitArray.length).fill('0').concat(bitArray)
-        bitArray[0] = this.adjustComm > 0 ? '1' : '0'
-        console.log(bitArray.join(''))
-        const resultInt = parseInt(bitArray.join(''), 2)
-        this.$socket.send(`rtc_adjust_comm ${resultInt}`)
-      },
-      handleDiffChange () {
-        this.$socket.send(`rtc_adjust_diff ${this.adjustDiff}`)
-      },
+      handleAdjustChange () {
+        this.adjustPPM = ms2ppm(this.adjustMsPerHour)
+        this.$socket.send(`rtc_adjust_ppm ${this.adjustPPM}`)
+      }
     }
   }
 </script>

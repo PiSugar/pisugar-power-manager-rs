@@ -66,5 +66,5 @@ module.exports = {
     Sun: '周日'
   },
   batteryInputProtect: '充电保护',
-  batteryInputProtectDesc: '充电过程将在会60%～80%电量时停止，可有效延长电池寿命。',
+  batteryInputProtectDesc: '充电过程将在会60%～80%电量时停止，可有效延长电池寿命。'
 }
