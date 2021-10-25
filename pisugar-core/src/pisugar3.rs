@@ -38,6 +38,8 @@ const IIC_CMD_OL: u8 = 0x27;
 
 const IIC_CMD_P: u8 = 0x2A;
 
+/// RTC Ctrl
+const IIC_CMD_RTC_CTRL: u8 = 0x30;
 /// RTC year
 const IIC_CMD_RTC_YY: u8 = 0x31;
 /// RTC month
@@ -259,6 +261,19 @@ impl PiSugar3 {
 
     pub fn read_rtc_ss(&self) -> Result<u8> {
         Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
+    }
+
+    pub fn toggle_rtc_write(&self, enable: bool) -> Result<()> {
+        let mut rtc_ctrl = self.i2c.smbus_read_byte(IIC_CMD_RTC_CTRL)?;
+        if enable {
+            rtc_ctrl |= (1 << 7);
+            rtc_ctrl |= (1 << 1);
+            rtc_ctrl &= 0b1111_0111;
+        } else {
+            rtc_ctrl &= 0b0111_0101;
+        }
+        self.i2c.smbus_write_byte(IIC_CMD_RTC_CTRL, rtc_ctrl);
+        Ok(())
     }
 
     pub fn write_rtc_ss(&self, ss: u8) -> Result<()> {
@@ -541,6 +556,7 @@ impl RTC for PiSugar3RTC {
     }
 
     fn write_time(&self, raw: RTCRawTime) -> Result<()> {
+        self.pisugar3.toggle_rtc_write(true)?;
         self.pisugar3.write_rtc_ss(raw.second())?;
         self.pisugar3.write_rtc_mn(raw.minute())?;
         self.pisugar3.write_rtc_hh(raw.hour())?;
@@ -548,6 +564,7 @@ impl RTC for PiSugar3RTC {
         self.pisugar3.write_rtc_dd(raw.day())?;
         self.pisugar3.write_rtc_mm(raw.month())?;
         self.pisugar3.write_rtc_yy(((raw.year() - 2000) & 0xff) as u8)?;
+        self.pisugar3.toggle_rtc_write(false)?;
         Ok(())
     }
 
