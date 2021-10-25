@@ -266,13 +266,13 @@ impl PiSugar3 {
     pub fn toggle_rtc_write(&self, enable: bool) -> Result<()> {
         let mut rtc_ctrl = self.i2c.smbus_read_byte(IIC_CMD_RTC_CTRL)?;
         if enable {
-            rtc_ctrl |= (1 << 7);
-            rtc_ctrl |= (1 << 1);
+            rtc_ctrl |= 1 << 7;
+            rtc_ctrl |= 1 << 1;
             rtc_ctrl &= 0b1111_0111;
         } else {
             rtc_ctrl &= 0b0111_0101;
         }
-        self.i2c.smbus_write_byte(IIC_CMD_RTC_CTRL, rtc_ctrl);
+        self.i2c.smbus_write_byte(IIC_CMD_RTC_CTRL, rtc_ctrl)?;
         Ok(())
     }
 
