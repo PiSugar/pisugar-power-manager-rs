@@ -243,15 +243,17 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "rtc_web" => {
                     tokio::spawn(async move {
                         if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
-                            if let Some(date) = resp.headers().get("Date") {
-                                if let Ok(s) = date.to_str() {
-                                    if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
-                                        if let Ok(core) = core_cloned.lock() {
-                                            sys_write_time(dt.into());
-                                            let _ = core.write_time(dt.into());
-                                        }
+                            if let Some(date) = resp.headers().get("date") {
+                                if let Ok(Ok(dt)) = date.to_str().map(|s| DateTime::parse_from_rfc2822(s)) {
+                                    sys_write_time(dt.into());
+                                    if let Ok(core) = core_cloned.lock() {
+                                        let _ = core.write_time(dt.into());
                                     }
+                                } else {
+                                    log::warn!("Parse date error");
                                 }
+                            } else {
+                                log::warn!("Failed to get date from {}", TIME_HOST);
                             }
                         }
                     });
@@ -959,6 +961,24 @@ async fn main() -> std::io::Result<()> {
                 }
             } else {
                 battery_high_at = tokio::time::Instant::now();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::TIME_HOST;
+    use chrono::DateTime;
+    use hyper::Client;
+
+    #[tokio::test]
+    async fn test_web_date() {
+        let resp = Client::new().get(TIME_HOST.parse().unwrap()).await.unwrap();
+        if let Some(date) = resp.headers().get("date") {
+            if let Ok(Ok(dt)) = date.to_str().map(|s| DateTime::parse_from_rfc2822(s)) {
+                println!("{}", dt);
             }
         }
     }

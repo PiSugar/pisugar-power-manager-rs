@@ -30,7 +30,7 @@ mod rtc;
 mod sd3078;
 
 /// Time host
-pub const TIME_HOST: &str = "https://cdn.pisugar.com";
+pub const TIME_HOST: &str = "http://cdn.pisugar.com";
 
 /// RTC Time record
 pub const RTC_TIME: &str = "rtc.time";
