@@ -637,7 +637,9 @@
             this.inputProtectEnabled = (msg.replace('battery_input_protect_enabled: ', '').trim() === 'true')
           }
           if (!msg.indexOf('rtc_adjust_ppm: ')) {
-            this.adjustPPM = parseInt(msg.replace('rtc_adjust_ppm: ', ''))
+            const ppmValue = parseInt(msg.replace('rtc_adjust_ppm: ', ''))
+            if (isNaN(ppmValue)) return
+            this.adjustPPM = ppmValue
             this.adjustMsPerHour = ppm2ms(this.adjustPPM)
           }
         }
