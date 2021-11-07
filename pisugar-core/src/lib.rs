@@ -374,7 +374,7 @@ impl PiSugarCore {
         Ok(core)
     }
 
-    pub fn new_with_path(config_path: &str, auto_recovery: bool, model: Model) -> Result<Self> {
+    pub fn new_with_path(config_path: &str, recover_config: bool, model: Model) -> Result<Self> {
         let config_path = PathBuf::from(config_path);
         if config_path.is_dir() {
             return Err(Error::Other("Not a file".to_string()));
@@ -394,7 +394,7 @@ impl PiSugarCore {
             }
             Err(_) => {
                 log::warn!("Load configuration failed, auto recovery...");
-                if auto_recovery {
+                if recover_config {
                     let config = PiSugarConfig::default();
                     let mut core = Self::new(config, model)?;
                     core.config_path = Some(config_path.to_string_lossy().to_string());
@@ -559,17 +559,24 @@ impl PiSugarCore {
         self.config.auto_power_on = Some(auto_power_on);
         self.save_config()?;
 
-        if auto_power_on {
-            call_rtc!(&self.rtc, toggle_frequency_alarm, true)?;
-        } else {
-            call_rtc!(&self.rtc, toggle_frequency_alarm, false)?;
-
-            // restore clock alarm
-            if let Some(wakeup_time) = self.config.auto_wake_time {
-                self.write_alarm(wakeup_time.into(), self.config.auto_wake_repeat)?;
+        match self.model {
+            Model::PiSugar_3 => {
+                call_battery!(&self.battery, toggle_power_restore, auto_power_on)?;
+            }
+            _ => {
+                // NOTE: pisugar 2 use frequency alarm to restore power
+                if auto_power_on {
+                    call_rtc!(&self.rtc, toggle_frequency_alarm, true)?;
+                } else {
+                    call_rtc!(&self.rtc, toggle_frequency_alarm, false)?;
+                    // restore clock alarm
+                    if let Some(wakeup_time) = self.config.auto_wake_time {
+                        self.write_alarm(wakeup_time.into(), self.config.auto_wake_repeat)?;
+                    }
+                }
+                call_battery!(&self.battery, toggle_light_load_shutdown, !auto_power_on)?;
             }
         }
-        call_battery!(&self.battery, toggle_light_load_shutdown, auto_power_on)?;
 
         Ok(())
     }

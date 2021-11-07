@@ -336,6 +336,10 @@ impl Battery for IP5312Battery {
         }
     }
 
+    fn toggle_power_restore(&self, enable: bool) -> Result<()> {
+        Err(Error::Other("Not supported".to_string()))
+    }
+
     fn is_allow_charging(&self) -> Result<bool> {
         if self.model.led_amount() == 2 {
             self.ip5312.allow_charging_2led()

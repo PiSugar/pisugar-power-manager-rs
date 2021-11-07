@@ -413,6 +413,10 @@ impl Battery for PiSugar3Battery {
         Ok((ctr1 & (1 << 7)) != 0)
     }
 
+    fn toggle_power_restore(&self, enable: bool) -> Result<()> {
+        self.pisugar3.toggle_restore(enable)
+    }
+
     fn is_allow_charging(&self) -> crate::Result<bool> {
         let ctr1 = self.pisugar3.read_ctr1()?;
         Ok((ctr1 & (1 << 6)) != 0)

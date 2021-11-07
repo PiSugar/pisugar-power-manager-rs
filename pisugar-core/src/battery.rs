@@ -32,6 +32,9 @@ pub trait Battery {
     /// Is power cable plugged in
     fn is_power_plugged(&self) -> Result<bool>;
 
+    /// Restore power after
+    fn toggle_power_restore(&self, enable: bool) -> Result<()>;
+
     /// Is battery allow charging
     fn is_allow_charging(&self) -> Result<bool>;
 

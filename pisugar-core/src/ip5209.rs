@@ -340,6 +340,10 @@ impl Battery for IP5209Battery {
         }
     }
 
+    fn toggle_power_restore(&self, enable: bool) -> Result<()> {
+        Err(Error::Other("Not supported".to_string()))
+    }
+
     fn is_allow_charging(&self) -> Result<bool> {
         if self.model.led_amount() == 2 {
             self.ip5209.allow_charging_2led()
