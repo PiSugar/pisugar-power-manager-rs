@@ -3,7 +3,7 @@ use std::env;
 use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
@@ -20,10 +20,10 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response};
 use hyper::{Request, Server};
 use hyper_websocket_lite::{server_upgrade, AsyncClient};
+use lazy_static::lazy_static;
 use log::LevelFilter;
 use syslog::{BasicLogger, Facility, Formatter3164};
-use tokio::fs::OpenOptions;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
@@ -36,6 +36,11 @@ use pisugar_core::{
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
+
+lazy_static! {
+    /// WS addr
+    static ref WS_ADDR: Mutex<Option<SocketAddr>> = Mutex::new(None);
+}
 
 /// Tap event tx
 type EventTx = tokio::sync::watch::Sender<String>;
@@ -631,6 +636,14 @@ async fn handle_http_req(
     core: Arc<Mutex<PiSugarCore>>,
     event_rx: EventRx,
 ) -> Result<Response<Body>, io::Error> {
+    if req.uri().path().contains(WS_JSON) {
+        if let Some(ws_addr) = *WS_ADDR.lock().unwrap() {
+            let json = format!("{{\"wsPort\": \"{}\"}}", ws_addr.port());
+            return Ok(Response::builder().body(Body::from(json)).unwrap());
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, ""));
+        }
+    }
     if req.uri().path().ends_with("/ws") {
         server_upgrade(req, |c| on_ws_client(c, core, event_rx))
             .await
@@ -898,7 +911,7 @@ async fn main() -> std::io::Result<()> {
         let event_rx = event_rx.clone();
         let web_dir = matches.value_of("web").unwrap().to_string();
         let http_addr = matches.value_of("http").unwrap().parse().unwrap();
-        let web_dir_cloned = web_dir.clone();
+        let _web_dir_cloned = web_dir.clone();
         tokio::spawn(async move {
             log::info!("Http web server listening...");
             let _ = serve_http(http_addr, web_dir, core_cloned, event_rx).await;
@@ -909,11 +922,12 @@ async fn main() -> std::io::Result<()> {
         if matches.is_present("ws") {
             let ws_addr = matches.value_of("ws").unwrap();
             let ws_sock_addr: SocketAddr = ws_addr.parse().unwrap();
-            let content = format!("{{\"wsPort\": \"{}\"}}", ws_sock_addr.port());
-            let filename = PathBuf::from(web_dir_cloned).join("_ws.json");
-            let mut file = OpenOptions::default().create(true).write(true).open(filename).await?;
-            file.set_len(0).await?;
-            file.write_all(content.as_bytes()).await?;
+            *WS_ADDR.lock().unwrap() = Some(ws_sock_addr);
+            // let content = format!("{{\"wsPort\": \"{}\"}}", ws_sock_addr.port());
+            // let filename = PathBuf::from(web_dir_cloned).join(WS_JSON);
+            // let mut file = OpenOptions::default().create(true).write(true).open(filename).await?;
+            // file.set_len(0).await?;
+            // file.write_all(content.as_bytes()).await?;
         }
     }
 

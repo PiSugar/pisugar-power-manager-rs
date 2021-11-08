@@ -340,7 +340,7 @@ impl Battery for IP5209Battery {
         }
     }
 
-    fn toggle_power_restore(&self, enable: bool) -> Result<()> {
+    fn toggle_power_restore(&self, _enable: bool) -> Result<()> {
         Err(Error::Other("Not supported".to_string()))
     }
 

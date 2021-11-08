@@ -1,7 +1,7 @@
 use rppal::i2c::I2c;
 
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTCRawTime, RTC};
-use crate::{Error, PiSugarConfig, Result};
+use crate::{PiSugarConfig, Result};
 
 /// SD3078, rtc chip
 pub struct SD3078 {
@@ -188,7 +188,7 @@ impl RTC for SD3078 {
     }
 
     /// Adjust ppm
-    fn write_adjust_ppm(&self, ppm: f64) -> Result<()> {
+    fn write_adjust_ppm(&self, _ppm: f64) -> Result<()> {
         Ok(())
     }
 

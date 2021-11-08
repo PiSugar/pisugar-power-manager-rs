@@ -14,6 +14,7 @@ pub fn dec_to_bcd(dec: u8) -> u8 {
     (dec % 10) | ((dec / 10) << 4)
 }
 
+#[allow(dead_code)]
 pub fn ensure_bcd(bcd: u8, max: u8) -> u8 {
     let mut r1 = bcd >> 4;
     if r1 > 9 {
