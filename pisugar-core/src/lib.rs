@@ -381,17 +381,7 @@ impl PiSugarCore {
         }
 
         match Self::load_config(config_path.as_path(), model) {
-            Ok(core) => {
-                if core.config.auto_power_on != Some(true) {
-                    if let Some(datetime) = core.config.auto_wake_time {
-                        match core.write_alarm(datetime.into(), core.config.auto_wake_repeat) {
-                            Ok(_) => log::info!("Init alarm success"),
-                            Err(e) => log::warn!("Init alarm failed: {}", e),
-                        }
-                    }
-                }
-                Ok(core)
-            }
+            Ok(core) => Ok(core),
             Err(_) => {
                 log::warn!("Load configuration failed, auto recovery...");
                 if recover_config {
@@ -608,7 +598,7 @@ impl PiSugarCore {
             log::info!("Init battery...");
             call_battery!(&mut self.battery, init, &self.config)?;
             log::info!("Init rtc...");
-            call_rtc!(&mut self.battery, init, &self.config)?;
+            call_rtc!(&mut self.rtc, init, &self.config)?;
             self.ready = true;
         }
 

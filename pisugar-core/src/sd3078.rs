@@ -67,14 +67,14 @@ impl SD3078 {
 
         // CTR3 - 1/2Hz, FS3=1, FS2=0, FS1=1, FS0=1
         let mut ctr3 = self.i2c.smbus_read_byte(0x11)?;
-        ctr3 |= 0b0000_1011;
         ctr3 &= 0b1111_1011;
+        ctr3 |= 0b0000_1011;
         self.i2c.smbus_write_byte(0x11, ctr3)?;
 
         // CTR2 - INTS1=1, INTS0=0, INTFE=1, and disable INTAE, INTDE
         let mut ctr2 = self.i2c.smbus_read_byte(0x10)?;
-        ctr2 |= 0b0010_0001;
         ctr2 &= 0b1110_1001;
+        ctr2 |= 0b0010_0001;
         self.i2c.smbus_write_byte(0x10, ctr2)?;
 
         self.disable_write()?;
@@ -149,7 +149,9 @@ impl RTC for SD3078 {
         } else {
             self.disable_frequency_alarm()?;
             if let Some(auto_wakeup_time) = config.auto_wake_time.clone() {
-                self.set_alarm(auto_wakeup_time.into(), config.auto_wake_repeat)?;
+                if config.auto_wake_repeat != 0 {
+                    self.set_alarm(auto_wakeup_time.into(), config.auto_wake_repeat)?;
+                }
             }
         }
 
