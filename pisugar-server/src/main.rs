@@ -639,7 +639,10 @@ async fn handle_http_req(
     if req.uri().path().contains(WS_JSON) {
         if let Some(ws_addr) = *WS_ADDR.lock().unwrap() {
             let json = format!("{{\"wsPort\": \"{}\"}}", ws_addr.port());
-            return Ok(Response::builder().body(Body::from(json)).unwrap());
+            return Ok(Response::builder()
+                .header("Content-Type", "application/json")
+                .body(Body::from(json))
+                .unwrap());
         } else {
             return Err(io::Error::new(io::ErrorKind::NotFound, ""));
         }
