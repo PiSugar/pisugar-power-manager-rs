@@ -131,12 +131,7 @@ jobs:
       - run: (cd pisugar-programmer && cargo rpm build --target aarch64-unknown-linux-musl)
 
       # aur for archlinux
-      - run: |
-          (cd scripts/aur; sh build-aur.sh)
-          rm -rf scripts/aur/arm
-          rm -rf scripts/aur/armhf
-          rm -rf scripts/aur/aarch64
-          rm pisugar-bin*.tar.gz
+      - run: (cd scripts/aur; sh build-aur.sh)
 
       - run: find $(pwd) -name '*.deb'
       - run: find $(pwd) -name '*.rpm'
@@ -154,6 +149,7 @@ jobs:
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
             scripts/*
+            scripts/aur/*.tar.gz
           if-no-files-found: warn
 
       # Development Release
@@ -172,6 +168,7 @@ jobs:
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
             scripts/*
+            scripts/aur/*.tar.gz
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"
@@ -195,7 +192,7 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm'); do
+          for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm') $(find scripts -name '*.tar.gz'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
