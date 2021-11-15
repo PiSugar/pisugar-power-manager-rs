@@ -1,0 +1,50 @@
+# This is a default template for a post-install scriptlet.
+# Uncomment only required functions and remove any functions
+# you don't need (and this header).
+
+## arg 1:  the new package version
+#pre_install() {
+	# do something here
+#}
+
+## arg 1:  the new package version
+post_install() {
+    echo "PiSugar hardware model:"
+    select model in "PiSugar 3" "PiSugar 2 Pro" "PiSugar 2 (2-LEDs)" "PiSugar 2 (4-LEDs)"; do
+        if [ "x$model" != "x" ]; then
+            break;
+        fi
+    done
+    echo "Model: $model"
+    sed -e "s/--model.*--/--model '$model' --/" \
+        -i /etc/default/pisugar-server.default \
+        -i /etc/default/pisugar-poweroff.default \
+        || true
+    systemctl daemon-reload
+    systemctl enable pisugar-server || true
+    systemctl restart pisugar-server || true
+}
+
+## arg 1:  the new package version
+## arg 2:  the old package version
+#pre_upgrade() {
+	# do something here
+#}
+
+## arg 1:  the new package version
+## arg 2:  the old package version
+#post_upgrade() {
+	# do something here
+#}
+
+## arg 1:  the old package version
+pre_remove() {
+	systemctl disable pisugar-server || true
+    systemctl stop pisugar-server || true
+    systemctl disable pisugar-poweroff || true
+}
+
+## arg 1:  the old package version
+#post_remove() {
+	# do something here
+#}

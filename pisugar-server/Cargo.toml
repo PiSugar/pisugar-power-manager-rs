@@ -5,6 +5,8 @@ authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Power Manager"
 license = "GPLv3"
+homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
+repository = "https://github.com/PiSugar/pisugar-power-manager-rs"
 
 [dependencies]
 log = "0.4.8"

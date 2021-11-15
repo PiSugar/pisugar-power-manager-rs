@@ -54,6 +54,13 @@ Replace model in `/etc/default/pisugar-server`
 
 **NOTE** `auto_power_on` mode would prevent PiSugar falling into sleep, it could be useful in some cases. (since v1.4.8, `/etc/pisugar-server/config.json`)
 
+## Install (ArchLinux only)
+
+Download latest `pisugar-all_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
+
+    sudo pacman -Sy binutils make gcc pkg-config fakeroot
+    tar -xvf pisugar-all_<version>_all.tar.gz
+    makepkg -si
 ## Prerequisites
 
 On raspberry pi, enable I2C interface

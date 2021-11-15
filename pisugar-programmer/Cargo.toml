@@ -5,6 +5,7 @@ authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Firmware Programmer (for PiSugar 3)"
 license = "GPLv3"
+homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
 
 [dependencies]
 rppal = "0.12"

@@ -88,7 +88,7 @@ jobs:
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
           echo $LIBGCC
-          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
           cat .cargo/config
 
       # Rust toolchain
@@ -101,6 +101,11 @@ jobs:
       - run: rustup target add aarch64-unknown-linux-musl
       - run: cargo install cargo-deb
       - run: cargo install cargo-rpm
+
+      # Rust build release
+      - run: cargo build --target arm-unknown-linux-musleabi  --release
+      - run: cargo build --target arm-unknown-linux-musleabihf  --release
+      - run: cargo build --target aarch64-unknown-linux-musl  --release
 
       # Rust cargo deb - pisugar-server
       - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-server/Cargo.toml
@@ -124,6 +129,14 @@ jobs:
       - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabi)
       - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-programmer && cargo rpm build --target aarch64-unknown-linux-musl)
+
+      # aur for archlinux
+      - run: |
+          (cd scripts/aur; sh build-aur.sh)
+          rm -rf scripts/aur/arm
+          rm -rf scripts/aur/armhf
+          rm -rf scripts/aur/aarch64
+          rm pisugar-bin*.tar.gz
 
       - run: find $(pwd) -name '*.deb'
       - run: find $(pwd) -name '*.rpm'

@@ -75,7 +75,7 @@ Arm64
     wget http://more.musl.cc/$(uname -m)-linux-musl/aarch64-linux-musl-cross.tgz
     tar -xvf aarch64-linux-musl-cross.tgz
     sudo mv aarch64-linux-musl-cross /opt/
-    echo 'export PATH=/opt/aarch64-linux-musleabihf-cross/bin:$PATH' >> ~/.bashrc
+    echo 'export PATH=/opt/aarch64-linux-musl-cross/bin:$PATH' >> ~/.bashrc
     source ~/.bashrc
 
 Install rust and arm/armv7/arm64 target
@@ -157,3 +157,15 @@ Build
 Install
 
     rpm -i pisugar-server-<ver>-<arch>.rpm
+
+## Build aur packages (ArchLinux)
+
+Build, ArchLinux only
+
+    (cd scripts/aur; sh build-aur.sh)
+
+Install
+
+    sudo pacman -Sy binutils make gcc pkg-config fakeroot
+    tar -xvf pisugar-all_<version>_all.tar.gz
+    makepkg -si
