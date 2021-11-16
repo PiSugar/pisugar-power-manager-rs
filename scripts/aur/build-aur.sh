@@ -10,6 +10,7 @@ rm -rf pisugar-all
 mkdir -p pisugar-all
 cp pisugar-bin.install pisugar-all/
 cp PKGBUILD pisugar-all/
+cp install.sh pisugar-all/
 
 cd pisugar-all
 

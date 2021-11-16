@@ -58,9 +58,8 @@ Replace model in `/etc/default/pisugar-server`
 
 Download latest `pisugar-all_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
 
-    sudo pacman -Sy binutils make gcc pkg-config fakeroot
     tar -xvf pisugar-all_<version>_all.tar.gz
-    makepkg -si
+    (cd pisugar-all; sh install.sh)
 ## Prerequisites
 
 On raspberry pi, enable I2C interface
