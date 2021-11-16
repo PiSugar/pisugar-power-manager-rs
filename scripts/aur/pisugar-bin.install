@@ -9,20 +9,7 @@
 
 ## arg 1:  the new package version
 post_install() {
-    echo "PiSugar hardware model:"
-    select model in "PiSugar 3" "PiSugar 2 Pro" "PiSugar 2 (2-LEDs)" "PiSugar 2 (4-LEDs)"; do
-        if [ "x$model" != "x" ]; then
-            break;
-        fi
-    done
-    echo "Model: $model"
-    sed -e "s/--model.*--/--model '$model' --/" \
-        -i /etc/default/pisugar-server.default \
-        -i /etc/default/pisugar-poweroff.default \
-        || true
     systemctl daemon-reload
-    systemctl enable pisugar-server || true
-    systemctl restart pisugar-server || true
 }
 
 ## arg 1:  the new package version

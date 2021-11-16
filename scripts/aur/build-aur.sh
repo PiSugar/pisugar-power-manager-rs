@@ -6,13 +6,13 @@ CUR_DIR=$(cd $(dirname $0); pwd)
 ROOT_DIR=$(cd "$CUR_DIR/../.."; pwd)
 
 rm -rf *.tar.gz
-rm -rf pisugar-all
-mkdir -p pisugar-all
-cp pisugar-bin.install pisugar-all/
-cp PKGBUILD pisugar-all/
-cp install.sh pisugar-all/
+rm -rf pisugar-archlinux
+mkdir -p pisugar-archlinux
+cp pisugar-bin.install pisugar-archlinux/
+cp PKGBUILD pisugar-archlinux/
+cp install.sh pisugar-archlinux/
 
-cd pisugar-all
+cd pisugar-archlinux
 
 version=$(cat PKGBUILD | grep ^pkgver | awk -F = '{print $2}')
 
@@ -46,9 +46,9 @@ echo "sha256sums=('$(sha256sum pisugar-bin_${version}_all.tar.gz | awk '{print $
 
 rm -rf arm armhf aarch64
 
-(cd "$CUR_DIR"; tar -czvf pisugar-all_${version}_all.tar.gz pisugar-all)
+(cd "$CUR_DIR"; tar -czvf pisugar-archlinux_${version}_all.tar.gz pisugar-archlinux)
 
 rm -rf PKGBUILD pisugar-bin_${version}_all.tar.gz
 
 cd "$CUR_DIR"
-rm -rf pisugar-all
+rm -rf pisugar-archlinux

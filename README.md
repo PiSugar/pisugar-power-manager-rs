@@ -56,10 +56,10 @@ Replace model in `/etc/default/pisugar-server`
 
 ## Install (ArchLinux only)
 
-Download latest `pisugar-all_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
+Download latest `pisugar-archlinux_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
 
-    tar -xvf pisugar-all_<version>_all.tar.gz
-    (cd pisugar-all; sh install.sh)
+    tar -xvf pisugar-archlinux_<version>_all.tar.gz
+    (cd pisugar-archlinux; sh install.sh)
 ## Prerequisites
 
 On raspberry pi, enable I2C interface
