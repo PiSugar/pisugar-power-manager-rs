@@ -13,7 +13,7 @@ PiSugar power manager in rust language.
 
 ## Install
 
-Unistall
+Uninstall
 
     sudo dpkg --purge pisugar-server
     sudo dpkg --purge pisugar-poweroff
