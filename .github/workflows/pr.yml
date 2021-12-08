@@ -86,7 +86,7 @@ jobs:
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
           echo $LIBGCC
-          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/9.2.1\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
           cat .cargo/config
 
       # Rust toolchain
@@ -123,6 +123,9 @@ jobs:
       - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabihf)
       - run: (cd pisugar-programmer && cargo rpm build --target aarch64-unknown-linux-musl)
 
+      # aur for archlinux
+      - run: (cd scripts/aur; sh build-aur.sh)
+
       - run: find $(pwd) -name '*.deb'
       - run: find $(pwd) -name '*.rpm'
 
@@ -139,4 +142,5 @@ jobs:
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
             scripts/*
+            scripts/aur/*.tar.gz
           if-no-files-found: warn
