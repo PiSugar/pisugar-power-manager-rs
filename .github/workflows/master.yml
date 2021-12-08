@@ -88,7 +88,7 @@ jobs:
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
           echo $LIBGCC
-          sed -e "s|\"/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
           cat .cargo/config
 
       # Rust toolchain
