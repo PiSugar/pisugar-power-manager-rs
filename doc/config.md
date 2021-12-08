@@ -8,6 +8,9 @@ Default args of pisugar-server systemd service, see `pisugar-server -h`.
 
 Json format configuration file of pisugar-server:
 
+    digest_auth     Enable http security (digest auth), e.g. ["admin", "<password>"]
+                    default null (disable http security)
+
     i2c_bus         i2c bus number, optional, default 1 (i.e. /dev/i2c-1)
 
     auto_wake_time  RTC wakeup time, optional, iso8601 format

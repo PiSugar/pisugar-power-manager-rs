@@ -131,6 +131,10 @@ fn default_i2c_bus() -> u8 {
 /// PiSugar configuration
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct PiSugarConfig {
+    /// Http digest auth
+    #[serde(default)]
+    pub digest_auth: Option<(String, String)>,
+
     /// I2C bus, default 1 (/dev/i2c-1)
     #[serde(default = "default_i2c_bus")]
     pub i2c_bus: u8,

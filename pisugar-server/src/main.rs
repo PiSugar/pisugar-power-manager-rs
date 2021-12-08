@@ -29,10 +29,13 @@ use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
 use websocket_codec::{Message, Opcode};
 
+use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
+
 use pisugar_core::{
     execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime,
     I2C_READ_INTERVAL, TIME_HOST,
 };
+use rand::RngCore;
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -629,6 +632,66 @@ async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, mu
     }
 }
 
+fn build_realm(req: &Request<Body>, user: &str) -> String {
+    let host = req
+        .headers()
+        .get(&hyper::header::HOST)
+        .map(|v| v.to_str().unwrap_or(""))
+        .map(|v| v.to_string())
+        .unwrap_or("localhost".to_string());
+    let port = req.uri().port_u16();
+    let realm = if let Some(port) = port {
+        format!("{}@{}:{}", user, host, port)
+    } else {
+        format!("{}@{}", user, host)
+    };
+    realm
+}
+
+fn build_www_header(req: &Request<Body>, user: &str) -> String {
+    let realm = build_realm(req, user);
+
+    let mut nonce = [0; 12];
+    rand::thread_rng().fill_bytes(&mut nonce);
+    let nonce = base64::encode(nonce);
+
+    let mut opaque = [0; 12];
+    rand::thread_rng().fill_bytes(&mut opaque);
+    let opaque = base64::encode(opaque);
+
+    let header = digest_auth::WwwAuthenticateHeader {
+        domain: Some(vec!["/".to_string()]),
+        realm,
+        nonce,
+        opaque: Some(opaque),
+        stale: false,
+        algorithm: Default::default(),
+        qop: Some(vec![Qop::AUTH]),
+        userhash: true,
+        charset: Charset::UTF8,
+        nc: 0,
+    };
+    header.to_string()
+}
+
+fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> WwwAuthenticateHeader {
+    let realm = build_realm(req, &auth_header.username);
+    let www_header = WwwAuthenticateHeader {
+        domain: Some(vec!["/".to_string()]),
+        realm,
+        nonce: auth_header.nonce.clone(),
+        opaque: auth_header.opaque.clone(),
+        stale: false,
+        algorithm: auth_header.algorithm,
+        qop: auth_header.qop.map(|x| vec![x]),
+        userhash: auth_header.userhash,
+        charset: Charset::UTF8,
+        nc: auth_header.nc - 1,
+    };
+
+    www_header
+}
+
 /// Handle http request, /ws to websocket
 async fn handle_http_req(
     req: Request<Body>,
@@ -636,6 +699,36 @@ async fn handle_http_req(
     core: Arc<Mutex<PiSugarCore>>,
     event_rx: EventRx,
 ) -> Result<Response<Body>, io::Error> {
+    // check for http auth
+    if let Ok(config) = core.lock() {
+        if let Some(account) = &config.config().digest_auth {
+            let mut auth_context = AuthContext::new(account.0.as_str(), account.1.as_str(), req.uri().to_string());
+            let mut auth_ok = false;
+            for (name, value) in req.headers() {
+                if name.eq(&hyper::header::AUTHORIZATION) {
+                    let value = value.to_str().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    let auth_header =
+                        AuthorizationHeader::parse(value).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or("".to_string()));
+
+                    let mut www_header = rebuild_www_header(&req, &auth_header);
+                    let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    auth_ok = auth_header2.response == auth_header.response;
+                }
+            }
+            if !auth_ok {
+                let www_header = build_www_header(&req, &account.0);
+                let resp = Response::builder()
+                    .status(hyper::StatusCode::UNAUTHORIZED)
+                    .header(hyper::header::WWW_AUTHENTICATE, www_header.to_string())
+                    .body(Body::empty())
+                    .unwrap();
+                return Ok(resp);
+            }
+        }
+    }
+
     if req.uri().path().contains(WS_JSON) {
         if let Some(ws_addr) = *WS_ADDR.lock().unwrap() {
             let json = format!("{{\"wsPort\": \"{}\"}}", ws_addr.port());
