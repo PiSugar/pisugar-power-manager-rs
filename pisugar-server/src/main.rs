@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 use chrono::prelude::*;
 use clap::{App, Arg};
@@ -36,6 +36,7 @@ use pisugar_core::{
     I2C_READ_INTERVAL, TIME_HOST,
 };
 use rand::RngCore;
+use std::collections::HashMap;
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -632,6 +633,11 @@ async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, mu
     }
 }
 
+lazy_static! {
+    static ref SECURITY_CTX: Mutex<HashMap<String, (u32, SystemTime)>> = Mutex::new(HashMap::default());
+}
+const SECURITY_TIMEOUT_SECONDS: u64 = 30 * 60;
+
 fn build_realm(req: &Request<Body>, user: &str) -> String {
     let host = req
         .headers()
@@ -649,6 +655,7 @@ fn build_realm(req: &Request<Body>, user: &str) -> String {
 }
 
 fn build_www_header(req: &Request<Body>, user: &str) -> String {
+    let now = SystemTime::now();
     let realm = build_realm(req, user);
 
     let mut nonce = [0; 12];
@@ -658,6 +665,13 @@ fn build_www_header(req: &Request<Body>, user: &str) -> String {
     let mut opaque = [0; 12];
     rand::thread_rng().fill_bytes(&mut opaque);
     let opaque = base64::encode(opaque);
+
+    let nc = 0;
+    SECURITY_CTX
+        .lock()
+        .unwrap()
+        .retain(|_, v| v.1 + Duration::from_secs(SECURITY_TIMEOUT_SECONDS) > now);
+    SECURITY_CTX.lock().unwrap().insert(opaque.clone(), (nc, now));
 
     let header = digest_auth::WwwAuthenticateHeader {
         domain: Some(vec!["/".to_string()]),
@@ -669,13 +683,35 @@ fn build_www_header(req: &Request<Body>, user: &str) -> String {
         qop: Some(vec![Qop::AUTH]),
         userhash: true,
         charset: Charset::UTF8,
-        nc: 0,
+        nc,
     };
     header.to_string()
 }
 
-fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> WwwAuthenticateHeader {
+fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> Option<WwwAuthenticateHeader> {
+    if auth_header.opaque.is_none() {
+        return None;
+    }
+    let opaque = auth_header.opaque.clone().unwrap();
+
+    let now = SystemTime::now();
+    let nc = {
+        let mut ctx = SECURITY_CTX.lock().unwrap();
+        if !ctx.contains_key(&opaque) {
+            return None;
+        }
+        let (nc, now1) = ctx.get_mut(&opaque).unwrap();
+        *now1 = now;
+        *nc = *nc + 1;
+        *nc - 1
+    };
+
+    if nc != auth_header.nc - 1 {
+        return None;
+    }
+
     let realm = build_realm(req, &auth_header.username);
+
     let www_header = WwwAuthenticateHeader {
         domain: Some(vec!["/".to_string()]),
         realm,
@@ -686,10 +722,9 @@ fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) ->
         qop: auth_header.qop.map(|x| vec![x]),
         userhash: auth_header.userhash,
         charset: Charset::UTF8,
-        nc: auth_header.nc - 1,
+        nc,
     };
-
-    www_header
+    Some(www_header)
 }
 
 /// Handle http request, /ws to websocket
@@ -706,12 +741,23 @@ async fn handle_http_req(
             let mut auth_ok = false;
             for (name, value) in req.headers() {
                 if name.eq(&hyper::header::AUTHORIZATION) {
-                    let value = value.to_str().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    let auth_header =
-                        AuthorizationHeader::parse(value).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    let value = value.to_str();
+                    if value.is_err() {
+                        continue;
+                    }
+
+                    let auth_header = AuthorizationHeader::parse(value.unwrap());
+                    if auth_header.is_err() {
+                        continue;
+                    }
+                    let auth_header = auth_header.unwrap();
                     auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or("".to_string()));
 
-                    let mut www_header = rebuild_www_header(&req, &auth_header);
+                    let www_header = rebuild_www_header(&req, &auth_header);
+                    if www_header.is_none() {
+                        continue;
+                    }
+                    let mut www_header = www_header.unwrap();
                     let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     auth_ok = auth_header2.response == auth_header.response;
