@@ -1,5 +1,5 @@
 [source.crates-io]
-replace-with = "sjtu"
+replace-with = "tuna"
 
 [source.ustc]
 registry = "https://mirrors.ustc.edu.cn/crates.io-index"
@@ -34,7 +34,7 @@ objcpy = {path="arm-linux-musleabihf-objcopy"}
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-ld"
 ar = "aarch64-linux-musl-ar"
-rustflags = ["-C", "target-feature=+crt-static", "-L", "/opt/aarch64-linux-musl-cross/lib/gcc/aarch64-linux-musl/10.2.1", "-C", "link-arg=-lgcc"]
+rustflags = ["-C", "target-feature=+crt-static"]
 strip = {path="aarch64-linux-musl-strip"}
 objcopy = {path = "aarch64-linux-musl-objcopy"}
 
