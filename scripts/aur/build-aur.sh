@@ -19,7 +19,6 @@ version=$(cat PKGBUILD | grep ^pkgver | awk -F = '{print $2}')
 (cd $ROOT_DIR; cargo build --target arm-unknown-linux-musleabi  --release)
 (cd $ROOT_DIR; cargo build --target arm-unknown-linux-musleabihf  --release)
 (cd $ROOT_DIR; cargo build --target aarch64-unknown-linux-musl  --release)
-(cd $ROOT_DIR; cargo build --target x86_64-unknown-linux-gnu  --release)
 
 mkdir arm
 mkdir armhf
