@@ -410,6 +410,20 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     }
                     return err;
                 }
+                "set_auth" => {
+                    if parts.len() > 2 {
+                        let username = parts[1].as_str();
+                        let password = parts[2].as_str();
+                        core.config_mut().digest_auth = Some((username.to_string(), password.to_string()));
+                    } else {
+                        core.config_mut().digest_auth = None;
+                    }
+                    if let Err(e) = core.save_config() {
+                        log::error!("{}", e);
+                        return err;
+                    }
+                    return format!("{}: done\n", parts[0]);
+                }
                 "force_shutdown" => {
                     match core.force_shutdown() {
                         Ok(_) => {

@@ -54,6 +54,14 @@ Replace model in `/etc/default/pisugar-server`
 
 **NOTE** `auto_power_on` mode would prevent PiSugar falling into sleep, it could be useful in some cases. (since v1.4.8, `/etc/pisugar-server/config.json`)
 
+Http authentication config in `/etc/pisugar/config.json` (replace `<username>` and `<password>`, default `admin/admin` )
+
+    {
+        ...
+        digest_auth: ["<username>", "<password>"]
+        ...
+    }
+
 ## Install (ArchLinux only)
 
 Download latest `pisugar-archlinux_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
@@ -144,7 +152,7 @@ Default ports:
 | set_battery_charging_range | set charging range | set_battery_charging_range [number, number]|
 | set_allow_charging | enable or disable charging | set_allow_charging [true\|false] |
 | set_battery_output | enable or disable battery output | set_battery_output [true\|false] |
-
+| set_auth | set or clear http auth (with no arguments) | set_auth [username password] |
 
 Examples:
 
