@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::remove_file;
@@ -11,6 +12,7 @@ use std::time::{Instant, SystemTime};
 
 use chrono::prelude::*;
 use clap::{App, Arg};
+use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
 use env_logger::Env;
 use futures::prelude::*;
 use futures::SinkExt;
@@ -22,6 +24,7 @@ use hyper::{Request, Server};
 use hyper_websocket_lite::{server_upgrade, AsyncClient};
 use lazy_static::lazy_static;
 use log::LevelFilter;
+use rand::RngCore;
 use syslog::{BasicLogger, Facility, Formatter3164};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
@@ -29,14 +32,10 @@ use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
 use websocket_codec::{Message, Opcode};
 
-use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
-
 use pisugar_core::{
     execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime,
     I2C_READ_INTERVAL, TIME_HOST,
 };
-use rand::RngCore;
-use std::collections::HashMap;
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -694,8 +693,8 @@ fn build_www_header(req: &Request<Body>, user: &str) -> String {
         opaque: Some(opaque),
         stale: false,
         algorithm: Default::default(),
-        qop: Some(vec![Qop::AUTH]),
-        userhash: true,
+        qop: Some(vec![Qop::AUTH, Qop::AUTH_INT]),
+        userhash: false,
         charset: Charset::UTF8,
         nc,
     };
@@ -708,19 +707,8 @@ fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) ->
     }
     let opaque = auth_header.opaque.clone().unwrap();
 
-    let now = SystemTime::now();
-    let nc = {
-        let mut ctx = SECURITY_CTX.lock().unwrap();
-        if !ctx.contains_key(&opaque) {
-            return None;
-        }
-        let (nc, now1) = ctx.get_mut(&opaque).unwrap();
-        *now1 = now;
-        *nc = *nc + 1;
-        *nc - 1
-    };
-
-    if nc != auth_header.nc - 1 {
+    let ctx = SECURITY_CTX.lock().unwrap();
+    if !ctx.contains_key(&opaque) {
         return None;
     }
 
@@ -736,7 +724,7 @@ fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) ->
         qop: auth_header.qop.map(|x| vec![x]),
         userhash: auth_header.userhash,
         charset: Charset::UTF8,
-        nc,
+        nc: auth_header.nc - 1,
     };
     Some(www_header)
 }
@@ -760,15 +748,18 @@ async fn handle_http_req(
                         continue;
                     }
 
-                    let auth_header = AuthorizationHeader::parse(value.unwrap());
-                    if auth_header.is_err() {
-                        continue;
-                    }
-                    let auth_header = auth_header.unwrap();
+                    let auth_header = match AuthorizationHeader::parse(value.unwrap()) {
+                        Err(e) => {
+                            log::warn!("invalid authentication header {}", e);
+                            continue;
+                        }
+                        Ok(h) => h,
+                    };
                     auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or("".to_string()));
 
                     let www_header = rebuild_www_header(&req, &auth_header);
                     if www_header.is_none() {
+                        log::warn!("rebuild www authentication header error");
                         continue;
                     }
                     let mut www_header = www_header.unwrap();
@@ -781,7 +772,7 @@ async fn handle_http_req(
                 let www_header = build_www_header(&req, &account.0);
                 let resp = Response::builder()
                     .status(hyper::StatusCode::UNAUTHORIZED)
-                    .header(hyper::header::WWW_AUTHENTICATE, www_header.to_string())
+                    .header(hyper::header::WWW_AUTHENTICATE, www_header.to_string()) // fix chrome digest auth
                     .body(Body::empty())
                     .unwrap();
                 return Ok(resp);
@@ -1138,10 +1129,10 @@ async fn main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-
-    use super::TIME_HOST;
     use chrono::DateTime;
     use hyper::Client;
+
+    use super::TIME_HOST;
 
     #[tokio::test]
     async fn test_web_date() {
