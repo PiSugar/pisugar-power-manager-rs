@@ -38,3 +38,12 @@ Description: Http authentication username, default admin.
 Template: pisugar-server/auth-password
 Type: password
 Description: Http authentication password.
+
+Template: pisugar-server/auth-note
+Type: note
+Description: PiSugar server is ready, visit http://[host_ip]:8421 to get more information.
+
+Template: pisugar-server/auth-default
+Type: note
+Description: PiSugar server is ready, visit http://[host_ip]:8421 to get more information 
+    (default username/password is admin/admin).

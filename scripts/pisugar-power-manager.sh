@@ -114,6 +114,14 @@ fi
 local_host="$(hostname --fqdn)"
 local_ip=$(ip addr |grep inet |grep -v inet6 |grep wlan0|awk '{print $2}' |awk -F "/" '{print $1}')
 
+function install_jq() {
+    if which apt; then
+        sudo apt install -y jq
+    elif which yum; then
+        sudo yum install -y jq
+    fi
+}
+
 function install_pkgs() {
     if echo "$*" | grep deb ; then
         sudo dpkg -i $*
@@ -143,6 +151,7 @@ $echo -e "\033[1;34mUninstall old packages if installed\033[0m"
 uninstall_pkgs pisugar-server pisugar-poweroff pisugar-programmer
 
 $echo -e "\033[1;34mInstall packages\033[0m"
+install_jq
 install_pkgs "/tmp/${package_server}" "/tmp/${package_poweroff}" "/tmp/${package_programmer}"
 
 $echo -e "\033[1;34mClean up \033[0m"
@@ -151,5 +160,5 @@ rm -f "/tmp/${package_poweroff}"
 rm -f "/temp/${package_programmer}"
 
 $echo -e "Now navigate to \033[1;34mhttp://${local_ip}:8421\033[0m on your browser to see PiSugar power management"
-$echo -e "If you have any question,please feel free to contact us."
+$echo -e "If you have any question, please feel free to contact us."
 $echo -e "\033[1;34mThe PiSugar Team https://www.pisugar.com\033[0m"

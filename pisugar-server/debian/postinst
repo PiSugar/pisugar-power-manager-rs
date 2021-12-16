@@ -1,7 +1,9 @@
 #!/bin/sh
 
 # Enable i2c
-raspi-config nonint do_i2c 0
+if which raspi-config; then
+  raspi-config nonint do_i2c 0
+fi
 
 if [ -e /usr/share/debconf/confmodule ]; then
   OPTS="--config config.json"
@@ -32,10 +34,15 @@ if [ -e /usr/share/debconf/confmodule ]; then
   echo "OPTS=$OPTS" >/etc/default/pisugar-server
 
   if which jq > /dev/null; then
+    db_input high pisugar-server/auth-username || true
+    db_input high pisugar-server/auth-password || true
+    db_go
+
     db_get pisugar-server/auth-username
     username="$RET"
     db_get pisugar-server/auth-password
     password="$RET"
+    db_set pisugar-server/auth-password ""
 
     config=$(cat /etc/pisugar-server/config.json)
     if test "x$username" = "x" || test "x$password" = "x"; then
@@ -43,8 +50,13 @@ if [ -e /usr/share/debconf/confmodule ]; then
     else
       echo "$config" | jq '.digest_auth=["'"$username"'", "'"$password"'"]' > /etc/pisugar-server/config.json
     fi
+
+    db_input high pisugar-server/auth-note
+    db_go
+
   else
-    echo "Could not find jq, please update 'digest_auth' setting in /etc/pisugar-server/config.json (default: admin/admin)"
+    db_input high pisugar-server/auth-default
+    db_go
   fi
 fi
 
