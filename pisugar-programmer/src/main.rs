@@ -151,6 +151,10 @@ fn main() {
                             if mode == MODE_BOOTAPP {
                                 println!("PiSugar mode: bootapp({:02x})", mode);
                                 println!("PiSugar bootapp mode detected");
+                                if !file.contains("bootloader") {
+                                    println!("PiSugar bootapp need a bootloader file");
+                                    return;
+                                }
                                 break;
                             }
                         }
