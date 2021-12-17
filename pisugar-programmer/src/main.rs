@@ -23,6 +23,7 @@ const CMD_DATA: u8 = 0xdd;
 const PISUGAR_VER: u8 = 3;
 const MODE_APPLICATION: u8 = 0x0f;
 const MODE_BOOTLOADER: u8 = 0xf0;
+const MODE_BOOTAPP: u8 = 0xba;
 const SEG_SIZE: usize = 512;
 
 fn show_warning() {
@@ -147,6 +148,11 @@ fn main() {
                                     let _ = send_reset(&i2c);
                                 }
                             }
+                            if mode == MODE_BOOTAPP {
+                                println!("PiSugar mode: bootapp({:02x})", mode);
+                                println!("PiSugar bootapp mode detected");
+                                break;
+                            }
                         }
                         Err(e) => {
                             println!("I2c error: {}", e);
@@ -157,7 +163,7 @@ fn main() {
             _ => {}
         }
 
-        println!("PiSugar bootloader not ready, please reset or wait, retry...");
+        println!("PiSugar bootloader/bootapp not ready, please reset or wait, retry...");
         sleep(Duration::from_millis(100));
     }
 
