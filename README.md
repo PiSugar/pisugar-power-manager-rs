@@ -138,6 +138,7 @@ Default ports:
 | get safe_shutdown_level | auto shutdown level | safe_shutdown_level: [number] |
 | get safe_shutdown_delay | auto shutdown delay | safe_shutdown_delay: [number] |
 | get rtc_adjust_ppm | (pisugar3) adjust rtc ppm | rtc_adjust_ppm: [number] |
+| get auth_username | http auth username  | auth_username: [string] |
 | rtc_pi2rtc | sync time pi => rtc | |
 | rtc_rtc2pi | sync time rtc => pi | |
 | rtc_web | sync time web => rtc & pi | |
