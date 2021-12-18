@@ -155,11 +155,18 @@ fn main() {
                                 println!("PiSugar bootapp mode detected");
                                 if file.contains("application") {
                                     if reset {
-                                        println!("Upgrading application, send reset to bootapp and reboot...");
+                                        println!("Upgrade application, send reset to bootapp and reboot to bootloader...");
                                         let _ = send_reset(&i2c);
                                     }
                                 }
-                                break;
+                                if file.contains("bootapp") {
+                                    if reset  {
+                                        println!("Upgrade bootapp, send reset to bootapp and reboot to bootloader...");
+                                        let _ = send_reset(&i2c);
+                                    }
+                                } else {
+                                    break;
+                                }
                             }
                         }
                         Err(e) => {
