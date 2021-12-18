@@ -123,6 +123,7 @@ fn main() {
     println!("Firmware size: {}", f.metadata().unwrap().len());
 
     // Detect pisugar bootloader
+    let mut mode = MODE_BOOTLOADER;
     loop {
         // Check pisugar version
         let pisugar_version = i2c.smbus_read_byte(CMD_VER);
@@ -134,7 +135,8 @@ fn main() {
                     // Check pisugar mode
                     let pisugar_mode = i2c.smbus_read_byte(CMD_MODE);
                     match pisugar_mode {
-                        Ok(mode) => {
+                        Ok(m) => {
+                            mode = m;
                             if mode == MODE_BOOTLOADER {
                                 println!("PiSugar mode: bootloader({:02x})", mode);
                                 println!("PiSugar bootloader mode detected");
@@ -151,9 +153,11 @@ fn main() {
                             if mode == MODE_BOOTAPP {
                                 println!("PiSugar mode: bootapp({:02x})", mode);
                                 println!("PiSugar bootapp mode detected");
-                                if !file.contains("bootloader") {
-                                    println!("PiSugar bootapp need a bootloader file");
-                                    return;
+                                if file.contains("application") {
+                                    if reset {
+                                        println!("Upgrading application, send reset to bootapp and reboot...");
+                                        let _ = send_reset(&i2c);
+                                    }
                                 }
                                 break;
                             }
