@@ -147,6 +147,14 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 }
                             }
                             "auto_power_on" => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
+                            "auth_username" => {
+                                let username = if let Some(digest_auth) = &core.config().digest_auth {
+                                    digest_auth.0.to_string()
+                                } else {
+                                    "".to_string()
+                                };
+                                Ok(username)
+                            }
                             _ => return err,
                         };
 
