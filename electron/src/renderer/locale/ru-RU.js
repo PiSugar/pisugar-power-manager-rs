@@ -65,5 +65,15 @@ module.exports = {
     Fri: 'Пт',
     Sat: 'Сб',
     Sun: 'Вс'
-  }
+  },
+  changeLoginPassword: 'Изменить пароль для входа',
+  username: 'имя пользователя',
+  password: 'пароль',
+  passwordConfirm: 'Пожалуйста, введите пароль еще раз',
+  usernameCannotBeEmpty: 'Имя пользователя не может быть пустым',
+  passwordCannotBeEmpty: 'пароль не может быть пустым',
+  passwordNotConsistent: 'Введенный дважды пароль должен совпадать',
+  usernameWithSpace: 'Имя пользователя не может содержать пробелов',
+  passwordWithSpace: 'Пароль не может содержать пробелов',
+  changePasswordSuccess: 'Модификация завершена, пожалуйста, войдите снова.'
 }

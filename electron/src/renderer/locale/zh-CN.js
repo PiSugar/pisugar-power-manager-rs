@@ -66,5 +66,15 @@ module.exports = {
     Sun: '周日'
   },
   batteryInputProtect: '充电保护',
-  batteryInputProtectDesc: '充电过程将在会60%～80%电量时停止，可有效延长电池寿命。'
+  batteryInputProtectDesc: '充电过程将在会60%～80%电量时停止，可有效延长电池寿命。',
+  changeLoginPassword: '修改登录密码',
+  username: '用户名',
+  password: '密码',
+  passwordConfirm: '请再次输入密码',
+  usernameCannotBeEmpty: '用户名不能为空',
+  passwordCannotBeEmpty: '密码不能为空',
+  passwordNotConsistent: '两次输入的密码必须一致',
+  usernameWithSpace: '用户名不能包含空格',
+  passwordWithSpace: '密码不能包含空格',
+  changePasswordSuccess: '修改完成，请重新登录。'
 }

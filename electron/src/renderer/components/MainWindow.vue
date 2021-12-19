@@ -22,8 +22,9 @@
         <div class="website"><a href="http://www.pisugar.com" target="_blank">www.pisugar.com</a></div>
       </div>
       <div class="setting-panel">
-        <div class="language">
-          <el-link type="info" @click="languageDialog = true">Language: {{locale}}</el-link>
+        <div class="global">
+          <el-link type="info" @click="languageDialog = true">Language: {{locale}}</el-link> |
+          <el-link type="info" @click="passwordDialog = true">Account</el-link>
         </div>
         <div class="title">{{$t('wakeUpFeature')}}</div>
         <el-row>
@@ -251,6 +252,26 @@
           <el-button type="primary" @click="chargeConfirm">{{$t('confirm')}}</el-button>
         </div>
       </el-dialog>
+
+      <el-dialog :title="$t('changeLoginPassword')" :visible.sync="passwordDialog">
+        <el-row>
+          <el-form :model="passwordForm" ref="passwordForm" :rules="passwordRules">
+            <el-form-item :label="$t('username')" label-width="150px" prop="username">
+              <el-input v-model="passwordForm.username" autocomplete="off" :placeholder="$t('username')"></el-input>
+            </el-form-item>
+            <el-form-item :label="$t('password')" label-width="150px" prop="password">
+              <el-input v-model="passwordForm.password" type="password" autocomplete="off" :placeholder="$t('password')"></el-input>
+            </el-form-item>
+            <el-form-item label-width="150px" prop="passwordConfirm">
+              <el-input v-model="passwordForm.passwordConfirm" type="password" autocomplete="off" :placeholder="$t('passwordConfirm')"></el-input>
+            </el-form-item>
+          </el-form>
+        </el-row>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="passwordDialog = false">{{$t('cancel')}}</el-button>
+          <el-button type="primary" @click="passwordSubmit">{{$t('confirm')}}</el-button>
+        </div>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -362,6 +383,43 @@
         isTimeEditFocused: false,
         adjustPPM: 0,
         adjustMsPerHour: 0,
+        passwordDialog: false,
+        passwordForm: {
+          username: '',
+          password: '',
+          passwordConfirm: '',
+        },
+        passwordRules: {
+          username: [
+            { required: true, message: this.$t('usernameCannotBeEmpty'), trigger: 'blur' },
+            { validator:  (rule, value, callback) => {
+              if (value && value.indexOf(' ') > -1) {
+                callback(this.$t('usernameWithSpace'))
+              } else {
+                callback()
+              }
+            }, trigger: 'blur'}
+          ],
+          password: [
+            { required: true, message: this.$t('passwordCannotBeEmpty'), trigger: 'blur' },
+            { validator:  (rule, value, callback) => {
+              if (value && value.indexOf(' ') > -1) {
+                callback(this.$t('passwordWithSpace'))
+              } else {
+                callback()
+              }
+            }, trigger: 'blur'}
+          ],
+          passwordConfirm: [
+            { validator: (rule, value, callback) => {
+              if (value !== this.passwordForm.password) {
+                callback(this.$t('passwordNotConsistent'))
+              } else {
+                callback()
+              }
+            }, trigger: 'blur'}
+          ]
+        }
       }
     },
 
@@ -528,6 +586,11 @@
           this.getBatteryInfo(true)
         }
       },
+      sendSocketCommands: cmds => {
+        cmds.foreach(cmd => {
+          this.$socket.send(cmd)
+        })
+      },
       bindSocket () {
         this.$socket.onmessage = async (e) => {
           let msg = e.data
@@ -642,39 +705,47 @@
             this.adjustPPM = ppmValue
             this.adjustMsPerHour = ppm2ms(this.adjustPPM)
           }
+          if (!msg.indexOf('auth_username:')) {
+            this.passwordForm.username = msg.replace('auth_username: ', '').trim()
+          }
         }
       },
       getBatteryInfo (loop) {
         if (this.$socket.readyState === 1) {
           if (!this.socketConnect) {
             this.bindSocket()
-            this.$socket.send('get version')
-            this.$socket.send('get model')
-            this.$socket.send('get rtc_time')
-            this.$socket.send('get system_time')
-            this.$socket.send('get rtc_alarm_enabled')
-            this.$socket.send('get rtc_alarm_time')
-            this.$socket.send('get alarm_repeat')
-            this.$socket.send('get button_enable single')
-            this.$socket.send('get button_enable double')
-            this.$socket.send('get button_enable long')
-            this.$socket.send('get button_shell single')
-            this.$socket.send('get button_shell double')
-            this.$socket.send('get button_shell long')
-            this.$socket.send('get safe_shutdown_level')
-            this.$socket.send('get safe_shutdown_delay')
-            this.$socket.send('get battery_charging_range')
-            this.$socket.send('get battery_led_amount')
-            this.$socket.send('get auto_power_on')
-            this.$socket.send('get battery_input_protect_enabled')
+            this.sendSocketCommands([
+              'get version',
+              'get model',
+              'get rtc_time',
+              'get system_time',
+              'get rtc_alarm_enabled',
+              'get rtc_alarm_time',
+              'get alarm_repeat',
+              'get button_enable single',
+              'get button_enable double',
+              'get button_enable long',
+              'get button_shell single',
+              'get button_shell double',
+              'get button_shell long',
+              'get safe_shutdown_level',
+              'get safe_shutdown_delay',
+              'get battery_charging_range',
+              'get battery_led_amount',
+              'get auto_power_on',
+              'get battery_input_protect_enabled',
+              'get auth_username'
+            ])
           }
           this.socketConnect = true
-          this.$socket.send('get battery')
-          this.$socket.send('get battery_i')
-          this.$socket.send('get battery_v')
-          this.$socket.send('get battery_charging')
-          this.$socket.send('get battery_power_plugged')
-          this.$socket.send('get battery_allow_charging')
+          this.sendSocketCommands([
+            'get battery',
+            'get battery_i',
+            'get battery_v',
+            'get battery_charging',
+            'get battery_power_plugged',
+            'get battery_allow_charging'
+          ])
         } else {
           this.socketConnect = false
           this.batteryPercent = 0
@@ -848,7 +919,24 @@
       handleAdjustChange () {
         this.adjustPPM = ms2ppm(this.adjustMsPerHour)
         this.$socket.send(`rtc_adjust_ppm ${this.adjustPPM}`)
-      }
+      },
+      passwordSubmit () {
+        this.$refs['passwordForm'].validate(valid => {
+          if (valid) {
+            this.passwordDialog = false
+            const { username, password } = this.passwordForm
+            this.$socket.send(`set_auth ${username} ${password}`)
+            this.$message({
+              message: this.$t('changePasswordSuccess'),
+              type: 'success',
+              duration: 3000,
+            })
+            setTimeout(() => { 
+              window.location.reload()
+            }, 3000)
+          }
+        })
+      },
     }
   }
 </script>
@@ -1111,11 +1199,12 @@
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 0 10px 2px rgba(157, 104, 0, 0.1);
-    .language{
+    .global{
       position: absolute;
       top: 10px;
       right: 16px;
       opacity: 0.6;
+      color: #ccc;
     }
     .title{
       font-size: 18px;

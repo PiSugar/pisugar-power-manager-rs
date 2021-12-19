@@ -66,5 +66,15 @@ module.exports = {
     Sun: 'Sun'
   },
   batteryInputProtect: 'Battery Input Protection',
-  batteryInputProtectDesc: 'The charging process will stop when 60% ~ 80% of the battery is reached, which can effectively extend the battery life.'
+  batteryInputProtectDesc: 'The charging process will stop when 60% ~ 80% of the battery is reached, which can effectively extend the battery life.',
+  changeLoginPassword: 'Change Login Password',
+  username: 'Username',
+  password: 'Password',
+  passwordConfirm: 'Please enter password again',
+  usernameCannotBeEmpty: 'Username cannot be empty',
+  passwordCannotBeEmpty: 'Password cannot be empty',
+  passwordNotConsistent: 'Two input password must be consistent',
+  usernameWithSpace: 'Username cannot contain spaces',
+  passwordWithSpace: 'Password cannot contain spaces',
+  changePasswordSuccess: 'The modification is complete, please login again.'
 }
