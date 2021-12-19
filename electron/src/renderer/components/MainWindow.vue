@@ -931,9 +931,6 @@
               type: 'success',
               duration: 3000,
             })
-            setTimeout(() => { 
-              window.location.reload()
-            }, 3000)
           }
         })
       },

@@ -76,5 +76,5 @@ module.exports = {
   passwordNotConsistent: '两次输入的密码必须一致',
   usernameWithSpace: '用户名不能包含空格',
   passwordWithSpace: '密码不能包含空格',
-  changePasswordSuccess: '修改完成，请重新登录。'
+  changePasswordSuccess: '修改完成'
 }
