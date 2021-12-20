@@ -210,6 +210,14 @@ pub struct PiSugarConfig {
     /// RTC adjust ppm
     #[serde(default)]
     pub rtc_adj_ppm: Option<f64>,
+
+    /// Anti mistouch
+    #[serde(default)]
+    pub anti_mistouch: Option<bool>,
+
+    /// Battery hardware protect
+    #[serde(default)]
+    pub bat_protect: Option<bool>,
 }
 
 impl PiSugarConfig {

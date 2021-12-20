@@ -438,4 +438,12 @@ impl Battery for IP5209Battery {
     fn toggle_soft_poweroff(&self, _enable: bool) -> Result<()> {
         Ok(())
     }
+
+    fn toggle_anti_mistouch(&self, _: bool) -> std::result::Result<(), Error> {
+        Ok(())
+    }
+
+    fn temperature(&self) -> std::result::Result<f32, Error> {
+        Ok(0.0)
+    }
 }
