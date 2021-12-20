@@ -155,6 +155,10 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 };
                                 Ok(username)
                             }
+                            "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
+                            "soft_poweroff" => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
+                            "temperature" => core.get_temperature().map(|x| x.to_string()),
+                            "input_protect" => core.input_protected().map(|x| x.to_string()),
                             _ => return err,
                         };
 
@@ -441,6 +445,51 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         }
                     }
                     return err;
+                }
+                "set_anti_mistouch" => {
+                    if parts.len() > 1 {
+                        if let Ok(anti_mistouch) = parts[1].parse::<bool>() {
+                            match core.toggle_anti_mistouch(anti_mistouch) {
+                                Ok(_) => {
+                                    return format!("{}: done\n", parts[0]);
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                }
+                            }
+                        }
+                    }
+                    return err;
+                }
+                "set_soft_poweroff" => {
+                    if parts.len() > 1 {
+                        if let Ok(soft_poweroff) = parts[1].parse::<bool>() {
+                            match core.toggle_soft_poweroff(soft_poweroff) {
+                                Ok(_) => {
+                                    return format!("{}: done\n", parts[0]);
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                }
+                            }
+                        }
+                        return err;
+                    }
+                }
+                "set_input_protect" => {
+                    if parts.len() > 1 {
+                        if let Ok(protect) = parts[1].parse::<bool>() {
+                            match core.toggle_input_protected(protect) {
+                                Ok(_) => {
+                                    return format!("{}: done\n", parts[0]);
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                }
+                            }
+                        }
+                        return err;
+                    }
                 }
                 _ => return err,
             }
