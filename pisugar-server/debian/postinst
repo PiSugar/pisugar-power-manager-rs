@@ -1,10 +1,5 @@
 #!/bin/sh
 
-# Enable i2c
-if which raspi-config; then
-  raspi-config nonint do_i2c 0
-fi
-
 if [ -e /usr/share/debconf/confmodule ]; then
   OPTS="--config config.json"
 
@@ -58,6 +53,11 @@ if [ -e /usr/share/debconf/confmodule ]; then
     db_input high pisugar-server/auth-default
     db_go
   fi
+fi
+
+# Enable i2c
+if which raspi-config > /dev/null 2>&1; then
+  raspi-config nonint do_i2c 0 || true
 fi
 
 deb-systemd-helper unmask pisugar-server.service >/dev/null || true
