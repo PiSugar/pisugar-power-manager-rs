@@ -587,7 +587,7 @@
         }
       },
       sendSocketCommands: cmds => {
-        cmds.foreach(cmd => {
+        cmds.forEach(cmd => {
           this.$socket.send(cmd)
         })
       },
