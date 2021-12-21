@@ -20,6 +20,9 @@ const IIC_CMD_CTR1: u8 = 0x02;
 /// Global ctrl 2
 const IIC_CMD_CTR2: u8 = 0x03;
 
+/// Temperature
+const IIC_CMD_TEMP: u8 = 0x04;
+
 /// Tap
 const IIC_CMD_TAP: u8 = 0x08;
 
@@ -139,6 +142,11 @@ impl PiSugar3 {
     pub fn read_soft_poweroff_flag(&self) -> Result<bool> {
         let ctr2 = self.read_crt2()?;
         Ok((ctr2 & 0b0000_1000) != 0)
+    }
+
+    pub fn read_temp(&self) -> Result<i32> {
+        let temp = self.i2c.smbus_read_byte(IIC_CMD_TEMP)?;
+        Ok(temp as i32 - 40)
     }
 
     pub fn read_tap(&self) -> Result<u8> {
@@ -363,7 +371,19 @@ impl Battery for PiSugar3Battery {
         self.pisugar3.toggle_soft_poweroff(config.soft_poweroff == Some(true))?;
 
         log::debug!("Toggle power restore");
-        self.pisugar3.toggle_restore(config.auto_power_on == Some(true))
+        self.pisugar3.toggle_restore(config.auto_power_on == Some(true))?;
+
+        log::debug!("Toggle anti-mistouch");
+        if let Some(anti_mistouch) = config.anti_mistouch.clone() {
+            self.toggle_anti_mistouch(anti_mistouch)?;
+        }
+
+        log::debug!("Toggle protect");
+        if let Some(protect) = config.bat_protect.clone() {
+            self.toggle_input_protected(protect)?;
+        }
+
+        Ok(())
     }
 
     fn model(&self) -> String {
@@ -512,6 +532,20 @@ impl Battery for PiSugar3Battery {
 
     fn toggle_soft_poweroff(&self, enable: bool) -> Result<()> {
         self.pisugar3.toggle_soft_poweroff(enable)
+    }
+
+    fn toggle_anti_mistouch(&self, enable: bool) -> Result<()> {
+        let mut ctr1 = self.pisugar3.read_ctr1()?;
+        ctr1 &= 0b1111_0111;
+        if enable {
+            ctr1 |= 0b0000_1000;
+        }
+        self.pisugar3.write_ctr1(ctr1)?;
+        Ok(())
+    }
+
+    fn temperature(&self) -> Result<f32> {
+        Ok(self.pisugar3.read_temp()? as f32)
     }
 }
 

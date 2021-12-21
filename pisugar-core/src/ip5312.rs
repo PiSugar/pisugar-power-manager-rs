@@ -429,4 +429,12 @@ impl Battery for IP5312Battery {
     fn toggle_soft_poweroff(&self, _enable: bool) -> Result<()> {
         Ok(())
     }
+
+    fn toggle_anti_mistouch(&self, _: bool) -> Result<()> {
+        Ok(())
+    }
+
+    fn temperature(&self) -> Result<f32> {
+        Ok(0.0)
+    }
 }

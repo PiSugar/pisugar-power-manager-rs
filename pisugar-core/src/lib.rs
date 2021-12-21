@@ -210,6 +210,14 @@ pub struct PiSugarConfig {
     /// RTC adjust ppm
     #[serde(default)]
     pub rtc_adj_ppm: Option<f64>,
+
+    /// Anti mistouch
+    #[serde(default)]
+    pub anti_mistouch: Option<bool>,
+
+    /// Battery hardware protect
+    #[serde(default)]
+    pub bat_protect: Option<bool>,
 }
 
 impl PiSugarConfig {
@@ -575,6 +583,22 @@ impl PiSugarCore {
         Ok(())
     }
 
+    pub fn toggle_anti_mistouch(&mut self, anti_mistouch: bool) -> Result<()> {
+        self.config.anti_mistouch = Some(anti_mistouch);
+        self.save_config()?;
+        call_battery!(&self.battery, toggle_anti_mistouch, anti_mistouch)
+    }
+
+    pub fn toggle_soft_poweroff(&mut self, soft_poweroff: bool) -> Result<()> {
+        self.config.soft_poweroff = Some(soft_poweroff);
+        self.save_config()?;
+        call_battery!(&self.battery, toggle_soft_poweroff, soft_poweroff)
+    }
+
+    pub fn get_temperature(&self) -> Result<f32> {
+        call_battery!(&self.battery, temperature)
+    }
+
     pub fn test_wake(&self) -> Result<()> {
         call_rtc!(&self.rtc, set_test_wake)
     }
@@ -714,7 +738,6 @@ impl PiSugarCore {
 
 #[cfg(test)]
 mod tests {
-
     use super::PiSugarConfig;
 
     #[test]

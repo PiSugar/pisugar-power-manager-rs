@@ -69,6 +69,12 @@ pub trait Battery {
 
     /// Toggle soft poweroff
     fn toggle_soft_poweroff(&self, enable: bool) -> Result<()>;
+
+    /// Toggle anti-mistouch
+    fn toggle_anti_mistouch(&self, enable: bool) -> Result<()>;
+
+    /// Get temperature
+    fn temperature(&self) -> Result<f32>;
 }
 
 #[allow(dead_code)]

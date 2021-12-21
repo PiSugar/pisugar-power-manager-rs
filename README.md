@@ -139,6 +139,10 @@ Default ports:
 | get safe_shutdown_delay | auto shutdown delay | safe_shutdown_delay: [number] |
 | get rtc_adjust_ppm | (pisugar3) adjust rtc ppm | rtc_adjust_ppm: [number] |
 | get auth_username | http auth username  | auth_username: [string] |
+| get anti_mistouch | anti-mistouch | anti_mistouch: [true\|false] |
+| get soft_poweroff | software poweroff | soft_poweroff: [true\|false] |
+| get temperature | chip temperature | temperature: [number] |
+| get input_protect | battery hardware protect | input_protect: [true\|false] |
 | rtc_pi2rtc | sync time pi => rtc | |
 | rtc_rtc2pi | sync time rtc => pi | |
 | rtc_web | sync time web => rtc & pi | |
@@ -154,6 +158,9 @@ Default ports:
 | set_allow_charging | enable or disable charging | set_allow_charging [true\|false] |
 | set_battery_output | enable or disable battery output | set_battery_output [true\|false] |
 | set_auth | set or clear http auth (with no arguments) | set_auth [username password] |
+| set_anti_mistouch | enable or disable anti-mistouch | set_anti_mistouch [true\|false] |
+| set_soft_poweroff | enable or disable software poweroff | set_soft_poweroff [true\|false] |
+| set_input_protect | enable or disable battery hardware protect | set_input_protect [true\|false] |
 
 Examples:
 
