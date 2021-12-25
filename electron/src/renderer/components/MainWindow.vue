@@ -586,7 +586,7 @@
           this.getBatteryInfo(true)
         }
       },
-      sendSocketCommands: cmds => {
+      sendSocketCommands(cmds) {
         cmds.forEach(cmd => {
           this.$socket.send(cmd)
         })
