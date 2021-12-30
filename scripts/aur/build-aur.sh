@@ -16,10 +16,10 @@ cd pisugar-archlinux
 
 version=$(cat PKGBUILD | grep ^pkgver | awk -F = '{print $2}')
 
-(cd $ROOT_DIR; cargo build --target arm-unknown-linux-musleabi  --release)
-(cd $ROOT_DIR; cargo build --target arm-unknown-linux-musleabihf  --release)
-(cd $ROOT_DIR; cargo build --target aarch64-unknown-linux-musl  --release)
-(cd $ROOT_DIR; cargo build --target x86_64-unknown-linux-gnu  --release)
+for i  in arm-unknown-linux-musleabi arm-unknown-linux-musleabihf aarch64-unknown-linux-musl  x86_64-unknown-linux-gnu; do
+    rustup target add $i
+    (cd $ROOT_DIR; cargo build --target $i --release)
+done
 
 mkdir arm
 mkdir armhf

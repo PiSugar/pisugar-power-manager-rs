@@ -94,35 +94,20 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: rustup target add arm-unknown-linux-musleabi
-      - run: rustup target add arm-unknown-linux-musleabihf
-      - run: rustup target add aarch64-unknown-linux-musl
-      - run: cargo install cargo-deb
-      - run: cargo install cargo-rpm
 
-      # Rust cargo deb - pisugar-server
-      - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-server/Cargo.toml
-      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-server/Cargo.toml
-      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-server/Cargo.toml
-      - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-poweroff/Cargo.toml
-      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-poweroff/Cargo.toml
-      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-poweroff/Cargo.toml
-      - run: cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-programmer/Cargo.toml
-      - run: cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-programmer/Cargo.toml
-      - run: cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-programmer/Cargo.toml
-
-      # Rust cargo-rpm
-      - run: sudo apt update && sudo apt install -y rpm
-      - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabi)
-      - run: (cd pisugar-server && cargo rpm build --target arm-unknown-linux-musleabihf)
-      - run: (cd pisugar-server && cargo rpm build --target aarch64-unknown-linux-musl)
-      - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabi)
-      - run: (cd pisugar-poweroff && cargo rpm build --target arm-unknown-linux-musleabihf)
-      - run: (cd pisugar-poweroff && cargo rpm build --target aarch64-unknown-linux-musl)
-      - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabi)
-      - run: (cd pisugar-programmer && cargo rpm build --target arm-unknown-linux-musleabihf)
-      - run: (cd pisugar-programmer && cargo rpm build --target aarch64-unknown-linux-musl)
-
+      # Rust build release
+      - run: |
+        sudo apt update && sudo apt install -y rpm
+        cargo install cargo-deb
+        cargo install cargo-rpm
+        for arch in arm-unknown-linux-musleabi arm-unknown-linux-musleabihf aarch64-unknown-linux-musl x86_64-unknown-linux-gnu; do
+          rustup target add $arch
+          cargo build --target $arch --release
+          for app in server poweroff programmer; do
+            cargo deb --target $arch --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cargo rpm build --target $arch)
+          done
+        done
       # aur for archlinux
       - run: (cd scripts/aur; sh build-aur.sh)
 
@@ -138,9 +123,11 @@ jobs:
             target/arm-unknown-linux-musleabi/debian/*
             target/arm-unknown-linux-musleabihf/debian/*
             target/aarch64-unknown-linux-musl/debian/*
+            target/x86_64-unknown-linux-gnu/debian/*
             target/arm-unknown-linux-musleabi/release/rpmbuild/RPMS/armv7l/*
             target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
             target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
+            target/x86_64-unknown-linux-gnu/release/rpmbuild/RPMS/x86_64/*
             scripts/*
             scripts/aur/*.tar.gz
           if-no-files-found: warn
