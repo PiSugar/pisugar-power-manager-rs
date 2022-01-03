@@ -47,6 +47,12 @@ Install script usage
     PiSugar 2 Pro
     PiSugar 3
 
+**NOTE** In pi-star, you need to add some iptables rules to allow access to web UI, see http://wiki.pistar.uk/Adding_custom_firewall_rules_to_Pi-Star
+
+    echo 'iptables -A INPUT -p tcp --dport 8421 -j ACCEPT' | sudo tee -a /root/ipv4.fw
+    echo 'iptables -A INPUT -p tcp --dport 8421 -j ACCEPT' | sudo tee -a /root/ipv6.fw
+    sudo ipstar-firewall
+
 Replace model in `/etc/default/pisugar-server`
 
     sed -e "s|--model '.*' |--model '<model>' |"
