@@ -60,7 +60,7 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
             let _ = tx.send(format!("{}", tap_type));
         }
         Err(e) => {
-            log::warn!("Poll error: {}", e);
+            log::debug!("Poll error: {}", e);
         }
         _ => {}
     }
