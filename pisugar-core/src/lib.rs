@@ -173,11 +173,11 @@ pub struct PiSugarConfig {
 
     /// Auto shutdown when battery level is low
     #[serde(default)]
-    pub auto_shutdown_level: f64,
+    pub auto_shutdown_level: Option<f64>,
 
     /// Auto shutdown delay, seconds
     #[serde(default)]
-    pub auto_shutdown_delay: f64,
+    pub auto_shutdown_delay: Option<f64>,
 
     /// Charging range
     #[serde(default)]

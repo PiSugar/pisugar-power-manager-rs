@@ -112,8 +112,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
                             "rtc_adjust_ppm" => Ok(core.config().rtc_adj_ppm.unwrap_or_default().to_string()),
                             "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
-                            "safe_shutdown_level" => Ok(core.config().auto_shutdown_level.to_string()),
-                            "safe_shutdown_delay" => Ok(core.config().auto_shutdown_delay.to_string()),
+                            "safe_shutdown_level" => Ok(core.config().auto_shutdown_level.unwrap_or(0.0).to_string()),
+                            "safe_shutdown_delay" => Ok(core.config().auto_shutdown_delay.unwrap_or(0.0).to_string()),
                             "button_enable" => {
                                 if parts.len() > 2 {
                                     let enable = match parts[2].as_str() {
@@ -338,10 +338,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 "set_safe_shutdown_level" => {
                     if parts.len() >= 1 {
                         if let Ok(level) = parts[1].parse::<f64>() {
-                            // level between 0-30
-                            let level = if level < 0.0 { 0.0 } else { level };
+                            // level between <30，level < 0 means do not shutdown
                             let level = if level > 30.0 { 30.0 } else { level };
-                            core.config_mut().auto_shutdown_level = level;
+                            core.config_mut().auto_shutdown_level = Some(level);
                             if let Err(e) = core.save_config() {
                                 log::error!("{}", e);
                             }
@@ -356,7 +355,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             // delay between 0-30
                             let delay = if delay < 0.0 { 0.0 } else { delay };
                             let delay = if delay > 120.0 { 120.0 } else { delay };
-                            core.config_mut().auto_shutdown_delay = delay;
+                            core.config_mut().auto_shutdown_delay = Some(delay);
                             if let Err(e) = core.save_config() {
                                 log::error!("{}", e);
                             }
@@ -1148,38 +1147,44 @@ async fn main() -> std::io::Result<()> {
 
         // auto shutdown
         if let Ok(level) = core.level() {
-            if (level as f64) < (core.config().auto_shutdown_level) {
-                log::warn!("Battery low: {}", level);
-
-                let now = tokio::time::Instant::now();
-                let seconds = now.duration_since(battery_high_at).as_millis() as f64;
-                let remains = core.config().auto_shutdown_delay - seconds;
-                let remains = if remains < 0.0 { 0.0 } else { remains };
-
-                let should_notify = if remains <= 0.0 {
-                    false
-                } else if remains < 30.0 {
-                    notify_at + Duration::from_secs(1) < now
-                } else if remains < 60.0 {
-                    notify_at + Duration::from_secs(5) < now
-                } else if remains < 120.0 {
-                    notify_at + Duration::from_secs(10) < now
-                } else {
-                    false
-                };
-
-                if should_notify {
-                    let message = format!("Low battery, will power off after {} seconds", remains);
-                    notify_shutdown_soon(message.as_str());
-                    notify_at = now;
+            match (core.config().auto_shutdown_level, core.config().auto_shutdown_delay) {
+                (Some(auto_shutdown_level), Some(auto_shutdown_delay)) => {
+                    if (level as f64) < auto_shutdown_level {
+                        log::warn!("Battery low: {}", level);
+        
+                        let now = tokio::time::Instant::now();
+                        let seconds = now.duration_since(battery_high_at).as_millis() as f64;
+                        let remains = auto_shutdown_delay - seconds;
+                        let remains = if remains < 0.0 { 0.0 } else { remains };
+        
+                        let should_notify = if remains <= 0.0 {
+                            false
+                        } else if remains < 30.0 {
+                            notify_at + Duration::from_secs(1) < now
+                        } else if remains < 60.0 {
+                            notify_at + Duration::from_secs(5) < now
+                        } else if remains < 120.0 {
+                            notify_at + Duration::from_secs(10) < now
+                        } else {
+                            false
+                        };
+        
+                        if should_notify {
+                            let message = format!("Low battery, will power off after {} seconds", remains);
+                            notify_shutdown_soon(message.as_str());
+                            notify_at = now;
+                        }
+        
+                        if remains <= 0.0 {
+                            let _ = execute_shell("shutdown --poweroff 0");
+                        }
+                    } else {
+                        battery_high_at = tokio::time::Instant::now();
+                    }
                 }
-
-                if remains <= 0.0 {
-                    let _ = execute_shell("shutdown --poweroff 0");
-                }
-            } else {
-                battery_high_at = tokio::time::Instant::now();
+                _ => {}
             }
+            
         }
     }
 }

@@ -9,8 +9,8 @@
     "double_tap_shell": "",
     "long_tap_enable": false,
     "long_tap_shell": "",
-    "auto_shutdown_level": 0.0,
-    "auto_shutdown_delay": 0.0,
+    "auto_shutdown_level": null,
+    "auto_shutdown_delay": null,
     "auto_charging_range": [
         80.0,
         100.0
