@@ -2,17 +2,27 @@
   <div id="wrapper">
     <div class="center">
       <div class="battery-info">
-        <div :class="{'show': isNewVersion ? (batteryPlugged && batteryAllowCharging) : batteryCharging}" class="charge-tag flash-tag">
-          <img class="flash" src="~@/assets/flash.svg" alt="">
-          <p>{{$t("charging")}}</p>
-        </div>
-        <div :class="{'show': isNewVersion ? (batteryPlugged && !batteryAllowCharging) : false}" class="charge-tag plug-tag">
-          <img class="plug" src="~@/assets/plug.svg" alt="">
-          <p>{{$t("notCharging")}}</p>
-        </div>
+        <!-- charging info -->
+        <template v-if="isModel2">
+          <div :class="{'show': isModel2Adv ? (batteryPlugged && batteryAllowCharging) : batteryCharging}" class="charge-tag flash-tag">
+            <img class="flash" src="~@/assets/flash.svg" alt="">
+            <p>{{$t("charging")}}</p>
+          </div>
+          <div :class="{'show': isModel2Adv ? (batteryPlugged && !batteryAllowCharging) : false}" class="charge-tag plug-tag">
+            <img class="plug" src="~@/assets/plug.svg" alt="">
+            <p>{{$t("notCharging")}}</p>
+          </div>
+        </template>
+        <template v-if="isModel3">
+          <div :class="{'show': batteryCharging}" class="charge-tag plug-tag">
+            <img class="flash" src="~@/assets/flash.svg" alt="">
+            <p>{{$t("charging")}}</p>
+          </div>
+        </template>
+
         <div class="battery-shape" @click="handleBatteryClick">
           <div class="battery-content" :class="batteryColor" :style="'width:'+batteryPercent+'%'"></div>
-          <div class="charging-layer" v-show="isNewVersion && batteryPlugged && !batteryAllowCharging">
+          <div class="charging-layer" v-show="isModel2Adv && batteryPlugged && !batteryAllowCharging">
             <div class="line restart-line" :style="`left: ${chargingRestartPoint}%`"></div>
           </div>
         </div>
@@ -21,10 +31,12 @@
         <img class="logo" src="~@/assets/logo.svg" alt="">
         <div class="website"><a href="http://www.pisugar.com" target="_blank">www.pisugar.com</a></div>
       </div>
+
       <div class="setting-panel">
         <div class="global">
           <el-link type="info" @click="languageDialog = true">Language: {{locale}}</el-link> |
-          <el-link type="info" @click="passwordDialog = true">Account</el-link>
+          <el-link type="info" @click="passwordDialog = true">Account</el-link> |
+          <el-link type="info" @click="settingDialog = true">Setting</el-link>
         </div>
         <div class="title">{{$t('wakeUpFeature')}}</div>
         <el-row>
@@ -155,6 +167,7 @@
         <br>
       </el-dialog>
 
+      <!-- time setting dialog -->
       <el-dialog :title="$t('syncTime')" :visible.sync="timeDialog">
         <el-row>
           <div class="time-text">
@@ -181,6 +194,7 @@
         </el-row>
       </el-dialog>
 
+      <!-- shell dialog -->
       <el-dialog :title="editShellDialogTitle" :visible.sync="editShellDialog">
         <el-row>
           <el-form :model="editShellDialogForm">
@@ -196,6 +210,7 @@
         </div>
       </el-dialog>
 
+      <!-- language dialog -->
       <el-dialog :title="$t('selectLanguage')" :visible.sync="languageDialog">
         <el-row>
           <el-form>
@@ -217,21 +232,38 @@
         </div>
       </el-dialog>
 
-      <el-dialog :title="$t('chargeSetting')" :visible.sync="chargeDialog">
+      <!-- charging setting dialog -->
+      <el-dialog :title="$t('advanceSetting')" :visible.sync="settingDialog">
         <el-form>
           <!-- version 3 -->
-          <el-form-item :label="$t('batteryInputProtect')" v-if="model.indexOf('3') >= 0">
-            <el-switch
-              v-model="inputProtectEnabled"
-              :active-text="$t('enabled')"
-              :inactive-text="$t('disabled')">
-            </el-switch>
-            <el-row v-if="inputProtectEnabled">
-              <span class="charging-desc">{{$t('batteryInputProtectDesc')}}</span>
-            </el-row>
-          </el-form-item>
+          <template v-if="isModel3">
+            <el-form-item :label="$t('batteryInputProtect')">
+              <el-switch
+                v-model="inputProtectEnabled"
+                :active-text="$t('enabled')"
+                :inactive-text="$t('disabled')">
+              </el-switch>
+              <span class="form-item-desc">{{$t('batteryInputProtectDesc')}}</span>
+            </el-form-item>
+            <el-form-item :label="$t('antiMistouch')">
+              <el-switch
+                v-model="antiMistouchEnabled"
+                :active-text="$t('enabled')"
+                :inactive-text="$t('disabled')">
+              </el-switch>
+              <span class="form-item-desc">{{$t('antiMistouchDesc')}}</span>
+            </el-form-item>
+            <el-form-item :label="$t('softPoweroff')">
+              <el-switch
+                v-model="softPoweroffEnabled"
+                :active-text="$t('enabled')"
+                :inactive-text="$t('disabled')">
+              </el-switch>
+              <span class="form-item-desc">{{$t('softPoweroffDesc')}}</span>
+            </el-form-item>
+          </template>
           <!-- version 2 -->
-          <el-form-item v-else>
+          <el-form-item v-if="isModel2">
             <el-row>
               <el-slider
                 v-model="chargingRestartPoint"
@@ -248,11 +280,12 @@
           </el-form-item>
         </el-form>
         <div slot="footer" class="dialog-footer">
-          <el-button @click="chargeDialog = false">{{$t('cancel')}}</el-button>
+          <el-button @click="settingDialog = false">{{$t('cancel')}}</el-button>
           <el-button type="primary" @click="chargeConfirm">{{$t('confirm')}}</el-button>
         </div>
       </el-dialog>
 
+      <!-- account dialog -->
       <el-dialog :title="$t('changeLoginPassword')" :visible.sync="passwordDialog">
         <el-row>
           <el-form :model="passwordForm" ref="passwordForm" :rules="passwordRules">
@@ -272,6 +305,7 @@
           <el-button type="primary" @click="passwordSubmit">{{$t('confirm')}}</el-button>
         </div>
       </el-dialog>
+
     </div>
   </div>
 </template>
@@ -280,6 +314,7 @@
   import Moment from 'moment'
   import { localeOptions } from '../locale'
   import { ms2ppm, ppm2ms } from '../utils'
+  import { onSocketMessage, initCommands, cycleCommands } from './socket'
 
   export default {
     name: 'index-page',
@@ -300,6 +335,7 @@
         batteryAllowCharging: true,
         socketConnect: false,
         model: '...',
+        isModel2Adv: false,
         alarmOption: [
           { label: this.$t('disabled'), value: 0 },
           { label: this.$t('enabled'), value: 1 },
@@ -369,17 +405,18 @@
         }),
         chargingRange: [-1, -1],
         chargingRestartPoint: 50,
-        isNewVersion: false,
         timeDialog: false,
         locale: 'en',
         languageDialog: false,
         languageOptions: localeOptions,
-        chargeDialog: false,
+        settingDialog: false,
         chargingMarks: {
           80: '80%'
         },
         timeUpdaterCount: 0,
         inputProtectEnabled: false,
+        softPoweroffEnabled: false,
+        antiMistouchEnabled: false,
         isTimeEditFocused: false,
         adjustPPM: 0,
         adjustMsPerHour: 0,
@@ -437,6 +474,12 @@
         if (this.batteryPercent < 10) return 'red'
         if (this.batteryPercent < 30) return 'yellow'
         return 'green'
+      },
+      isModel2 () {
+        return this.model.indexOf(' 2') > 0
+      },
+      isModel3 () {
+        return this.model.indexOf(' 3') > 0
       },
       alarmRepeatSun: {
         get () {
@@ -514,6 +557,7 @@
             }
             return `${this.$t('wakeUpDesc')} ${this.timeEditValue.toTimeString().split(' ')[0]}, ${repeatMessage}`
           case 2:
+            if (this.isModel3) return this.$t('powerWakeDescFor3')
             return this.$t('powerWakeDesc')
           default:
             break
@@ -545,9 +589,9 @@
           this.$socket.send('get rtc_alarm_enabled')
           this.$socket.send('get rtc_alarm_time')
         }
-        if (oldVal === 2 && val !== 2) {
+        if (this.isModel2 && oldVal === 2 && val !== 2) {
           this.$alert(this.$t('powerWakeOffWarning'), this.$t('powerWakeOffTitle'), {
-            confirmButtonText: '确定'
+            confirmButtonText: this.$t('confirmButtonText')
           })
         }
       },
@@ -556,11 +600,6 @@
         // 改了timeRepeat则开启定时开机
         this.alarmOptionValue = val === 0 ? 0 : 1
         this.setRtcAlarm()
-      },
-      inputProtectEnabled: function (val, oldVal) {
-        if (val !== oldVal) {
-          this.$socket.send(`set_battery_input_protect ${!!val}`)
-        }
       },
       timeDialog: function (val) {
         if (val) {
@@ -592,160 +631,16 @@
         })
       },
       bindSocket () {
-        this.$socket.onmessage = async (e) => {
-          let msg = e.data
-          if (msg.indexOf('battery') < 0) console.log(msg)
-          if (msg.indexOf('model:') > -1) {
-            this.model = msg.replace('model: ', '')
-          }
-          if (msg.indexOf('version:') > -1) {
-            this.version = msg.replace('version: ', '')
-          }
-          if (!msg.indexOf('battery:')) {
-            this.batteryPercent = parseInt(msg.replace('battery: ', ''))
-          }
-          if (!msg.indexOf('battery_charging: ')) {
-            this.batteryCharging = msg.indexOf('true') > 0
-          }
-          if (!msg.indexOf('battery_charging_range: ')) {
-            const res = msg.replace('battery_charging_range: ', '')
-            if (res.trim()) {
-              this.chargingRange = res.split(',').map(i => parseInt(i))
-            } else {
-              this.chargingRange = [100, 100]
-            }
-            this.chargingRestartPoint = this.chargingRange[0]
-          }
-          if (!msg.indexOf('battery_led_amount: ')) {
-            this.isNewVersion = msg.indexOf('2') > 0
-          }
-          if (!msg.indexOf('battery_power_plugged: ')) {
-            this.batteryPlugged = msg.indexOf('true') > 0
-          }
-          if (!msg.indexOf('battery_allow_charging: ')) {
-            this.batteryAllowCharging = msg.indexOf('true') > 0
-          }
-          if (!msg.indexOf('rtc_time: ')) {
-            msg = msg.replace('rtc_time: ', '').trim()
-            this.rtcTime = new Moment(msg).parseZone()
-            this.rtcUpdateTime = new Date().getTime()
-          }
-          if (!msg.indexOf('system_time: ')) {
-            msg = msg.replace('system_time: ', '').trim()
-            this.sysTime = new Moment(msg).parseZone()
-            this.sysUpdateTime = new Date().getTime()
-          }
-          if (!msg.indexOf('rtc_alarm_enabled: ')) {
-            this.alarmOptionValue = (msg.replace('rtc_alarm_enabled: ', '').trim() === 'true') ? 1 : this.alarmOptionValue
-            // console.log(msg, this.alarmOptionValue)
-          }
-          if (!msg.indexOf('auto_power_on: ')) {
-            this.alarmOptionValue = (msg.replace('auto_power_on: ', '').trim() === 'true') ? 2 : this.alarmOptionValue
-            // console.log(msg, this.alarmOptionValue)
-          }
-          if (!msg.indexOf('rtc_alarm_time: ')) {
-            // dont update timeEditValue when editing
-            if (this.isTimeEditFocused) return
-            msg = msg.replace('rtc_alarm_time: ', '').trim()
-            const alarmTime = new Moment(msg).parseZone()
-            const tempTime = new Date()
-            tempTime.setSeconds(alarmTime.second())
-            tempTime.setMinutes(alarmTime.minute())
-            tempTime.setHours(alarmTime.hour())
-            this.timeEditValue = tempTime
-            console.log('update alarm time', tempTime)
-          }
-          if (!msg.indexOf('alarm_repeat: ')) {
-            const alarmRepeat = parseInt(msg.replace('alarm_repeat: ', ''))
-            this.timeRepeat = alarmRepeat
-            if (!this.timeRepeat) this.alarmOptionValue = 0
-            // this.timeRepeat2checkbox()
-          }
-          if (!msg.indexOf('safe_shutdown_level: ')) {
-            this.safeShutdown = parseInt(msg.replace('safe_shutdown_level: ', ''))
-          }
-          if (!msg.indexOf('safe_shutdown_delay: ')) {
-            this.safeShutdownDelay = parseInt(msg.replace('safe_shutdown_delay: ', ''))
-          }
-          if (!msg.indexOf('button_enable')) {
-            let msgArr = msg.split(' ')
-            this.buttonFuncForm[msgArr[1]].enable = (msgArr[2].trim() === 'true')
-          }
-          if (!msg.indexOf('button_shell')) {
-            let msgArr = msg.split(' ')
-            let shell = msg.replace(msgArr[0] + ' ' + msgArr[1] + ' ', '').replace('\n', '')
-            let button = this.buttonFuncForm[msgArr[1]]
-            button.shell = shell
-            if (button.enable) {
-              button.func = shell === 'sudo shutdown now' ? 2 : 1
-            }
-          }
-          if (['single', 'double', 'long'].indexOf(msg) >= 0) {
-            if (msg === 'single') {
-              this.singleTrigger = false
-            }
-            if (msg === 'double') {
-              this.doubleTrigger = false
-            }
-            if (msg === 'long') {
-              this.longTrigger = false
-            }
-            setTimeout(() => {
-              this.singleTrigger = true
-              this.doubleTrigger = true
-              this.longTrigger = true
-            }, 100)
-          }
-          if (!msg.indexOf('battery_input_protect_enabled: ')) {
-            this.inputProtectEnabled = (msg.replace('battery_input_protect_enabled: ', '').trim() === 'true')
-          }
-          if (!msg.indexOf('rtc_adjust_ppm: ')) {
-            const ppmValue = parseInt(msg.replace('rtc_adjust_ppm: ', ''))
-            if (isNaN(ppmValue)) return
-            this.adjustPPM = ppmValue
-            this.adjustMsPerHour = ppm2ms(this.adjustPPM)
-          }
-          if (!msg.indexOf('auth_username:')) {
-            this.passwordForm.username = msg.replace('auth_username: ', '').trim()
-          }
-        }
+        this.$socket.onmessage = onSocketMessage.bind(this)
       },
       getBatteryInfo (loop) {
         if (this.$socket.readyState === 1) {
           if (!this.socketConnect) {
             this.bindSocket()
-            this.sendSocketCommands([
-              'get version',
-              'get model',
-              'get rtc_time',
-              'get system_time',
-              'get rtc_alarm_enabled',
-              'get rtc_alarm_time',
-              'get alarm_repeat',
-              'get button_enable single',
-              'get button_enable double',
-              'get button_enable long',
-              'get button_shell single',
-              'get button_shell double',
-              'get button_shell long',
-              'get safe_shutdown_level',
-              'get safe_shutdown_delay',
-              'get battery_charging_range',
-              'get battery_led_amount',
-              'get auto_power_on',
-              'get battery_input_protect_enabled',
-              'get auth_username'
-            ])
+            this.sendSocketCommands(initCommands)
           }
           this.socketConnect = true
-          this.sendSocketCommands([
-            'get battery',
-            'get battery_i',
-            'get battery_v',
-            'get battery_charging',
-            'get battery_power_plugged',
-            'get battery_allow_charging'
-          ])
+          this.sendSocketCommands(cycleCommands)
         } else {
           this.socketConnect = false
           this.batteryPercent = 0
@@ -886,11 +781,15 @@
         window.location.reload()
       },
       chargeConfirm () {
-        this.chargeDialog = false
-        if (this.chargingRestartPoint === 100) {
-          this.$socket.send(`set_battery_charging_range`)
-        } else {
-          this.$socket.send(`set_battery_charging_range ${this.chargingRestartPoint},100`)
+        this.settingDialog = false
+        if (this.isModel2Adv) {
+          const value = this.chargingRestartPoint === 100 ? '' : ` ${this.chargingRestartPoint},100`
+          this.$socket.send(`set_battery_charging_range${value}`)
+        }
+        if (this.isModel3) {
+          this.$socket.send(`set_battery_input_protect ${!!this.inputProtectEnabled}`)
+          this.$socket.send(`set_anti_mistouch ${!!this.antiMistouchEnabled}`)
+          this.$socket.send(`set_soft_poweroff ${!!this.softPoweroffEnabled}`)
         }
       },
       getDeviceTime () {
@@ -912,8 +811,8 @@
         this.$socket.send(`rtc_alarm_set ${alarmTime.toISOString(true)} ${this.timeRepeat}`)
       },
       handleBatteryClick () {
-        if (this.isNewVersion) {
-          this.chargeDialog = true
+        if (this.isModel2Adv || this.isModel3) {
+          this.settingDialog = true
         }
       },
       handleAdjustChange () {
@@ -974,6 +873,7 @@
     text-align: center;
     width: 100%;
     height: 100%;
+    padding-right: 0px!important;
   }
   .setting-panel .el-date-editor.el-input, .el-date-editor.el-input__inner{
     width: 160px;
@@ -1262,5 +1162,12 @@
     display: block;
     margin-top: 10px;
     color: #999;
+  }
+  .form-item-desc{
+    display: block;
+    color: #999;
+    font-size: 13px;
+    line-height: 20px;
+    word-break: normal;
   }
 </style>

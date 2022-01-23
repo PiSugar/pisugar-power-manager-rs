@@ -12,8 +12,8 @@ import locale from 'element-ui/lib/locale/lang/en'
 import { messages, localeOptions } from './locale'
 
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-// const devWsHost = 'ws://192.168.100.120:8421/ws'
-const devWsHost = 'ws://tinynet.local:8421/ws'
+const devWsHost = 'ws://192.168.100.200:8421/ws'
+// const devWsHost = 'ws://tinynet.local:8421/ws'
 
 let webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
 if (!process.env.IS_WEB) webSocketHost = devWsHost
