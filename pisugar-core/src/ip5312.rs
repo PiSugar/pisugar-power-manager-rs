@@ -269,9 +269,10 @@ impl Battery for IP5312Battery {
         }
         self.ip5312.init_boost_intensity()?;
         // NOTE: Disable auto shutdown in auto_power_on
-        self.ip5312.enable_light_load_auto_shutdown()?;
         if config.auto_power_on == Some(true) {
             self.ip5312.disable_light_load_shutdown()?;
+        } else {
+            self.ip5312.enable_light_load_auto_shutdown()?;
         }
 
         let v = self.voltage()?;
