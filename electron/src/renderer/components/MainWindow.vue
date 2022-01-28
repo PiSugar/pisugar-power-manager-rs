@@ -313,7 +313,7 @@
 <script>
   import Moment from 'moment'
   import { localeOptions } from '../locale'
-  import { ms2ppm, ppm2ms } from '../utils'
+  import { ms2ppm } from '../utils'
   import { onSocketMessage, initCommands, cycleCommands } from './socket'
 
   export default {

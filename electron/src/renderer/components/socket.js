@@ -1,4 +1,5 @@
 import Moment from 'moment'
+import { ppm2ms } from '../utils'
 
 export const initCommands = [
   'get version',
