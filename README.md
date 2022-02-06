@@ -92,6 +92,30 @@ Known conflicts and issues:
 2. pisugar-server: Http/tcp/uds server that provide PiSugar battery status
 3. pisugar-poweroff: Systemd service that shut down PiSugar battery
 
+## Non-interactive
+
+Install `debconf-utils`
+
+    sudo apt install -y debconf-utils
+
+pisugar-server (REPLACE `<TOP SECRET>` WITH YOUR PASSWORD)
+
+    sudo debconf-set-selections << EOF
+    pisugar-server pisugar-server/model select PiSugar 3
+    pisugar-server pisugar-server/auth-username string admin
+    pisugar-server pisugar-server/auth-password password <TOP SECRET>
+    EOF
+    sudo DEBIAN_FRONTEND=noninteractive dpkg -i pisugar-server_<version>.deb
+
+pisugar-poweroff
+
+    sudo debconf-set-selections << EOF
+    pisugar-poweroff pisugar-poweroff/model select PiSugar 3
+    EOF
+    sudo DEBIAN_FRONTEND=noninteractive dpkg -i pisugar-poweroff_<version>.deb
+
+See `debian/templates` in each child project directory.
+
 ## Configuration
 
 Now, navigate to `http://x.x.x.x:8421` on your browser and see PiSugar power status.
