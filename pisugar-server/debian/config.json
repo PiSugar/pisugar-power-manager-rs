@@ -1,6 +1,7 @@
 {
     "digest_auth": ["admin", "admin"],
     "i2c_bus": 1,
+    "i2c_addr": null,
     "auto_wake_time": null,
     "auto_wake_repeat": 0,
     "single_tap_enable": false,

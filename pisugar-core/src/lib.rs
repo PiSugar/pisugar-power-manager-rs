@@ -18,6 +18,7 @@ pub use model::Model;
 pub use sd3078::*;
 
 use crate::battery::Battery;
+use crate::pisugar3::PiSugar3;
 pub use crate::rtc::RTCRawTime;
 use crate::rtc::RTC;
 
@@ -138,6 +139,10 @@ pub struct PiSugarConfig {
     /// I2C bus, default 1 (/dev/i2c-1)
     #[serde(default = "default_i2c_bus")]
     pub i2c_bus: u8,
+
+    /// I2C addr, default 0x57 (87), available in PiSugar3
+    #[serde(default)]
+    pub i2c_addr: Option<u8>,
 
     /// Alarm time
     #[serde(default)]
@@ -351,7 +356,11 @@ impl PiSugarCore {
     fn init_battery(&mut self) -> Result<()> {
         if self.battery.is_none() {
             let i2c_addr_bat = match self.model {
-                Model::PiSugar_3 => pisugar3::I2C_ADDR_P3,
+                Model::PiSugar_3 => self
+                    .config
+                    .i2c_addr
+                    .map(|addr| addr as u16)
+                    .unwrap_or(pisugar3::I2C_ADDR_P3),
                 _ => I2C_ADDR_BAT,
             };
             log::debug!("Battery i2c addr: {:02x}({})", i2c_addr_bat, self.model);
