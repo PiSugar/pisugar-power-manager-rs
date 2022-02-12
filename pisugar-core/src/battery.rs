@@ -14,6 +14,9 @@ pub trait Battery {
     /// LED amount
     fn led_amount(&self) -> Result<u32>;
 
+    /// Firmware version
+    fn version(&self) -> Result<String>;
+
     /// Battery voltage (V)
     fn voltage(&self) -> Result<f32>;
 

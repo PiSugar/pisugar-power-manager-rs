@@ -82,6 +82,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         let resp = match parts[1].as_str() {
                             "version" => Ok(env!("CARGO_PKG_VERSION").to_string()),
                             "model" => Ok(core.model()),
+                            "version" => core.version(),
                             "battery" => core.level().map(|l| l.to_string()),
                             "battery_v" => core.voltage_avg().map(|v| v.to_string()),
                             "battery_i" => core.intensity_avg().map(|i| i.to_string()),
@@ -1151,12 +1152,12 @@ async fn main() -> std::io::Result<()> {
                 (Some(auto_shutdown_level), Some(auto_shutdown_delay)) => {
                     if (level as f64) < auto_shutdown_level {
                         log::warn!("Battery low: {}", level);
-        
+
                         let now = tokio::time::Instant::now();
                         let seconds = now.duration_since(battery_high_at).as_millis() as f64;
                         let remains = auto_shutdown_delay - seconds;
                         let remains = if remains < 0.0 { 0.0 } else { remains };
-        
+
                         let should_notify = if remains <= 0.0 {
                             false
                         } else if remains < 30.0 {
@@ -1168,13 +1169,13 @@ async fn main() -> std::io::Result<()> {
                         } else {
                             false
                         };
-        
+
                         if should_notify {
                             let message = format!("Low battery, will power off after {} seconds", remains);
                             notify_shutdown_soon(message.as_str());
                             notify_at = now;
                         }
-        
+
                         if remains <= 0.0 {
                             let _ = execute_shell("shutdown --poweroff 0");
                         }
@@ -1184,7 +1185,6 @@ async fn main() -> std::io::Result<()> {
                 }
                 _ => {}
             }
-            
         }
     }
 }

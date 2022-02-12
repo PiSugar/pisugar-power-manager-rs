@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
+use std::ffi::{CStr, CString};
+use std::slice::range;
 use std::time::Instant;
 
 use chrono::Timelike;
@@ -72,6 +74,10 @@ const IIC_CMD_ALM_HH: u8 = 0x45;
 const IIC_CMD_ALM_MN: u8 = 0x46;
 /// Alarm second
 const IIC_CMD_ALM_SS: u8 = 0x47;
+
+/// Firmware version
+const IIC_CMD_APPVER: u8 = 0xE2;
+const APP_VER_LEN: usize = 15;
 
 /// PiSugar 3
 pub struct PiSugar3 {
@@ -337,6 +343,19 @@ impl PiSugar3 {
     pub fn write_alarm_ss(&self, ss: u8) -> Result<()> {
         Ok(self.i2c.smbus_write_byte(IIC_CMD_ALM_SS, dec_to_bcd(ss))?)
     }
+
+    pub fn read_app_version(&self) -> Result<String> {
+        let mut buf = [0; APP_VER_LEN + 1];
+        for i in 0..APP_VER_LEN {
+            buf[i] = self.i2c.smbus_read_byte(IIC_CMD_APPVER + i)?;
+            if buf[i] == 0 {
+                break;
+            }
+        }
+        CStr::from_bytes_with_nul(&buf)
+            .map(|cstr| cstr.to_string_lossy().to_string())
+            .map_err(|e| Error::Other("Invalid firmware version".to_string()))
+    }
 }
 
 /// PiSugar 3 Battery support
@@ -347,6 +366,7 @@ pub struct PiSugar3Battery {
     intensities: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
     poll_at: Instant,
+    version: String,
 }
 
 impl PiSugar3Battery {
@@ -361,6 +381,7 @@ impl PiSugar3Battery {
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
             poll_at,
+            version: "".to_string(),
         })
     }
 }
@@ -383,6 +404,8 @@ impl Battery for PiSugar3Battery {
             self.toggle_input_protected(protect)?;
         }
 
+        self.version = self.pisugar3.read_app_version()?;
+
         Ok(())
     }
 
@@ -392,6 +415,10 @@ impl Battery for PiSugar3Battery {
 
     fn led_amount(&self) -> crate::Result<u32> {
         Ok(self.model.led_amount())
+    }
+
+    fn version(&self) -> Result<String> {
+        Ok(self.version.clone())
     }
 
     fn voltage(&self) -> crate::Result<f32> {

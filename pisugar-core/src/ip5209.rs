@@ -301,6 +301,10 @@ impl Battery for IP5209Battery {
         Ok(self.model.led_amount())
     }
 
+    fn version(&self) -> Result<String> {
+        Ok("".to_string())
+    }
+
     fn voltage(&self) -> Result<f32> {
         self.ip5209.read_voltage().and_then(|v| Ok(v as f32))
     }
