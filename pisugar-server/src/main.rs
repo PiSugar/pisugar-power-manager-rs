@@ -82,7 +82,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         let resp = match parts[1].as_str() {
                             "version" => Ok(env!("CARGO_PKG_VERSION").to_string()),
                             "model" => Ok(core.model()),
-                            "version" => core.version(),
+                            "firmware_version" => core.version(),
                             "battery" => core.level().map(|l| l.to_string()),
                             "battery_v" => core.voltage_avg().map(|v| v.to_string()),
                             "battery_i" => core.intensity_avg().map(|i| i.to_string()),

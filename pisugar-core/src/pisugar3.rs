@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
-use std::ffi::{CStr, CString};
-use std::slice::range;
+use std::ffi::CStr;
 use std::time::Instant;
 
 use chrono::Timelike;
@@ -347,14 +346,14 @@ impl PiSugar3 {
     pub fn read_app_version(&self) -> Result<String> {
         let mut buf = [0; APP_VER_LEN + 1];
         for i in 0..APP_VER_LEN {
-            buf[i] = self.i2c.smbus_read_byte(IIC_CMD_APPVER + i)?;
+            buf[i] = self.i2c.smbus_read_byte(IIC_CMD_APPVER + i as u8)?;
             if buf[i] == 0 {
                 break;
             }
         }
         CStr::from_bytes_with_nul(&buf)
             .map(|cstr| cstr.to_string_lossy().to_string())
-            .map_err(|e| Error::Other("Invalid firmware version".to_string()))
+            .map_err(|_| Error::Other("Invalid firmware version".to_string()))
     }
 }
 

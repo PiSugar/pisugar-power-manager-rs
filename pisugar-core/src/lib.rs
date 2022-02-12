@@ -453,7 +453,7 @@ impl PiSugarCore {
     }
 
     pub fn version(&self) -> Result<String> {
-        call_battery!(self.battery, version)
+        call_battery!(&self.battery, version)
     }
 
     pub fn voltage(&self) -> Result<f32> {

@@ -148,7 +148,7 @@ Default ports:
 
 | Command | Description | Response/Usage |
 | :- | :-: | :-: |
-| get version             | version | version: [string] |
+| get firmware_version    | firmware version | firmware_version: [string] |
 | get battery             | battery level % | battery: [number] |
 | get battery_i           | BAT current in A | battery_i: [number] |
 | get battery_v           | BAT voltage in V | battery_v: [number] |
