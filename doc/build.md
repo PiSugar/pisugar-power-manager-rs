@@ -32,8 +32,15 @@ Build
 
 Install cross compiler utils
 
+    # x86
     brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-arm-hf   # arm
     brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-aarch64  # arm64
+    
+    # m1
+    brew tap richard-vd/musl-cross/musl-cross
+    brew install richard-vd/musl-cross/musl-cross --without-x86_64 --with-arm-hf
+    brew install richard-vd/musl-cross/musl-cross --without-x86_64 --with-aarch64
+
 
 Install rust and armv6(zero/zerow) / armv7(3b/3b+) / arm64(i.e. aarch64, 4) target
 
