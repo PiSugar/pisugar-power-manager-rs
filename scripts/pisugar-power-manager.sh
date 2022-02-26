@@ -138,10 +138,17 @@ function uninstall_pkgs() {
     fi
 }
 
+TEMPDIR=$(mktemp /tmp/pisugar.XXXXXX)
+function cleanup() {
+    rm -rf "$TEMPDIR"
+}
+trap cleanup ERR
+mkdir -p "$TEMPDIR"
+
 $echo -e "\033[1;34mDownload PiSugar-server and PiSugar-poweroff package \033[0m"
-wget -O "/tmp/${package_server}" "http://cdn.pisugar.com/${channel}/${package_server}"
-wget -O "/tmp/${package_poweroff}" "http://cdn.pisugar.com/${channel}/${package_poweroff}"
-wget -O "/tmp/${package_programmer}" "http://cdn.pisugar.com/${channel}/${package_programmer}"
+wget -O "$TEMPDIR/${package_server}" "http://cdn.pisugar.com/${channel}/${package_server}"
+wget -O "$TEMPDIR/${package_poweroff}" "http://cdn.pisugar.com/${channel}/${package_poweroff}"
+wget -O "$TEMPDIR/${package_programmer}" "http://cdn.pisugar.com/${channel}/${package_programmer}"
 
 
 $echo -e "\033[1;34mOpen I2C Interface \033[0m"
@@ -152,13 +159,15 @@ uninstall_pkgs pisugar-server pisugar-poweroff pisugar-programmer
 
 $echo -e "\033[1;34mInstall packages\033[0m"
 install_jq
-install_pkgs "/tmp/${package_server}" "/tmp/${package_poweroff}" "/tmp/${package_programmer}"
+install_pkgs "$TEMPDIR/${package_server}" "$TEMPDIR/${package_poweroff}" "$TEMPDIR/${package_programmer}"
 
 $echo -e "\033[1;34mClean up \033[0m"
-rm -f "/tmp/${package_server}"
-rm -f "/tmp/${package_poweroff}"
-rm -f "/temp/${package_programmer}"
+rm -f "$TEMPDIR/${package_server}"
+rm -f "$TEMPDIR/${package_poweroff}"
+rm -f "$TEMPDIR/${package_programmer}"
 
 $echo -e "Now navigate to \033[1;34mhttp://${local_ip}:8421\033[0m on your browser to see PiSugar power management"
 $echo -e "If you have any question, please feel free to contact us."
 $echo -e "\033[1;34mThe PiSugar Team https://www.pisugar.com\033[0m"
+
+cleanup
