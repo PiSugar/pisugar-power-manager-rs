@@ -345,13 +345,16 @@ impl PiSugar3 {
 
     pub fn read_app_version(&self) -> Result<String> {
         let mut buf = [0; APP_VER_LEN + 1];
+        let mut last = APP_VER_LEN - 1;
         for i in 0..APP_VER_LEN {
             buf[i] = self.i2c.smbus_read_byte(IIC_CMD_APPVER + i as u8)?;
             if buf[i] == 0 {
+                last = i;
                 break;
             }
         }
-        CStr::from_bytes_with_nul(&buf)
+        log::debug!("ver: {:?}", buf);
+        CStr::from_bytes_with_nul(&buf[..(last + 1)])
             .map(|cstr| cstr.to_string_lossy().to_string())
             .map_err(|_| Error::Other("Invalid firmware version".to_string()))
     }
