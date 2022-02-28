@@ -45,7 +45,7 @@ PiSugar power manager server."""
 depends = "$auto, systemd"
 section = "utility"
 priority = "optional"
-maintainer-scripts = "pisugar-server/debian"                                    # working dir relatived
+maintainer-scripts = "debian"
 assets = [
     ["target/release/pisugar-server", "usr/bin/", "755"],                       # special
     ["debian/pisugar-server.default", "etc/default/pisugar-server", "644"],

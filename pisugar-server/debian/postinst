@@ -1,9 +1,9 @@
 #!/bin/sh
 
 if [ -e /usr/share/debconf/confmodule ]; then
-  OPTS="--config config.json"
-
   . /usr/share/debconf/confmodule
+
+  OPTS="--config config.json"
 
   db_get pisugar-server/model
   OPTS="$OPTS --model '$RET'"

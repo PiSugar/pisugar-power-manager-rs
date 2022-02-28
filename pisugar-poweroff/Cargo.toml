@@ -25,7 +25,7 @@ PiSugar poweroff."""
 depends = "$auto, systemd"
 section = "utility"
 priority = "optional"
-maintainer-scripts = "pisugar-poweroff/debian"                                  # working dir relatived
+maintainer-scripts = "debian"
 assets = [
     ["target/release/pisugar-poweroff", "usr/bin/", "755"],                      # special
     ["debian/pisugar-poweroff.default", "etc/default/pisugar-poweroff", "644"],
