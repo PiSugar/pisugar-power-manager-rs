@@ -2,7 +2,7 @@
 set -e
 
 # version
-version=1.6.5
+version=1.6.6
 
 # channel: nightly or release
 channel=release
@@ -138,12 +138,11 @@ function uninstall_pkgs() {
     fi
 }
 
-TEMPDIR=$(mktemp /tmp/pisugar.XXXXXX)
+TEMPDIR=$(mktemp -d /tmp/pisugar.XXXXXX)
 function cleanup() {
     rm -rf "$TEMPDIR"
 }
 trap cleanup ERR
-mkdir -p "$TEMPDIR"
 
 $echo -e "\033[1;34mDownload PiSugar-server and PiSugar-poweroff package \033[0m"
 wget -O "$TEMPDIR/${package_server}" "http://cdn.pisugar.com/${channel}/${package_server}"
