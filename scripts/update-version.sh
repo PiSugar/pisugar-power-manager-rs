@@ -16,9 +16,9 @@ if [ x"$version" == x"" ]; then
 fi
 
 for dir in pisugar-server pisugar-core pisugar-poweroff pisugar-programmer; do
-  sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "$ROOT_DIR/$dir/Cargo.toml"
+  sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "" "$ROOT_DIR/$dir/Cargo.toml"
 done
 
-sed -e "s/^pkgver=.*/pkgver=$version/" -i "$ROOT_DIR/scripts/aur/PKGBUILD"
-sed -e "s/^version=.*/version=$version/" -i "$CUR_DIR/pisugar-power-manager.sh"
+sed -e "s/^pkgver=.*/pkgver=$version/" -i "" "$ROOT_DIR/scripts/aur/PKGBUILD"
+sed -e "s/^version=.*/version=$version/" -i "" "$CUR_DIR/pisugar-power-manager.sh"
 
