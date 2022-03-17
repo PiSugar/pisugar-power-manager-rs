@@ -99,15 +99,20 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                                 .config()
                                 .full_charge_duration
                                 .map_or("".to_string(), |d| d.to_string())),
-                            "system_time" => Ok(Local::now().to_rfc3339()),
-                            "rtc_time" => core.read_time().map(|t| t.to_rfc3339()),
+                            "system_time" => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+                            "rtc_time" => core
+                                .read_time()
+                                .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
                             "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
                             "rtc_alarm_flag" => core.read_alarm_flag().map(|f| f.to_string()),
                             "rtc_alarm_time" => {
                                 let t = core
                                     .read_alarm_time()
                                     .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())));
-                                t.map(|t: DateTime<Utc>| t.with_timezone(Local::now().offset()).to_rfc3339())
+                                t.map(|t: DateTime<Utc>| {
+                                    t.with_timezone(Local::now().offset())
+                                        .to_rfc3339_opts(SecondsFormat::Millis, false)
+                                })
                             }
                             "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
                             "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
