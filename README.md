@@ -7,9 +7,11 @@
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
 </p>
 
-## Management program for PiSugar 2
+## Management program for PiSugar 2/3
 
 PiSugar power manager in rust language.
+
+Python api: https://github.com/PiSugar/pisugar-server-py
 
 ## Install
 
