@@ -685,7 +685,7 @@ impl PiSugarCore {
             self.poll_check_at = now;
 
             // 2-led, auto allow charging
-            if self.led_amount().unwrap_or(4) == 2 {
+            if self.model != Model::PiSugar_3 && self.led_amount().unwrap_or(4) == 2 {
                 if let Some((begin, end)) = &self.config.auto_charging_range {
                     let l = self.level().unwrap_or(0.0);
                     let allow_charging = self.allow_charging().unwrap_or(false);
