@@ -18,7 +18,6 @@ pub use model::Model;
 pub use sd3078::*;
 
 use crate::battery::Battery;
-use crate::pisugar3::PiSugar3;
 pub use crate::rtc::RTCRawTime;
 use crate::rtc::RTC;
 
@@ -223,6 +222,10 @@ pub struct PiSugarConfig {
     /// Battery hardware protect
     #[serde(default)]
     pub bat_protect: Option<bool>,
+
+    /// Write protect (pisugar 3)
+    #[serde(default)]
+    pub write_protect: Option<bool>,
 }
 
 impl PiSugarConfig {
