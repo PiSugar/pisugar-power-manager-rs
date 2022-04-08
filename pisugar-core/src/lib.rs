@@ -222,10 +222,6 @@ pub struct PiSugarConfig {
     /// Battery hardware protect
     #[serde(default)]
     pub bat_protect: Option<bool>,
-
-    /// Write protect (pisugar 3)
-    #[serde(default)]
-    pub write_protect: Option<bool>,
 }
 
 impl PiSugarConfig {
