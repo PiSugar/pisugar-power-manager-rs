@@ -59,7 +59,7 @@
     "eslint-plugin-vue": "^5.2.3",
     "less": "^3.9.0",
     "less-loader": "^5.0.0",
-    "moment": "^2.24.0",
+    "moment": "^2.29.2",
     "vue": "^2.5.16",
     "vue-electron": "^1.0.6",
     "vue-i18n": "^8.17.4",
