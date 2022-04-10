@@ -60,3 +60,8 @@ Troubleshooting:
 
         sudo systemctl stop pisugar-server
         pisugar-programmer -r --addr 0x57 --file pisugar-3-application.bin
+
+## Write protection
+
+PiSugar 3 firmware 1.24 add a new feature, i2c write protection, to avoid i2c data corruption. To modify the i2c data, you need to 
+send a 0x29 to i2c 0x0b, then update other i2c data, and finally send a 0x00 to i2c 0x0b to end the process.

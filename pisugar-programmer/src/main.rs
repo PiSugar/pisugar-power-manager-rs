@@ -20,6 +20,9 @@ const CMD_POS_H: u8 = 0xd3;
 const CMD_POS_L: u8 = 0xd4;
 const CMD_DATA: u8 = 0xdd;
 
+const CMD_WRITE_ENABLE: u8 = 0x0b;
+const ENABLE_WRITE: u8 = 0x29;
+
 const PISUGAR_VER: u8 = 3;
 const MODE_APPLICATION: u8 = 0x0f;
 const MODE_BOOTLOADER: u8 = 0xf0;
@@ -289,6 +292,7 @@ fn main() {
 }
 
 fn send_reset(i2c: &I2c) -> I2cResult<()> {
+    i2c.smbus_write_byte(CMD_WRITE_ENABLE, ENABLE_WRITE)?;
     i2c.smbus_write_byte(CMD_APP_CTR2, 1 << 7)
 }
 
