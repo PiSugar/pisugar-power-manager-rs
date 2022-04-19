@@ -8,9 +8,9 @@ license = "GPLv3"
 homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
 
 [dependencies]
-rppal = "0.12"
-clap = "2"
-sysinfo = "0.20.4"
+rppal = "0.13"
+clap = "3"
+sysinfo = "0.23"
 
 [[bin]]
 name = "pisugar-programmer"

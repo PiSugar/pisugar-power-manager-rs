@@ -2,7 +2,7 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 use pisugar_core::{Model, PiSugarConfig, PiSugarCore, Result};
 use std::convert::TryInto;
@@ -23,19 +23,19 @@ fn main() {
         Model::PiSugar_2_2LEDs.to_string(),
         Model::PiSugar_2_4LEDs.to_string(),
     ];
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
-            Arg::with_name("model")
-                .short("m")
+            Arg::new("model")
+                .short('m')
                 .long("model")
                 .value_name("MODEL")
-                .help(&format!("PiSugar Model, choose from {:?}", models))
+                .help(format!("PiSugar Model, choose from {:?}", models).as_str())
                 .takes_value(true)
                 .validator(move |x| {
-                    if models.contains(&x) {
+                    if models.contains(&x.to_string()) {
                         Ok(())
                     } else {
                         Err("Invalid model".to_string())
@@ -44,16 +44,16 @@ fn main() {
                 .required(true),
         )
         .arg(
-            Arg::with_name("countdown")
-                .short("c")
+            Arg::new("countdown")
+                .short('c')
                 .long("countdown")
                 .value_name("COUNTDOWN")
                 .default_value("3")
                 .help("Countdown seconds, e.g. 3"),
         )
         .arg(
-            Arg::with_name("configfile")
-                .short("f")
+            Arg::new("configfile")
+                .short('f')
                 .long("config")
                 .value_name("CONFIG")
                 .default_value("/etc/pisugar-server/config.json")

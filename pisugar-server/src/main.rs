@@ -11,7 +11,7 @@ use std::thread::sleep;
 use std::time::{Instant, SystemTime};
 
 use chrono::prelude::*;
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
 use env_logger::Env;
 use futures::prelude::*;
@@ -893,7 +893,7 @@ fn init_logging(debug: bool, syslog: bool) {
             facility: Facility::LOG_USER,
             hostname: None,
             process: env!("CARGO_PKG_NAME").into(),
-            pid,
+            pid: pid as u32,
         };
         let logger = syslog::unix(formatter).expect("Could not connect to syslog");
         log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
@@ -920,41 +920,41 @@ async fn main() -> std::io::Result<()> {
         Model::PiSugar_2_4LEDs.to_string(),
     ];
 
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
-            Arg::with_name("config")
-                .short("c")
+            Arg::new("config")
+                .short('c')
                 .long("config")
                 .value_name("FILE")
                 .help("Config file in json format, e.g. /etc/pisugar-server/config.json"),
         )
         .arg(
-            Arg::with_name("tcp")
-                .short("t")
+            Arg::new("tcp")
+                .short('t')
                 .long("tcp")
                 .value_name("ADDR")
                 .help("Tcp listen address, e.g. 0.0.0.0:8423"),
         )
         .arg(
-            Arg::with_name("uds")
-                .short("u")
+            Arg::new("uds")
+                .short('u')
                 .long("uds")
                 .value_name("FILE")
                 .default_value("/tmp/pisugar-server.sock")
                 .help("Unix domain socket file, e.g. /tmp/pisugar-server.sock"),
         )
         .arg(
-            Arg::with_name("ws")
-                .short("w")
+            Arg::new("ws")
+                .short('w')
                 .long("ws")
                 .value_name("ADDR")
                 .help("Websocket listen address, e.g. 0.0.0.0:8422"),
         )
         .arg(
-            Arg::with_name("web")
+            Arg::new("web")
                 .requires_all(&["http"])
                 .long("web")
                 .value_name("DIR")
@@ -962,41 +962,41 @@ async fn main() -> std::io::Result<()> {
                 .help("Web content directory, e.g. web"),
         )
         .arg(
-            Arg::with_name("http")
+            Arg::new("http")
                 .long("http")
                 .value_name("ADDR")
                 .default_value("0.0.0.0:8421")
                 .help("Http server listen address, e.g. 0.0.0.0:8421"),
         )
         .arg(
-            Arg::with_name("debug")
-                .short("d")
+            Arg::new("debug")
+                .short('d')
                 .long("debug")
                 .takes_value(false)
                 .help("Debug output"),
         )
         .arg(
-            Arg::with_name("syslog")
-                .short("s")
+            Arg::new("syslog")
+                .short('s')
                 .long("syslog")
                 .takes_value(false)
                 .help("Log to syslog"),
         )
         .arg(
-            Arg::with_name("led")
+            Arg::new("led")
                 .long("led")
                 .takes_value(true)
                 .default_value("4")
                 .help("2-led or 4-led"),
         )
         .arg(
-            Arg::with_name("model")
+            Arg::new("model")
                 .long("model")
                 .takes_value(true)
                 .required(true)
-                .help(&format!("{:?}", models))
+                .help(format!("{:?}", models).as_str())
                 .validator(move |x| {
-                    if models.contains(&x) {
+                    if models.contains(&x.to_string()) {
                         Ok(())
                     } else {
                         Err("Invalid model".to_string())

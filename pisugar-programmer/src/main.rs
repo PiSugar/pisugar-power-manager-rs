@@ -5,9 +5,11 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
-use clap::{App, Arg};
+use clap::Arg;
+use clap::Command;
 use rppal::i2c::I2c;
 use rppal::i2c::Result as I2cResult;
+use sysinfo::ProcessRefreshKind;
 use sysinfo::{ProcessExt, RefreshKind, SystemExt};
 
 const CMD_VER: u8 = 0x00;
@@ -43,7 +45,7 @@ fn show_warning() {
 
     loop {
         let refresh_kind = RefreshKind::default();
-        let refresh_kind = refresh_kind.with_processes();
+        let refresh_kind = refresh_kind.with_processes(ProcessRefreshKind::everything());
         let sys = sysinfo::System::new_with_specifics(refresh_kind);
         let mut running = false;
         for (pid, p) in sys.processes() {
@@ -80,32 +82,32 @@ fn to_u16(s: &str) -> u16 {
 }
 
 fn main() {
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
-            Arg::with_name("bus")
-                .short("b")
+            Arg::new("bus")
+                .short('b')
                 .default_value("1")
                 .takes_value(true)
                 .help("I2C bus, e.g. 1 (i.e. /dev/i2c-1)"),
         )
         .arg(
-            Arg::with_name("addr")
-                .short("a")
+            Arg::new("addr")
+                .short('a')
                 .default_value("0x57")
                 .takes_value(true)
                 .help("I2C addr, e.g. 0x57"),
         )
         .arg(
-            Arg::with_name("reset")
-                .short("r")
+            Arg::new("reset")
+                .short('r')
                 .takes_value(false)
                 .help("Automatically reset to bootloader mode"),
         )
         .arg(
-            Arg::with_name("file")
+            Arg::new("file")
                 .required(true)
                 .help("Firmware file, e.g. pisugar-3-application.bin"),
         )

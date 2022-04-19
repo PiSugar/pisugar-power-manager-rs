@@ -10,7 +10,7 @@ homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2"
+clap = "3"
 pisugar-core = { path = "../pisugar-core" }
 
 
