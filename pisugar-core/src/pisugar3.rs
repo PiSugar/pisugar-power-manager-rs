@@ -593,18 +593,17 @@ impl PiSugar3RTC {
 impl RTC for PiSugar3RTC {
     fn init(&mut self, config: &PiSugarConfig) -> Result<()> {
         self.pisugar3.toggle_restore(config.auto_power_on == Some(true))?;
-        if let Some(wakeup_time) = config.auto_wake_time.clone() {
-            self.pisugar3.toggle_alarm_enable(false)?;
-            self.pisugar3.write_alarm_hh(wakeup_time.hour() as u8)?;
-            self.pisugar3.write_alarm_mn(wakeup_time.minute() as u8)?;
-            self.pisugar3.write_alarm_ss(wakeup_time.second() as u8)?;
-            self.pisugar3.write_alarm_weekday_repeat(config.auto_wake_repeat)?;
-            self.pisugar3.toggle_alarm_enable(true)?;
+        self.pisugar3.toggle_alarm_enable(false)?;
+        if let Some(wakeup_time) = config.auto_wake_time {
+            if config.auto_wake_repeat & 0x7f != 0 {
+                self.set_alarm(wakeup_time.into(), config.auto_wake_repeat)?;
+                self.pisugar3.toggle_alarm_enable(true)?;
+            }
         }
-        if let Some(adj_comm) = config.adj_comm.clone() {
+        if let Some(adj_comm) = config.adj_comm {
             self.pisugar3.write_rtc_adj_comm(adj_comm)?;
         }
-        if let Some(adj_diff) = config.adj_diff.clone() {
+        if let Some(adj_diff) = config.adj_diff {
             self.pisugar3.write_rtc_adj_diff(adj_diff)?;
         }
         Ok(())
