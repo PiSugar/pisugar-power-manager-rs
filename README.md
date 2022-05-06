@@ -70,12 +70,13 @@ Http authentication config in `/etc/pisugar/config.json` (replace `<username>` a
         ...
     }
 
-## Install (ArchLinux only)
+## Install (ArchLinux only, unstable)
 
 Download latest `pisugar-archlinux_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
 
     tar -xvf pisugar-archlinux_<version>_all.tar.gz
     (cd pisugar-archlinux; sh install.sh)
+
 ## Prerequisites
 
 On raspberry pi, enable I2C interface
