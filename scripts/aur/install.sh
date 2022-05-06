@@ -17,8 +17,8 @@ done
 
 echo "Model: $model"
 sudo sed -e "s/--model.*--/--model '$model' --/" \
-    -i /etc/default/pisugar-server.default \
-    -i /etc/default/pisugar-poweroff.default \
+    -i /etc/default/pisugar-server \
+    -i /etc/default/pisugar-poweroff \
     || true
 
 sudo systemctl enable pisugar-server || true

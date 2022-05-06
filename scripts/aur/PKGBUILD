@@ -23,7 +23,7 @@ noextract=()
 package() {
     cd "$CARCH"
     install -Dm755 pisugar-server -t "$pkgdir/usr/bin/"
-    install -Dm644 pisugar-server.default -t "$pkgdir/etc/default"
+    install -Dm644 pisugar-server.default -t "$pkgdir/etc/default/pisugar-server"
     install -Dm644 pisugar-server.service -t "$pkgdir/usr/lib/systemd/system"
     install -Dm644 config.json -t "$pkgdir/etc/pisugar-server"
     mkdir -p "$pkgdir/usr/share/pisugar-server"
@@ -31,7 +31,7 @@ package() {
     chmod -R 0644 "$pkgdir/usr/share/pisugar-server/web"
     install -Dm644 _ws.json -t "$pkgdir/usr/share/pisugar-server/web"
     install -Dm755 pisugar-poweroff -t "$pkgdir/usr/bin/"
-    install -Dm644 pisugar-poweroff.default -t "$pkgdir/etc/default"
+    install -Dm644 pisugar-poweroff.default -t "$pkgdir/etc/default/pisugar-poweroff"
     install -Dm644 pisugar-poweroff.service -t "$pkgdir/usr/lib/systemd/system"
     install -Dm755 pisugar-programmer -t "$pkgdir/usr/bin/"
 }
