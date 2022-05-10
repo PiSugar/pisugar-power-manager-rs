@@ -1155,7 +1155,7 @@ async fn main() -> std::io::Result<()> {
         if let Ok(level) = core.level() {
             match (core.config().auto_shutdown_level, core.config().auto_shutdown_delay) {
                 (Some(auto_shutdown_level), Some(auto_shutdown_delay)) => {
-                    if (level as f64) < auto_shutdown_level {
+                    if auto_shutdown_level > 0.0 && auto_shutdown_delay > 0.0 && (level as f64) < auto_shutdown_level {
                         log::warn!("Battery low: {}", level);
 
                         let now = tokio::time::Instant::now();
@@ -1177,6 +1177,7 @@ async fn main() -> std::io::Result<()> {
 
                         if should_notify {
                             let message = format!("Low battery, will power off after {} seconds", remains);
+                            log::warn!("{}", message);
                             notify_shutdown_soon(message.as_str());
                             notify_at = now;
                         }
