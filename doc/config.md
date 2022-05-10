@@ -30,7 +30,7 @@ Json format configuration file of pisugar-server:
     auto_shutdown_level Shutdown when battery is low, optional
                     default 0 (disable), suggested value 10
     auto_shutdown_delay Delay before auto shutdown (seconds), optional
-                    default 0, suggested value 30
+                    default 0 (disable auto shutdown), suggested value 30
     auto_charging_range Enable charging between battery levels, optional
                     default null suggested value (60, 90)
                     Enable charging when battery < begin, then stop charging when battery > end
