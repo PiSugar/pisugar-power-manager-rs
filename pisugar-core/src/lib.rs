@@ -9,6 +9,7 @@ use std::process::{Command, ExitStatus};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use battery::BatteryEvent;
 use chrono::{DateTime, Datelike, Local, Timelike};
 use hyper::client::Client;
 use rppal::i2c::Error as I2cError;
@@ -18,7 +19,6 @@ pub use model::Model;
 pub use sd3078::*;
 
 use crate::battery::Battery;
-use crate::pisugar3::PiSugar3;
 pub use crate::rtc::RTCRawTime;
 use crate::rtc::RTC;
 
@@ -199,6 +199,10 @@ pub struct PiSugarConfig {
     /// Soft poweroff, PiSugar 3 only
     #[serde(default)]
     pub soft_poweroff: Option<bool>,
+
+    /// Soft poweroff shell script
+    #[serde(default)]
+    pub soft_poweroff_shell: Option<String>,
 
     /// Auto rtc sync
     #[serde(default)]
@@ -643,37 +647,55 @@ impl PiSugarCore {
             self.ready = true;
         }
 
-        // tap
+        // battery events
+        let mut tap = None; // tap event that returns
         let config = &self.config;
-        let tap = call_battery!(&mut self.battery, poll, now, config)?;
-        if let Some(tap_type) = tap {
-            let script = match tap_type {
-                TapType::Single => {
-                    if config.single_tap_enable {
-                        Some(config.single_tap_shell.clone())
-                    } else {
-                        None
+        let events = call_battery!(&mut self.battery, poll, now, config)?;
+        for event in events {
+            let script = match event {
+                BatteryEvent::TapEvent(tap_type) => {
+                    tap = Some(tap_type);
+                    match tap_type {
+                        TapType::Single => {
+                            if config.single_tap_enable {
+                                Some(config.single_tap_shell.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        TapType::Double => {
+                            if config.double_tap_enable {
+                                Some(config.double_tap_shell.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        TapType::Long => {
+                            if config.long_tap_enable {
+                                Some(config.long_tap_shell.clone())
+                            } else {
+                                None
+                            }
+                        }
                     }
                 }
-                TapType::Double => {
-                    if config.double_tap_enable {
-                        Some(config.double_tap_shell.clone())
-                    } else {
-                        None
-                    }
-                }
-                TapType::Long => {
-                    if config.long_tap_enable {
-                        Some(config.long_tap_shell.clone())
+                BatteryEvent::SoftPowerOff => {
+                    if config.soft_poweroff == Some(true) {
+                        Some(
+                            config
+                                .soft_poweroff_shell
+                                .clone()
+                                .unwrap_or("shutdown --poweroff 0".to_string()),
+                        )
                     } else {
                         None
                     }
                 }
             };
             if let Some(script) = script {
-                log::debug!("Execute script \"{}\"", script);
+                log::info!("Execute script \"{}\"", script);
                 thread::spawn(move || match execute_shell(script.as_str()) {
-                    Ok(r) => log::debug!("Script ok, code: {:?}", r.code()),
+                    Ok(r) => log::info!("Script ok, code: {:?}", r.code()),
                     Err(e) => log::error!("{}", e),
                 });
             }
@@ -681,7 +703,7 @@ impl PiSugarCore {
 
         // slower
         if self.poll_check_at + Duration::from_secs(1) <= now {
-            log::debug!("Poll check");
+            log::debug!("Poll slow");
             self.poll_check_at = now;
 
             // 2-led, auto allow charging

@@ -4,13 +4,12 @@ use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::time::Instant;
 
-use chrono::Timelike;
 use rppal::i2c::I2c;
 
-use crate::battery::Battery;
+use crate::battery::{Battery, BatteryEvent};
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
-use crate::{execute_shell, Error, Model, PiSugarConfig, RTCRawTime, Result, TapType};
+use crate::{Error, Model, PiSugarConfig, RTCRawTime, Result, TapType};
 
 /// PiSugar 3 i2c addr
 pub const I2C_ADDR_P3: u16 = 0x57;
@@ -502,10 +501,10 @@ impl Battery for PiSugar3Battery {
         self.pisugar3.toggle_output_enabled(enable)
     }
 
-    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> crate::Result<Option<TapType>> {
+    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> crate::Result<Vec<BatteryEvent>> {
         // slow down, 500ms
         if self.poll_at > now || self.poll_at + std::time::Duration::from_millis(500) > now {
-            return Ok(None);
+            return Ok(Vec::default());
         }
         self.poll_at = now;
 
@@ -538,15 +537,23 @@ impl Battery for PiSugar3Battery {
         }
 
         // soft poweroff
+        let mut soft_poweroff = false;
         if config.soft_poweroff == Some(true) {
-            if let Ok(flag) = self.pisugar3.read_soft_poweroff_flag() {
-                if flag == true {
-                    let _ = execute_shell("shutdown --poweroff 0");
-                }
+            match self.pisugar3.read_soft_poweroff_flag() {
+                Ok(f) => soft_poweroff = f,
+                Err(e) => log::warn!("Read soft poweroff flag error: {}", e),
             }
         }
 
-        Ok(tap)
+        let mut events = Vec::new();
+        if tap.is_some() {
+            events.push(BatteryEvent::TapEvent(tap.unwrap()));
+        }
+        if soft_poweroff {
+            events.push(BatteryEvent::SoftPowerOff);
+        }
+
+        Ok(events)
     }
 
     fn toggle_light_load_shutdown(&self, enable: bool) -> crate::Result<()> {

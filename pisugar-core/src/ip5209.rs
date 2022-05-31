@@ -3,10 +3,8 @@ use std::time::Instant;
 
 use rppal::i2c::I2c;
 
-use crate::battery::Battery;
-use crate::{
-    convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Model, PiSugarConfig, Result, TapType,
-};
+use crate::battery::{Battery, BatteryEvent};
+use crate::{convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Model, PiSugarConfig, Result};
 
 /// Battery threshold curve
 pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
@@ -393,7 +391,7 @@ impl Battery for IP5209Battery {
         Err(Error::Other("Not available".to_string()))
     }
 
-    fn poll(&mut self, now: Instant, _config: &PiSugarConfig) -> Result<Option<TapType>> {
+    fn poll(&mut self, now: Instant, _config: &PiSugarConfig) -> Result<Vec<BatteryEvent>> {
         let voltage = self.voltage()?;
         if self.voltages.len() >= self.voltages.capacity() {
             self.voltages.pop_front();
@@ -429,7 +427,12 @@ impl Battery for IP5209Battery {
         }
 
         let tap_result = gpio_detect_tap(&mut self.tap_history);
-        Ok(tap_result)
+
+        let mut events = Vec::new();
+        if tap_result.is_some() {
+            events.push(BatteryEvent::TapEvent(tap_result.unwrap()));
+        }
+        Ok(events)
     }
 
     fn toggle_light_load_shutdown(&self, enable: bool) -> Result<()> {
