@@ -148,6 +148,12 @@ impl PiSugar3 {
         Ok((ctr2 & 0b0000_1000) != 0)
     }
 
+    pub fn clear_soft_poweroff_flag(&self) -> Result<()> {
+        let mut ctr2 = self.read_crt2()?;
+        ctr2 &= 0b1111_0111;
+        self.write_ctr2(ctr2)
+    }
+
     pub fn read_temp(&self) -> Result<i32> {
         let temp = self.i2c.smbus_read_byte(IIC_CMD_TEMP)?;
         Ok(temp as i32 - 40)
@@ -540,7 +546,10 @@ impl Battery for PiSugar3Battery {
         let mut soft_poweroff = false;
         if config.soft_poweroff == Some(true) {
             match self.pisugar3.read_soft_poweroff_flag() {
-                Ok(f) => soft_poweroff = f,
+                Ok(f) => {
+                    soft_poweroff = f;
+                    let _ = self.pisugar3.clear_soft_poweroff_flag();
+                }
                 Err(e) => log::warn!("Read soft poweroff flag error: {}", e),
             }
         }
