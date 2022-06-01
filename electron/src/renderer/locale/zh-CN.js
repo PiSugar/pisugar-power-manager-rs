@@ -73,6 +73,8 @@ module.exports = {
   antiMistouchDesc: '防误触开启后，开关需要单击+长按方式才能触发。',
   softPoweroff: '软关机',
   softPoweroffDesc: '使用开关按键关机将不会直接断电，而是由软件发出关机指令。',
+  softPoweroffShell: '软关机Shell',
+  softPoweroffShellDesc: '将在软关机被触发时（关机前）执行的shell指令。',
   changeLoginPassword: '修改登录密码',
   username: '用户名',
   password: '密码',

@@ -23,6 +23,7 @@ export const initCommands = [
   'get battery_input_protect_enabled',
   'get auth_username',
   'get soft_poweroff',
+  'get soft_poweroff_shell',
   'get anti_mistouch'
 ]
 
@@ -152,6 +153,10 @@ export async function onSocketMessage (e) {
   }
   if (msg.startsWith('auth_username:')) {
     this.passwordForm.username = msg.replace('auth_username: ', '').trim()
+    return
+  }
+  if (msg.startsWith('soft_poweroff_shell:')) {
+    this.softPoweroffShell = msg.replace('soft_poweroff_shell: ', '').trim()
     return
   }
   if (msg.startsWith('soft_poweroff:')) {
