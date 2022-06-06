@@ -2,8 +2,15 @@
 
 set -e
 
-CUR_DIR=$(cd $(dirname $0); pwd)
+CUR_DIR=$(cd $(dirname "$0"); pwd)
 ROOT_DIR=$(cd "$CUR_DIR/.."; pwd)
+
+if which gsed > /dev/null 2>&1; then
+  # gsed on macos, to install: brew install gnu-sed
+  SED=gsed
+else
+  SED=sed
+fi
 
 function usage() {
     echo "USAGE: $0 VERSION"
@@ -16,8 +23,8 @@ if [ x"$version" == x"" ]; then
 fi
 
 for dir in pisugar-server pisugar-core pisugar-poweroff pisugar-programmer; do
-  sed -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "$ROOT_DIR/$dir/Cargo.toml"
+  $SED -e "s/^version[[:space:]]*=.*$/version = \"$version\"/" -i "$ROOT_DIR/$dir/Cargo.toml"
 done
 
-sed -e "s/^pkgver=.*/pkgver=$version/" -i "$ROOT_DIR/scripts/aur/PKGBUILD"
-sed -e "s/^version=.*/version=$version/" -i "$CUR_DIR/pisugar-power-manager.sh"
+$SED -e "s/^pkgver=.*/pkgver=$version/" -i "$ROOT_DIR/scripts/aur/PKGBUILD"
+$SED -e "s/^version=.*/version=$version/" -i "$CUR_DIR/pisugar-power-manager.sh"

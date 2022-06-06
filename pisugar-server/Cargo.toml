@@ -1,6 +1,6 @@
 [package]
 name = "pisugar-server"
-version = "1.6.7"
+version = "1.6.8"
 authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Power Manager"
