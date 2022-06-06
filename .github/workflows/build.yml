@@ -64,16 +64,16 @@ jobs:
           path: |
             electron/dist
           if-no-files-found: warn
-#
-#      # Rust cache
-#      - name: Rust cargo cache
-#        uses: actions/cache@v1
-#        with:
-#          path: |
-#            ~/.cargo
-#            target
-#          key: ${{ runner.os }}-build-amd64
-#
+
+      # Rust cache
+      - name: Rust cargo cache
+        uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo
+            target
+          key: ${{ runner.os }}-build-amd64
+
 #      # Rust toolchain
 #      - name: Rust toolchain
 #        uses: actions-rs/toolchain@v2
