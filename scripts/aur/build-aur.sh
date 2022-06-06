@@ -44,7 +44,8 @@ do
 done
 
 for i  in arm-unknown-linux-musleabi arm-unknown-linux-musleabihf aarch64-unknown-linux-musl x86_64-unknown-linux-gnu; do
-    if ! test -d target/$i || [ "$build" == "Y" ]; then
+    if ! test -d $ROOT_DIR/target/$i || [ "$build" == "Y" ]; then
+      echo "Building $i"
       rustup target add $i
       (cd $ROOT_DIR; cargo build --target $i --release)
     fi
