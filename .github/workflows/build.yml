@@ -64,6 +64,8 @@ jobs:
           path: |
             electron/dist
 
+      - run: ls -al electron/dist
+
       # Rust cache
       - name: Rust cargo cache
         uses: actions/cache@v1
