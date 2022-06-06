@@ -21,28 +21,28 @@ jobs:
             electron/dist
           key: ${{ runner.os }}-build-web
 
-        # Nodejs
-        - name: Setup Nodejs
-          uses: actions/setup-node@v1
-          with:
-            node-version: "12.x"
+      # Nodejs
+      - name: Setup Nodejs
+        uses: actions/setup-node@v1
+        with:
+          node-version: "12.x"
 
-        # Nodejs dependencies
-        - run: npm install
-          working-directory: electron
+      # Nodejs dependencies
+      - run: npm install
+        working-directory: electron
 
-        # Nodejs build web
-        - run: npm run build:web
-          working-directory: electron
+      # Nodejs build web
+      - run: npm run build:web
+        working-directory: electron
 
-        # Upload artifact
-        - name: Upload artifacts
-          uses: actions/upload-artifact@v3
-          with:
-            name: pisugar-web
-            path: |
-              electron/dist
-            if-no-files-found: warn
+      # Upload artifact
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pisugar-web
+          path: |
+            electron/dist
+          if-no-files-found: warn
 
   build-amd64:
     runs-on: ubuntu-latest
