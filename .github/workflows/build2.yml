@@ -1,0 +1,10 @@
+name: build-2
+
+on:
+  workflow_call:
+
+jobs:
+  build-2:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo Hello, world!
