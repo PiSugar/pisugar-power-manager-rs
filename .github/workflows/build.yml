@@ -404,55 +404,55 @@ jobs:
             scripts/aur/*.tar.gz
           if-no-files-found: warn
 
-        # Development Release
-        - uses: "marvinpinto/action-automatic-releases@latest"
-          with:
-            repo_token: "${{ secrets.GITHUB_TOKEN }}"
-            automatic_release_tag: "latest"
-            title: "Development Build"
-            prerelease: true
-            draft: false
-            files: |
-              target/arm-unknown-linux-musleabi/debian/*
-              target/arm-unknown-linux-musleabihf/debian/*
-              target/aarch64-unknown-linux-musl/debian/*
-              target/x86_64-unknown-linux-gnu/debian/*
-              target/arm-unknown-linux-musleabi/release/rpmbuild/RPMS/armv7l/*
-              target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
-              target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
-              target/x86_64-unknown-linux-gnu/release/rpmbuild/RPMS/x86_64/*
-              scripts/*
-              scripts/aur/*.tar.gz
+      # Development Release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          title: "Development Build"
+          prerelease: true
+          draft: false
+          files: |
+            target/arm-unknown-linux-musleabi/debian/*
+            target/arm-unknown-linux-musleabihf/debian/*
+            target/aarch64-unknown-linux-musl/debian/*
+            target/x86_64-unknown-linux-gnu/debian/*
+            target/arm-unknown-linux-musleabi/release/rpmbuild/RPMS/armv7l/*
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
+            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
+            target/x86_64-unknown-linux-gnu/release/rpmbuild/RPMS/x86_64/*
+            scripts/*
+            scripts/aur/*.tar.gz
 
-        # Upload QiNiu nightly
-        - name: "Upload to QiNiu"
-          env:
-            QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
-            QINIU_AK: ${{ secrets.QINIU_AK }}
-            QINIU_SK: ${{ secrets.QINIU_SK }}
-          run: |
-            sudo apt-get update
-            sudo apt-get install -y unzip
-            
-            if [ $(uname -m) == 'x86_64' ]; then
-              wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
-              unzip qshell-linux-x64-v2.4.1.zip
-              mv qshell-linux-x64-v2.4.1 qshell
-            else
-              wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
-              unzip qshell-linux-x86-v2.4.1.zip
-              mv qshell-linux-x86-v2.4.1 qshell
-            fi
-            chmod +x qshell
-            ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
-            
-            for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm') $(find scripts -name '*.tar.gz'); do
-              filename=${f##*/}
-              key=nightly/${filename}
-              ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
-            done
-            for f in $(find scripts -name '*.sh' ); do
-              filename=${f##*/}
-              key=nightly/${filename}
-              ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f}
-            done
+      # Upload QiNiu nightly
+      - name: "Upload to QiNiu"
+        env:
+          QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
+          QINIU_AK: ${{ secrets.QINIU_AK }}
+          QINIU_SK: ${{ secrets.QINIU_SK }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          
+          if [ $(uname -m) == 'x86_64' ]; then
+            wget http://devtools.qiniu.com/qshell-linux-x64-v2.4.1.zip
+            unzip qshell-linux-x64-v2.4.1.zip
+            mv qshell-linux-x64-v2.4.1 qshell
+          else
+            wget http://devtools.qiniu.com/qshell-linux-x86-v2.4.1.zip
+            unzip qshell-linux-x86-v2.4.1.zip
+            mv qshell-linux-x86-v2.4.1 qshell
+          fi
+          chmod +x qshell
+          ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
+          
+          for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm') $(find scripts -name '*.tar.gz'); do
+            filename=${f##*/}
+            key=nightly/${filename}
+            ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
+          done
+          for f in $(find scripts -name '*.sh' ); do
+            filename=${f##*/}
+            key=nightly/${filename}
+            ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f}
+          done
