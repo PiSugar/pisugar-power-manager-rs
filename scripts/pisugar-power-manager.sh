@@ -138,6 +138,14 @@ function uninstall_pkgs() {
     fi
 }
 
+function enable_i2c() {
+    if which raspi-config > /dev/null 2>&1; then
+        sudo raspi-config nonint do_i2c 0
+    else
+        echo "raspi-config not found, please enable i2c manually!"
+    fi
+}
+
 TEMPDIR=$(mktemp -d /tmp/pisugar.XXXXXX)
 function cleanup() {
     rm -rf "$TEMPDIR"
@@ -151,7 +159,7 @@ wget -O "$TEMPDIR/${package_programmer}" "http://cdn.pisugar.com/${channel}/${pa
 
 
 $echo -e "\033[1;34mOpen I2C Interface \033[0m"
-sudo raspi-config nonint do_i2c 0
+enable_i2c
 
 $echo -e "\033[1;34mUninstall old packages if installed\033[0m"
 uninstall_pkgs pisugar-server pisugar-poweroff pisugar-programmer
