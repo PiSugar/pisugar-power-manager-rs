@@ -261,6 +261,11 @@
               </el-switch>
               <span class="form-item-desc">{{$t('softPoweroffDesc')}}</span>
             </el-form-item>
+            <el-form-item v-if="softPoweroffEnabled" :label="$t('softPoweroffShell')">
+              <br/>
+              <span class="form-item-desc">{{$t('softPoweroffShellDesc')}}</span>
+              <el-input v-model="softPoweroffShell" autocomplete="off" :placeholder="$t('shellPlaceholder')"></el-input>
+            </el-form-item>
           </template>
           <!-- version 2 -->
           <el-form-item v-if="isModel2">
@@ -281,7 +286,7 @@
         </el-form>
         <div slot="footer" class="dialog-footer">
           <el-button @click="settingDialog = false">{{$t('cancel')}}</el-button>
-          <el-button type="primary" @click="chargeConfirm">{{$t('confirm')}}</el-button>
+          <el-button type="primary" @click="handleAdvanceSettingConfirm">{{$t('confirm')}}</el-button>
         </div>
       </el-dialog>
 
@@ -416,6 +421,7 @@
         timeUpdaterCount: 0,
         inputProtectEnabled: false,
         softPoweroffEnabled: false,
+        softPoweroffShell: '',
         antiMistouchEnabled: false,
         isTimeEditFocused: false,
         adjustPPM: 0,
@@ -780,7 +786,7 @@
         }
         window.location.reload()
       },
-      chargeConfirm () {
+      handleAdvanceSettingConfirm () {
         this.settingDialog = false
         if (this.isModel2Adv) {
           const value = this.chargingRestartPoint === 100 ? '' : ` ${this.chargingRestartPoint},100`
@@ -790,6 +796,7 @@
           this.$socket.send(`set_battery_input_protect ${!!this.inputProtectEnabled}`)
           this.$socket.send(`set_anti_mistouch ${!!this.antiMistouchEnabled}`)
           this.$socket.send(`set_soft_poweroff ${!!this.softPoweroffEnabled}`)
+          this.$socket.send(`set_soft_poweroff_shell ${this.softPoweroffShell}`)
         }
       },
       getDeviceTime () {

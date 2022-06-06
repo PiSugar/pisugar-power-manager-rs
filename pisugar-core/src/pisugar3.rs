@@ -4,13 +4,12 @@ use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::time::Instant;
 
-use chrono::Timelike;
 use rppal::i2c::I2c;
 
-use crate::battery::Battery;
+use crate::battery::{Battery, BatteryEvent};
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
-use crate::{execute_shell, Error, Model, PiSugarConfig, RTCRawTime, Result, TapType};
+use crate::{Error, Model, PiSugarConfig, RTCRawTime, Result, TapType};
 
 /// PiSugar 3 i2c addr
 pub const I2C_ADDR_P3: u16 = 0x57;
@@ -27,7 +26,7 @@ const IIC_CMD_TEMP: u8 = 0x04;
 /// Tap
 const IIC_CMD_TAP: u8 = 0x08;
 
-/// PiSugar 3 write protecte
+/// PiSugar 3 write protect
 const IIC_CMD_WRITE_ENABLE: u8 = 0x0B;
 
 /// Battery ctrl
@@ -159,6 +158,12 @@ impl PiSugar3 {
         Ok((ctr2 & 0b0000_1000) != 0)
     }
 
+    pub fn clear_soft_poweroff_flag(&self) -> Result<()> {
+        let mut ctr2 = self.read_crt2()?;
+        ctr2 &= 0b1111_0111;
+        self.write_ctr2(ctr2)
+    }
+
     pub fn read_temp(&self) -> Result<i32> {
         let temp = self.i2c.smbus_read_byte(IIC_CMD_TEMP)?;
         Ok(temp as i32 - 40)
@@ -202,7 +207,7 @@ impl PiSugar3 {
 
     pub fn read_write_enable(&self) -> Result<bool> {
         let ctr = self.i2c.smbus_read_byte(IIC_CMD_WRITE_ENABLE)?;
-        return Ok(ctr == 0x29);
+        Ok(ctr == 0x29)
     }
 
     pub fn toggle_write_enable(&self, enable: bool) -> Result<()> {
@@ -250,7 +255,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_yy(&self, yy: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_YY, dec_to_bcd(yy))?)
+        self.i2c_write_byte(IIC_CMD_RTC_YY, dec_to_bcd(yy))
     }
 
     pub fn read_rtc_mm(&self) -> Result<u8> {
@@ -258,7 +263,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_mm(&self, mm: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_MM, dec_to_bcd(mm))?)
+        self.i2c_write_byte(IIC_CMD_RTC_MM, dec_to_bcd(mm))
     }
 
     pub fn read_rtc_dd(&self) -> Result<u8> {
@@ -266,7 +271,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_dd(&self, dd: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_DD, dec_to_bcd(dd))?)
+        self.i2c_write_byte(IIC_CMD_RTC_DD, dec_to_bcd(dd))
     }
 
     pub fn read_rtc_weekday(&self) -> Result<u8> {
@@ -274,7 +279,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_weekday(&self, wd: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_WD, dec_to_bcd(wd))?)
+        self.i2c_write_byte(IIC_CMD_RTC_WD, dec_to_bcd(wd))
     }
 
     pub fn read_rtc_hh(&self) -> Result<u8> {
@@ -282,7 +287,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_hh(&self, hh: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_HH, dec_to_bcd(hh))?)
+        self.i2c_write_byte(IIC_CMD_RTC_HH, dec_to_bcd(hh))
     }
 
     pub fn read_rtc_mn(&self) -> Result<u8> {
@@ -290,7 +295,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_mn(&self, mn: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_MN, dec_to_bcd(mn))?)
+        self.i2c_write_byte(IIC_CMD_RTC_MN, dec_to_bcd(mn))
     }
 
     pub fn read_rtc_ss(&self) -> Result<u8> {
@@ -298,7 +303,7 @@ impl PiSugar3 {
     }
 
     fn write_rtc_ss(&self, ss: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_SS, dec_to_bcd(ss))?)
+        self.i2c_write_byte(IIC_CMD_RTC_SS, dec_to_bcd(ss))
     }
 
     pub fn read_rtc_adj_comm(&self) -> Result<u8> {
@@ -307,7 +312,7 @@ impl PiSugar3 {
 
     pub fn write_rtc_adj_comm(&self, comm: u8) -> Result<()> {
         let comm = comm & 0b1000_1111;
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_ADJ_COMM, comm)?)
+        self.i2c_write_byte(IIC_CMD_RTC_ADJ_COMM, comm)
     }
 
     pub fn read_rtc_adj_diff(&self) -> Result<u8> {
@@ -316,7 +321,7 @@ impl PiSugar3 {
 
     pub fn write_rtc_adj_diff(&self, diff: u8) -> Result<()> {
         let diff = diff & 0b0001_1111;
-        Ok(self.i2c_write_byte(IIC_CMD_RTC_ADJ_DIFF, diff)?)
+        self.i2c_write_byte(IIC_CMD_RTC_ADJ_DIFF, diff)
     }
 
     pub fn read_alarm_weekday_repeat(&self) -> Result<u8> {
@@ -324,7 +329,7 @@ impl PiSugar3 {
     }
 
     fn write_alarm_weekday_repeat(&self, wd: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_ALM_WD, wd)?)
+        self.i2c_write_byte(IIC_CMD_ALM_WD, wd)
     }
 
     pub fn read_alarm_hh(&self) -> Result<u8> {
@@ -332,7 +337,7 @@ impl PiSugar3 {
     }
 
     fn write_alarm_hh(&self, hh: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_ALM_HH, dec_to_bcd(hh))?)
+        self.i2c_write_byte(IIC_CMD_ALM_HH, dec_to_bcd(hh))
     }
 
     pub fn read_alarm_mn(&self) -> Result<u8> {
@@ -340,7 +345,7 @@ impl PiSugar3 {
     }
 
     fn write_alarm_mn(&self, mn: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_ALM_MN, dec_to_bcd(mn))?)
+        self.i2c_write_byte(IIC_CMD_ALM_MN, dec_to_bcd(mn))
     }
 
     pub fn read_alarm_ss(&self) -> Result<u8> {
@@ -348,7 +353,7 @@ impl PiSugar3 {
     }
 
     fn write_alarm_ss(&self, ss: u8) -> Result<()> {
-        Ok(self.i2c_write_byte(IIC_CMD_ALM_SS, dec_to_bcd(ss))?)
+        self.i2c_write_byte(IIC_CMD_ALM_SS, dec_to_bcd(ss))
     }
 
     pub fn read_app_version(&self) -> Result<String> {
@@ -405,12 +410,12 @@ impl Battery for PiSugar3Battery {
         self.pisugar3.toggle_restore(config.auto_power_on == Some(true))?;
 
         log::debug!("Toggle anti-mistouch");
-        if let Some(anti_mistouch) = config.anti_mistouch.clone() {
+        if let Some(anti_mistouch) = config.anti_mistouch {
             self.toggle_anti_mistouch(anti_mistouch)?;
         }
 
         log::debug!("Toggle bat protect");
-        if let Some(protect) = config.bat_protect.clone() {
+        if let Some(protect) = config.bat_protect {
             self.toggle_input_protected(protect)?;
         }
 
@@ -452,7 +457,7 @@ impl Battery for PiSugar3Battery {
 
     fn intensity(&self) -> crate::Result<f32> {
         let c = self.pisugar3.read_output_current()?;
-        Ok((c as f32) / 1000 as f32)
+        Ok((c as f32) / 1000.0)
     }
 
     fn intensity_avg(&self) -> crate::Result<f32> {
@@ -491,7 +496,7 @@ impl Battery for PiSugar3Battery {
     fn is_charging(&self) -> crate::Result<bool> {
         let power_plugged = self.is_power_plugged()?;
         let allow_charging = self.is_allow_charging()?;
-        return Ok(power_plugged && allow_charging);
+        Ok(power_plugged && allow_charging)
     }
 
     fn is_input_protected(&self) -> Result<bool> {
@@ -510,10 +515,10 @@ impl Battery for PiSugar3Battery {
         self.pisugar3.toggle_output_enabled(enable)
     }
 
-    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> crate::Result<Option<TapType>> {
+    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> crate::Result<Vec<BatteryEvent>> {
         // slow down, 500ms
         if self.poll_at > now || self.poll_at + std::time::Duration::from_millis(500) > now {
-            return Ok(None);
+            return Ok(Vec::default());
         }
         self.poll_at = now;
 
@@ -546,15 +551,26 @@ impl Battery for PiSugar3Battery {
         }
 
         // soft poweroff
+        let mut soft_poweroff = false;
         if config.soft_poweroff == Some(true) {
-            if let Ok(flag) = self.pisugar3.read_soft_poweroff_flag() {
-                if flag == true {
-                    let _ = execute_shell("shutdown --poweroff 0");
+            match self.pisugar3.read_soft_poweroff_flag() {
+                Ok(f) => {
+                    soft_poweroff = f;
+                    let _ = self.pisugar3.clear_soft_poweroff_flag();
                 }
+                Err(e) => log::warn!("Read soft poweroff flag error: {}", e),
             }
         }
 
-        Ok(tap)
+        let mut events = Vec::new();
+        if tap.is_some() {
+            events.push(BatteryEvent::TapEvent(tap.unwrap()));
+        }
+        if soft_poweroff {
+            events.push(BatteryEvent::SoftPowerOff);
+        }
+
+        Ok(events)
     }
 
     fn toggle_light_load_shutdown(&self, enable: bool) -> crate::Result<()> {
@@ -601,22 +617,17 @@ impl PiSugar3RTC {
 impl RTC for PiSugar3RTC {
     fn init(&mut self, config: &PiSugarConfig) -> Result<()> {
         self.pisugar3.toggle_restore(config.auto_power_on == Some(true))?;
-        if let Some(wakeup_time) = config.auto_wake_time.clone() {
-            self.pisugar3.toggle_alarm_enable(false)?;
-
-            self.pisugar3.toggle_write_enable(false)?;
-            self.pisugar3.write_alarm_hh(wakeup_time.hour() as u8)?;
-            self.pisugar3.write_alarm_mn(wakeup_time.minute() as u8)?;
-            self.pisugar3.write_alarm_ss(wakeup_time.second() as u8)?;
-            self.pisugar3.write_alarm_weekday_repeat(config.auto_wake_repeat)?;
-            self.pisugar3.toggle_write_enable(true)?;
-
-            self.pisugar3.toggle_alarm_enable(true)?;
+        self.pisugar3.toggle_alarm_enable(false)?;
+        if let Some(wakeup_time) = config.auto_wake_time {
+            if config.auto_wake_repeat & 0x7f != 0 {
+                self.set_alarm(wakeup_time.into(), config.auto_wake_repeat)?;
+                self.pisugar3.toggle_alarm_enable(true)?;
+            }
         }
-        if let Some(adj_comm) = config.adj_comm.clone() {
+        if let Some(adj_comm) = config.adj_comm {
             self.pisugar3.write_rtc_adj_comm(adj_comm)?;
         }
-        if let Some(adj_diff) = config.adj_diff.clone() {
+        if let Some(adj_diff) = config.adj_diff {
             self.pisugar3.write_rtc_adj_diff(adj_diff)?;
         }
         Ok(())
@@ -694,11 +705,11 @@ impl RTC for PiSugar3RTC {
     }
 
     fn is_alarm_enable(&self) -> Result<bool> {
-        Ok(self.pisugar3.get_alarm_enable()?)
+        self.pisugar3.get_alarm_enable()
     }
 
     fn toggle_alarm_enable(&self, enable: bool) -> Result<()> {
-        Ok(self.pisugar3.toggle_alarm_enable(enable)?)
+        self.pisugar3.toggle_alarm_enable(enable)
     }
 
     fn read_alarm_flag(&self) -> Result<bool> {

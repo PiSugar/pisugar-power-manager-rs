@@ -3,6 +3,12 @@ use std::time::Instant;
 
 use crate::{PiSugarConfig, Result, TapType};
 
+/// Battery event
+pub enum BatteryEvent {
+    TapEvent(TapType),
+    SoftPowerOff,
+}
+
 /// Battery chip controller
 pub trait Battery {
     /// Init battery chip
@@ -60,7 +66,7 @@ pub trait Battery {
     fn toggle_output_enabled(&self, enable: bool) -> Result<()>;
 
     /// Poll and check tapped
-    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> Result<Option<TapType>>;
+    fn poll(&mut self, now: Instant, config: &PiSugarConfig) -> Result<Vec<BatteryEvent>>;
 
     /// Shutdown battery chip, call `toggle_output_enabled(false)`
     fn shutdown(&self) -> Result<()> {

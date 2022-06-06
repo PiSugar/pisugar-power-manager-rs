@@ -148,9 +148,11 @@ impl RTC for SD3078 {
             self.enable_frequency_alarm()?;
         } else {
             self.disable_frequency_alarm()?;
-            if let Some(auto_wakeup_time) = config.auto_wake_time.clone() {
-                if config.auto_wake_repeat != 0 {
+            self.disable_alarm()?;
+            if let Some(auto_wakeup_time) = config.auto_wake_time {
+                if config.auto_wake_repeat & 0x7f != 0 {
                     self.set_alarm(auto_wakeup_time.into(), config.auto_wake_repeat)?;
+                    self.enable_alarm()?;
                 }
             }
         }
@@ -211,8 +213,8 @@ impl RTC for SD3078 {
 
     /// Set alarm, weekday_repeat from sunday 0-6
     fn set_alarm(&self, t: RTCRawTime, weekday_repeat: u8) -> Result<()> {
-        let mut bcd_time = t.0.clone();
-        bcd_time[3] = weekday_repeat;
+        let mut bcd_time = t.0;
+        bcd_time[3] = weekday_repeat & 0x7f;
 
         self.enable_write()?;
 

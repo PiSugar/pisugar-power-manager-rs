@@ -824,7 +824,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pisugar-core"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "chrono",
  "hyper",
@@ -836,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "pisugar-poweroff"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "clap",
  "pisugar-core",
@@ -844,7 +844,7 @@ dependencies = [
 
 [[package]]
 name = "pisugar-programmer"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "clap",
  "rppal",
@@ -853,7 +853,7 @@ dependencies = [
 
 [[package]]
 name = "pisugar-server"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "base64",
  "bytes",

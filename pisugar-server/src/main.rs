@@ -163,6 +163,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             }
                             "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
                             "soft_poweroff" => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
+                            "soft_poweroff_shell" => {
+                                Ok(core.config().soft_poweroff_shell.clone().unwrap_or("".to_string()))
+                            }
                             "temperature" => core.get_temperature().map(|x| x.to_string()),
                             "input_protect" => core.input_protected().map(|x| x.to_string()),
                             _ => return err,
@@ -398,22 +401,24 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     return err;
                 }
                 "set_button_shell" => {
-                    if parts.len() > 2 {
-                        let cmd = parts[2..].join(" ");
-                        match parts[1].as_str() {
-                            "single" => core.config_mut().single_tap_shell = cmd,
-                            "double" => core.config_mut().double_tap_shell = cmd,
-                            "long" => core.config_mut().long_tap_shell = cmd,
-                            _ => {
-                                return err;
-                            }
+                    let action = if parts.len() > 1 { parts[1].as_str() } else { "" };
+                    let cmd = if parts.len() > 2 {
+                        parts[2..].join(" ")
+                    } else {
+                        "".to_string()
+                    };
+                    match action {
+                        "single" => core.config_mut().single_tap_shell = cmd,
+                        "double" => core.config_mut().double_tap_shell = cmd,
+                        "long" => core.config_mut().long_tap_shell = cmd,
+                        _ => {
+                            return err;
                         }
-                        if let Err(e) = core.save_config() {
-                            log::error!("{}", e);
-                        }
-                        return format!("{}: done\n", parts[0]);
                     }
-                    return err;
+                    if let Err(e) = core.save_config() {
+                        log::error!("{}", e);
+                    }
+                    return format!("{}: done\n", parts[0]);
                 }
                 "set_auto_power_on" => {
                     if parts.len() > 1 {
@@ -480,6 +485,19 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                         }
                         return err;
                     }
+                }
+                "set_soft_poweroff_shell" => {
+                    if parts.len() > 1 {
+                        let script = parts[1..].join(" ");
+                        core.config_mut().soft_poweroff_shell = Some(script);
+                    } else {
+                        core.config_mut().soft_poweroff_shell = None;
+                    }
+                    if let Err(e) = core.save_config() {
+                        log::error!("{}", e);
+                        return err;
+                    }
+                    return format!("{}: done\n", parts[0]);
                 }
                 "set_input_protect" => {
                     if parts.len() > 1 {
@@ -1155,7 +1173,7 @@ async fn main() -> std::io::Result<()> {
         if let Ok(level) = core.level() {
             match (core.config().auto_shutdown_level, core.config().auto_shutdown_delay) {
                 (Some(auto_shutdown_level), Some(auto_shutdown_delay)) => {
-                    if (level as f64) < auto_shutdown_level {
+                    if auto_shutdown_level > 0.0 && auto_shutdown_delay > 0.0 && (level as f64) < auto_shutdown_level {
                         log::warn!("Battery low: {}", level);
 
                         let now = tokio::time::Instant::now();
@@ -1177,6 +1195,7 @@ async fn main() -> std::io::Result<()> {
 
                         if should_notify {
                             let message = format!("Low battery, will power off after {} seconds", remains);
+                            log::warn!("{}", message);
                             notify_shutdown_soon(message.as_str());
                             notify_at = now;
                         }
