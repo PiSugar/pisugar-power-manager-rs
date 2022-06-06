@@ -55,15 +55,15 @@ jobs:
 
       - name: Fix cargo config
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config
-#
-#      # Download web
-#      - name: Upload artifacts
-#        uses: actions/download-artifact@v3
-#        with:
-#          name: pisugar-web
-#          path: |
-#            electron/dist
-#          if-no-files-found: warn
+
+      # Download web
+      - name: Download web
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-web
+          path: |
+            electron/dist
+          if-no-files-found: warn
 #
 #      # Rust cache
 #      - name: Rust cargo cache
