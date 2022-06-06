@@ -63,7 +63,6 @@ jobs:
           name: pisugar-web
           path: |
             electron/dist
-          if-no-files-found: warn
 
       # Rust cache
       - name: Rust cargo cache
@@ -126,7 +125,6 @@ jobs:
           name: pisugar-web
           path: |
             electron/dist
-          if-no-files-found: warn
 
       # Rust cache
       - name: Rust cargo cache
@@ -199,7 +197,6 @@ jobs:
           name: pisugar-web
           path: |
             electron/dist
-          if-no-files-found: warn
 
       # Rust cache
       - name: Rust cargo cache
@@ -272,7 +269,6 @@ jobs:
           name: pisugar-web
           path: |
             electron/dist
-          if-no-files-found: warn
 
       # Rust cache
       - name: Rust cargo cache
