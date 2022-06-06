@@ -646,7 +646,6 @@ impl RTC for PiSugar3RTC {
     }
 
     fn write_time(&self, raw: RTCRawTime) -> Result<()> {
-        self.pisugar3.toggle_write_enable(false)?;
         self.pisugar3.write_rtc_ss(raw.second())?;
         self.pisugar3.write_rtc_mn(raw.minute())?;
         self.pisugar3.write_rtc_hh(raw.hour())?;
@@ -654,7 +653,6 @@ impl RTC for PiSugar3RTC {
         self.pisugar3.write_rtc_dd(raw.day())?;
         self.pisugar3.write_rtc_mm(raw.month())?;
         self.pisugar3.write_rtc_yy(((raw.year() - 2000) & 0xff) as u8)?;
-        self.pisugar3.toggle_write_enable(true)?;
         Ok(())
     }
 
@@ -692,14 +690,10 @@ impl RTC for PiSugar3RTC {
 
     fn set_alarm(&self, time: RTCRawTime, weekday_repeat: u8) -> Result<()> {
         self.pisugar3.toggle_alarm_enable(false)?;
-
-        self.pisugar3.toggle_write_enable(false)?;
         self.pisugar3.write_alarm_hh(time.hour())?;
         self.pisugar3.write_alarm_mn(time.minute())?;
         self.pisugar3.write_alarm_ss(time.second())?;
         self.pisugar3.write_alarm_weekday_repeat(weekday_repeat)?;
-        self.pisugar3.toggle_write_enable(true)?;
-
         self.pisugar3.toggle_alarm_enable(true)?;
         Ok(())
     }
