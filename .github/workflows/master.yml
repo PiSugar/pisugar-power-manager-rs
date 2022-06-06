@@ -6,4 +6,4 @@ on:
 
 jobs:
   build-all:
-    uses: ./.github/workflows/build2.yml
+    uses: ./.github/workflows/build.yml
