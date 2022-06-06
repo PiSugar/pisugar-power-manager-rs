@@ -76,7 +76,7 @@ jobs:
 
       # Rust toolchain
       - name: Rust toolchain
-        uses: actions-rs/toolchain@v2
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
@@ -149,7 +149,7 @@ jobs:
 
       # Rust toolchain
       - name: Rust toolchain
-        uses: actions-rs/toolchain@v2
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: arm-unknown-linux-musleabi
@@ -222,7 +222,7 @@ jobs:
 
       # Rust toolchain
       - name: Rust toolchain
-        uses: actions-rs/toolchain@v2
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: arm-unknown-linux-musleabihf
@@ -301,7 +301,7 @@ jobs:
 
       # Rust toolchain
       - name: Rust toolchain
-        uses: actions-rs/toolchain@v2
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: aarch64-unknown-linux-musl
