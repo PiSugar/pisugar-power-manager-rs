@@ -74,7 +74,7 @@ module.exports = {
   softPoweroff: 'Soft Shutdown',
   softPoweroffDesc: 'Using the switch button to shut down will not directly power off, the shutdown command will be issued by the software.',
   softPoweroffShell: 'Soft Shutdown Shell',
-  softPoweroffShellDesc: 'Shell to execute when soft shutdown is triggered.',
+  softPoweroffShellDesc: 'Shell to execute when soft shutdown event is triggered.',
   changeLoginPassword: 'Change Login Password',
   username: 'Username',
   password: 'Password',
@@ -84,5 +84,5 @@ module.exports = {
   passwordNotConsistent: 'Two input password must be consistent',
   usernameWithSpace: 'Username cannot contain spaces',
   passwordWithSpace: 'Password cannot contain spaces',
-  changePasswordSuccess: 'The modification is complete.',
+  changePasswordSuccess: 'The modification is complete.'
 }
