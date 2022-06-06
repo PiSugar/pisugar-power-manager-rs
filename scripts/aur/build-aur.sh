@@ -16,9 +16,38 @@ cd pisugar-archlinux
 
 version=$(cat PKGBUILD | grep ^pkgver | awk -F = '{print $2}')
 
-for i  in arm-unknown-linux-musleabi arm-unknown-linux-musleabihf aarch64-unknown-linux-musl  x86_64-unknown-linux-gnu; do
-    rustup target add $i
-    (cd $ROOT_DIR; cargo build --target $i --release)
+
+getopt=$(which getopt)
+ARGS=$($getopt -q -o b -l build -- "$@")
+if [ $? != 0 ]; then
+    exit 1
+fi
+
+eval set -- "${ARGS}"
+
+build="N"
+
+while true
+do
+    case "$1" in
+        -b|--build)
+            shift && build="Y"
+            ;;
+        --)
+            shift && break
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+for i  in arm-unknown-linux-musleabi arm-unknown-linux-musleabihf aarch64-unknown-linux-musl x86_64-unknown-linux-gnu; do
+    if ! test -d target/$i || [ "$build" == "Y" ]; then
+      rustup target add $i
+      (cd $ROOT_DIR; cargo build --target $i --release)
+    fi
 done
 
 mkdir arm
