@@ -157,6 +157,7 @@ export async function onSocketMessage (e) {
   }
   if (msg.startsWith('soft_poweroff_shell:')) {
     this.softPoweroffShell = msg.replace('soft_poweroff_shell: ', '').trim()
+    this.softPoweroffShellOption = this.softPoweroffShell === 'sudo shutdown now' ? 0 : 1
     return
   }
   if (msg.startsWith('soft_poweroff:')) {

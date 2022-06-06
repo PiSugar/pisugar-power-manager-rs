@@ -262,9 +262,16 @@
               <span class="form-item-desc">{{$t('softPoweroffDesc')}}</span>
             </el-form-item>
             <el-form-item v-if="softPoweroffEnabled" :label="$t('softPoweroffShell')">
-              <br/>
-              <span class="form-item-desc">{{$t('softPoweroffShellDesc')}}</span>
-              <el-input v-model="softPoweroffShell" autocomplete="off" :placeholder="$t('shellPlaceholder')"></el-input>
+              <el-select v-model="softPoweroffShellOption" placeholder="Select" @change="softShutdownShellChange">
+                <el-option
+                        v-for="item in softPoweroffShellOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value">
+                </el-option>
+              </el-select>
+              <div class="form-item-desc soft-off-shell">{{$t('softPoweroffShellDesc')}}</div>
+              <el-input v-model="softPoweroffShell" autocomplete="off" :placeholder="$t('shellPlaceholder')" :disabled="softPoweroffShellOption === 0"></el-input>
             </el-form-item>
           </template>
           <!-- version 2 -->
@@ -421,6 +428,11 @@
         timeUpdaterCount: 0,
         inputProtectEnabled: false,
         softPoweroffEnabled: false,
+        softPoweroffShellOption: 0,
+        softPoweroffShellOptions: [
+          { label: this.$t('shutdown'), value: 0 },
+          { label: this.$t('customShell'), value: 1 }
+        ],
         softPoweroffShell: '',
         antiMistouchEnabled: false,
         isTimeEditFocused: false,
@@ -840,6 +852,9 @@
           }
         })
       },
+      softShutdownShellChange(val) {
+        if (val === 0) this.softPoweroffShell = 'sudo shutdown now'
+      }
     }
   }
 </script>
@@ -1176,5 +1191,8 @@
     font-size: 13px;
     line-height: 20px;
     word-break: normal;
+  }
+  .soft-off-shell{
+    margin-top: 10px;
   }
 </style>
