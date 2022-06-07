@@ -27,7 +27,7 @@ tokio-tungstenite = "0.17"
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures-channel = "0.3.5"
-hyper = {version ="0.14.4", features = ["client", "server", "tcp"]}
+hyper = {version ="0.14.10", features = ["client", "server", "tcp"]}
 hyper-staticfile = "0.8"
 hyper-websocket-lite = "0.5"
 websocket-codec = "0.5"
