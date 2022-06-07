@@ -78,7 +78,7 @@ fn to_u16(s: &str) -> u16 {
     if hexadecimal {
         return u16::from_str_radix(digits, 16).unwrap();
     }
-    return u16::from_str_radix(digits, 10).unwrap();
+    u16::from_str_radix(digits, 10).unwrap()
 }
 
 fn main() {
@@ -131,56 +131,49 @@ fn main() {
     loop {
         // Check pisugar version
         let pisugar_version = i2c.smbus_read_byte(CMD_VER);
-        match pisugar_version {
-            Ok(version) => {
-                if version == PISUGAR_VER {
-                    println!("PiSugar version: {}", version);
+        if let Ok(version) = pisugar_version {
+            if version == PISUGAR_VER {
+                println!("PiSugar version: {}", version);
 
-                    // Check pisugar mode
-                    let pisugar_mode = i2c.smbus_read_byte(CMD_MODE);
-                    match pisugar_mode {
-                        Ok(mode) => {
-                            if mode == MODE_BOOTLOADER {
-                                println!("PiSugar mode: bootloader({:02x})", mode);
-                                println!("PiSugar bootloader mode detected");
-                                break;
+                // Check pisugar mode
+                let pisugar_mode = i2c.smbus_read_byte(CMD_MODE);
+                match pisugar_mode {
+                    Ok(mode) => {
+                        if mode == MODE_BOOTLOADER {
+                            println!("PiSugar mode: bootloader({:02x})", mode);
+                            println!("PiSugar bootloader mode detected");
+                            break;
+                        }
+                        if mode == MODE_APPLICATION {
+                            println!("PiSugar mode: application({:02x})", mode);
+                            println!("PiSugar application mode detected");
+                            if reset {
+                                println!("Send reset to application...");
+                                let _ = send_reset(&i2c);
                             }
-                            if mode == MODE_APPLICATION {
-                                println!("PiSugar mode: application({:02x})", mode);
-                                println!("PiSugar application mode detected");
+                        }
+                        if mode == MODE_BOOTAPP {
+                            println!("PiSugar mode: bootapp({:02x})", mode);
+                            println!("PiSugar bootapp mode detected");
+                            if file.contains("application") && reset {
+                                println!("Upgrade application, send reset to bootapp and reboot to bootloader...");
+                                let _ = send_reset(&i2c);
+                            }
+                            if file.contains("bootapp") {
                                 if reset {
-                                    println!("Send reset to application...");
+                                    println!("Upgrade bootapp, send reset to bootapp and reboot to bootloader...");
                                     let _ = send_reset(&i2c);
                                 }
-                            }
-                            if mode == MODE_BOOTAPP {
-                                println!("PiSugar mode: bootapp({:02x})", mode);
-                                println!("PiSugar bootapp mode detected");
-                                if file.contains("application") {
-                                    if reset {
-                                        println!(
-                                            "Upgrade application, send reset to bootapp and reboot to bootloader..."
-                                        );
-                                        let _ = send_reset(&i2c);
-                                    }
-                                }
-                                if file.contains("bootapp") {
-                                    if reset {
-                                        println!("Upgrade bootapp, send reset to bootapp and reboot to bootloader...");
-                                        let _ = send_reset(&i2c);
-                                    }
-                                } else {
-                                    break;
-                                }
+                            } else {
+                                break;
                             }
                         }
-                        Err(e) => {
-                            println!("I2c error: {}", e);
-                        }
+                    }
+                    Err(e) => {
+                        println!("I2c error: {}", e);
                     }
                 }
             }
-            _ => {}
         }
 
         println!("PiSugar bootloader/bootapp not ready, please reset or wait, retry...");

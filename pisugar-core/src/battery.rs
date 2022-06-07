@@ -99,11 +99,11 @@ pub fn check_charging(levels: &VecDeque<f32>) -> bool {
     let mut b = 0.0;
     for i in 0..levels.len() {
         let xi = i as f32;
-        let yi = iter.next().unwrap().clone();
+        let yi = *iter.next().unwrap();
         a += yi * (xi - x_bar);
         b += (xi - x_bar) * (xi - x_bar);
     }
     let k = a / b;
     log::debug!("Charging k: {}", k);
-    return k >= 0.005;
+    k >= 0.005
 }

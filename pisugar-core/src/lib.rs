@@ -113,12 +113,12 @@ pub fn sys_write_time(dt: DateTime<Local>) {
         dt.minute(),
         dt.second()
     );
-    if let Ok(_) = execute_shell(cmd.as_str()) {
+    if execute_shell(cmd.as_str()).is_ok() {
         let cmd = "/sbin/hwclock -w";
-        if let Ok(_) = execute_shell(cmd) {
-            return;
+        if execute_shell(cmd).is_err() {
+            log::warn!("Failed to set hardware: {}", cmd);
         } else {
-            log::warn!("Failed to set RTC");
+            log::info!("Update hardware success");
         }
     } else {
         log::error!("Failed to set system time");
@@ -417,9 +417,9 @@ impl PiSugarCore {
                         Ok(_) => log::info!("Auto recovery success"),
                         Err(e) => log::warn!("Auto recovery failed: {}", e),
                     }
-                    return Ok(core);
+                    Ok(core)
                 } else {
-                    return Err(Error::Other("Not recoverable".to_string()));
+                    Err(Error::Other("Not recoverable".to_string()))
                 }
             }
         }
@@ -685,7 +685,7 @@ impl PiSugarCore {
                             config
                                 .soft_poweroff_shell
                                 .clone()
-                                .unwrap_or("shutdown --poweroff 0".to_string()),
+                                .unwrap_or_else(|| "shutdown --poweroff 0".to_string()),
                         )
                     } else {
                         None
@@ -741,11 +741,9 @@ impl PiSugarCore {
                 if rtc.read_battery_low_flag().ok() == Some(true) {
                     log::debug!("Enable rtc charging");
                     let _ = rtc.toggle_charging(true);
-                } else {
-                    if rtc.read_battery_high_flag().ok() == Some(true) {
-                        log::debug!("Disable rtc charging");
-                        let _ = rtc.toggle_charging(false);
-                    }
+                } else if rtc.read_battery_high_flag().ok() == Some(true) {
+                    log::debug!("Disable rtc charging");
+                    let _ = rtc.toggle_charging(false);
                 }
             }
         }

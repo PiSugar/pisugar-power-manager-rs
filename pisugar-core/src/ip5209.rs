@@ -85,7 +85,7 @@ impl IP5209 {
         let threshold = PI_ZERO_IDLE_INTENSITY * 1000.0;
         let threshold = (threshold / 12.0) as u64;
         let threshold = if threshold > 0b0001_1111 {
-            0b0001_1111 as u8
+            0b0001_1111_u8
         } else {
             threshold as u8
         };
@@ -292,7 +292,7 @@ impl Battery for IP5209Battery {
     }
 
     fn model(&self) -> String {
-        return self.model.to_string();
+        self.model.to_string()
     }
 
     fn led_amount(&self) -> Result<u32> {
@@ -304,13 +304,13 @@ impl Battery for IP5209Battery {
     }
 
     fn voltage(&self) -> Result<f32> {
-        self.ip5209.read_voltage().and_then(|v| Ok(v as f32))
+        self.ip5209.read_voltage().map(|v| v as f32)
     }
 
     fn voltage_avg(&self) -> Result<f32> {
         let mut total = 0.0;
         self.voltages.iter().for_each(|v| total += v.1);
-        if self.voltages.len() > 0 {
+        if !self.voltages.is_empty() {
             Ok(total / self.voltages.len() as f32)
         } else {
             Err(Error::Other("Required initialization".to_string()))
@@ -318,17 +318,17 @@ impl Battery for IP5209Battery {
     }
 
     fn level(&self) -> Result<f32> {
-        self.voltage_avg().and_then(|x| Ok(IP5209::parse_voltage_level(x)))
+        self.voltage_avg().map(IP5209::parse_voltage_level)
     }
 
     fn intensity(&self) -> Result<f32> {
-        self.ip5209.read_intensity().and_then(|x| Ok(x as f32))
+        self.ip5209.read_intensity().map(|x| x as f32)
     }
 
     fn intensity_avg(&self) -> Result<f32> {
         let mut total = 0.0;
         self.intensities.iter().for_each(|i| total += i.1);
-        if self.intensities.len() > 0 {
+        if !self.intensities.is_empty() {
             Ok(total / self.intensities.len() as f32)
         } else {
             Err(Error::Other("Require initialization".to_string()))
@@ -429,8 +429,8 @@ impl Battery for IP5209Battery {
         let tap_result = gpio_detect_tap(&mut self.tap_history);
 
         let mut events = Vec::new();
-        if tap_result.is_some() {
-            events.push(BatteryEvent::TapEvent(tap_result.unwrap()));
+        if let Some(tap_event) = tap_result {
+            events.push(BatteryEvent::TapEvent(tap_event));
         }
         Ok(events)
     }

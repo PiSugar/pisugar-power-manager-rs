@@ -290,7 +290,7 @@ impl Battery for IP5312Battery {
     }
 
     fn model(&self) -> String {
-        return self.model.to_string();
+        self.model.to_string()
     }
 
     fn led_amount(&self) -> Result<u32> {
@@ -302,13 +302,13 @@ impl Battery for IP5312Battery {
     }
 
     fn voltage(&self) -> Result<f32> {
-        self.ip5312.read_voltage().and_then(|v| Ok(v as f32))
+        self.ip5312.read_voltage().map(|v| v as f32)
     }
 
     fn voltage_avg(&self) -> Result<f32> {
         let mut total = 0.0;
         self.voltages.iter().for_each(|v| total += v.1);
-        if self.voltages.len() > 0 {
+        if !self.voltages.is_empty() {
             Ok(total / self.voltages.len() as f32)
         } else {
             Err(Error::Other("Require initialization".to_string()))
@@ -316,17 +316,17 @@ impl Battery for IP5312Battery {
     }
 
     fn level(&self) -> Result<f32> {
-        self.voltage_avg().and_then(|v| Ok(IP5312::parse_voltage_level(v)))
+        self.voltage_avg().map(IP5312::parse_voltage_level)
     }
 
     fn intensity(&self) -> Result<f32> {
-        self.ip5312.read_intensity().and_then(|i| Ok(i as f32))
+        self.ip5312.read_intensity().map(|i| i as f32)
     }
 
     fn intensity_avg(&self) -> Result<f32> {
         let mut total = 0.0;
         self.intensities.iter().for_each(|i| total += i.1);
-        if self.intensities.len() > 0 {
+        if !self.intensities.is_empty() {
             Ok(total / self.intensities.len() as f32)
         } else {
             Err(Error::Other("Require initialization".to_string()))
@@ -422,8 +422,8 @@ impl Battery for IP5312Battery {
         let tap_result = gpio_detect_tap(&mut self.tap_history);
 
         let mut events = Vec::new();
-        if tap_result.is_some() {
-            events.push(BatteryEvent::TapEvent(tap_result.unwrap()));
+        if let Some(tap_event) = tap_result {
+            events.push(BatteryEvent::TapEvent(tap_event));
         }
         Ok(events)
     }
