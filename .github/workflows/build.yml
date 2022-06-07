@@ -11,25 +11,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # Nodejs npm cache
-      - name: Nodejs npm cache
-        uses: actions/cache@v1
-        with:
-          path: |
-            ~/.npm
-            electron/node_modules
-            electron/dist
-          key: ${{ runner.os }}-build-web
-
       # Nodejs
       - name: Setup Nodejs
         uses: actions/setup-node@v1
         with:
           node-version: "12.x"
 
-      # Nodejs dependencies
-      - run: npm install
-        working-directory: electron
+      - name: NPM or Yarn install with caching
+        uses: bahmutov/npm-install@v1.6.0
+        with:
+          working-directory: electron
 
       # Nodejs build web
       - run: npm run build:web
@@ -66,7 +57,7 @@ jobs:
 
       # Rust cache
       - name: Rust cargo cache
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo
@@ -128,7 +119,7 @@ jobs:
 
       # Rust cache
       - name: Rust cargo cache
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo
@@ -200,7 +191,7 @@ jobs:
 
       # Rust cache
       - name: Rust cargo cache
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo
@@ -272,7 +263,7 @@ jobs:
 
       # Rust cache
       - name: Rust cargo cache
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo
