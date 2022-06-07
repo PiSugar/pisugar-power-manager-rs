@@ -689,7 +689,6 @@ impl RTC for PiSugar3RTC {
     }
 
     fn set_alarm(&self, time: RTCRawTime, weekday_repeat: u8) -> Result<()> {
-        self.pisugar3.toggle_alarm_enable(false)?;
         self.pisugar3.write_alarm_hh(time.hour())?;
         self.pisugar3.write_alarm_mn(time.minute())?;
         self.pisugar3.write_alarm_ss(time.second())?;
