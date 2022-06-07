@@ -24,8 +24,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: pisugar-all
-          path: |
-            target
 
       # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -36,7 +34,16 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            target/*
+            target/arm-unknown-linux-musleabi/debian/*
+            target/arm-unknown-linux-musleabihf/debian/*
+            target/aarch64-unknown-linux-musl/debian/*
+            target/x86_64-unknown-linux-gnu/debian/*
+            target/arm-unknown-linux-musleabi/release/rpmbuild/RPMS/armv7l/*
+            target/arm-unknown-linux-musleabihf/release/rpmbuild/RPMS/armv7hl/*
+            target/aarch64-unknown-linux-musl/release/rpmbuild/RPMS/aarch64/*
+            target/x86_64-unknown-linux-gnu/release/rpmbuild/RPMS/x86_64/*
+            scripts/*
+            scripts/aur/*.tar.gz
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"
