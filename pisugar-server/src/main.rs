@@ -21,7 +21,8 @@ use hyper::client::Client;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response};
 use hyper::{Request, Server};
-use hyper_websocket_lite::{server_upgrade, AsyncClient};
+use hyper_tungstenite::tungstenite::Message;
+use hyper_tungstenite::HyperWebsocket;
 use lazy_static::lazy_static;
 use log::LevelFilter;
 use rand::RngCore;
@@ -30,7 +31,6 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream, UnixStream};
 use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
-use websocket_codec::{Message, Opcode};
 
 use pisugar_core::{
     execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime,
@@ -682,24 +682,30 @@ fn clean_up(uds: Option<String>, web_dir: Option<String>) {
     exit(0)
 }
 
-async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, mut event_rx: EventRx) {
+async fn on_ws_client(
+    websocket: HyperWebsocket,
+    core: Arc<Mutex<PiSugarCore>>,
+    mut event_rx: EventRx,
+) -> Result<(), io::Error> {
+    let websocket = websocket.await;
+    let websocket = websocket.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     let (mut tx, mut rx) = unbounded();
-    let (mut sink, mut s) = stream_mut.split();
+    let (mut sink, mut s) = websocket.split();
 
     // req
     let mut tx_cloned = tx.clone();
     tokio::spawn(async move {
         while let Some(Ok(msg)) = s.next().await {
-            let resp_msg = match msg.opcode() {
-                Opcode::Text => {
-                    let req = msg.as_text().unwrap();
-                    let resp = handle_request(core.clone(), req);
+            let resp_msg = match msg {
+                Message::Text(req) => {
+                    let resp = handle_request(core.clone(), &req);
                     Some(Message::text(resp))
                 }
-                Opcode::Binary => Some(Message::close(None)),
-                Opcode::Ping => Some(Message::pong(msg.into_data())),
-                Opcode::Close => Some(Message::close(None)),
-                Opcode::Pong => None,
+                Message::Binary(_) => Some(Message::Close(None)),
+                Message::Ping(data) => Some(Message::Pong(data)),
+                Message::Close(_) => Some(Message::Close(None)),
+                Message::Pong(_) => None,
+                Message::Frame(_) => None,
             };
             if resp_msg.is_some() {
                 tx_cloned.send(resp_msg).await.expect("Channel failed");
@@ -724,6 +730,8 @@ async fn on_ws_client(stream_mut: AsyncClient, core: Arc<Mutex<PiSugarCore>>, mu
     while let Some(Some(rsp)) = rx.next().await {
         sink.send(rsp).await.expect("Channel failed");
     }
+
+    Ok(())
 }
 
 lazy_static! {
@@ -737,7 +745,7 @@ fn build_realm(req: &Request<Body>, user: &str) -> String {
         .get(&hyper::header::HOST)
         .map(|v| v.to_str().unwrap_or(""))
         .map(|v| v.to_string())
-        .unwrap_or("localhost".to_string());
+        .unwrap_or_else(|| "localhost".to_string());
     let port = req.uri().port_u16();
     let realm = if let Some(port) = port {
         format!("{}@{}:{}", user, host, port)
@@ -782,9 +790,7 @@ fn build_www_header(req: &Request<Body>, user: &str) -> String {
 }
 
 fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> Option<WwwAuthenticateHeader> {
-    if auth_header.opaque.is_none() {
-        return None;
-    }
+    auth_header.opaque.as_ref()?;
     let opaque = auth_header.opaque.clone().unwrap();
 
     let ctx = SECURITY_CTX.lock().unwrap();
@@ -835,7 +841,7 @@ async fn handle_http_req(
                         }
                         Ok(h) => h,
                     };
-                    auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or("".to_string()));
+                    auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
 
                     let www_header = rebuild_www_header(&req, &auth_header);
                     if www_header.is_none() {
@@ -852,14 +858,14 @@ async fn handle_http_req(
                 let www_header = build_www_header(&req, &account.0);
                 let resp = Response::builder()
                     .status(hyper::StatusCode::UNAUTHORIZED)
-                    .header(hyper::header::WWW_AUTHENTICATE, www_header.to_string()) // fix chrome digest auth
+                    .header(hyper::header::WWW_AUTHENTICATE, www_header) // fix chrome digest auth
                     .body(Body::empty())
                     .unwrap();
                 return Ok(resp);
             }
         }
     }
-
+    // _ws.json
     if req.uri().path().contains(WS_JSON) {
         if let Some(ws_addr) = *WS_ADDR.lock().unwrap() {
             let json = format!("{{\"wsPort\": \"{}\"}}", ws_addr.port());
@@ -871,10 +877,20 @@ async fn handle_http_req(
             return Err(io::Error::new(io::ErrorKind::NotFound, ""));
         }
     }
+    // websocket
     if req.uri().path().ends_with("/ws") {
-        server_upgrade(req, |c| on_ws_client(c, core, event_rx))
-            .await
-            .map_err(|_| io::Error::from(io::ErrorKind::Other))
+        if hyper_tungstenite::is_upgrade_request(&req) {
+            let (resp, websocket) =
+                hyper_tungstenite::upgrade(req, None).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            tokio::spawn(async move {
+                if let Err(e) = on_ws_client(websocket, core, event_rx).await {
+                    log::debug!("Serving websocket error: {}", e);
+                }
+            });
+            Ok(resp)
+        } else {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "/ws only serve websocket"))
+        }
     } else {
         static_.clone().serve(req).await
     }
@@ -920,12 +936,10 @@ fn init_logging(debug: bool, syslog: bool) {
                 false => log::set_max_level(LevelFilter::Info),
             })
             .expect("Failed to init syslog");
+    } else if debug {
+        env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
     } else {
-        if debug {
-            env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
-        } else {
-            env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-        }
+        env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     }
 }
 
@@ -1030,7 +1044,7 @@ async fn main() -> std::io::Result<()> {
 
     // model
     let m = matches.value_of("model").unwrap();
-    let model = Model::try_from(m).expect(format!("Unknown PiSugar model: {}", m).as_str());
+    let model = Model::try_from(m).unwrap_or_else(|_| panic!("Unknown PiSugar model: {}", m));
     log::debug!("Running with model: {}({})", model, m);
 
     // core
@@ -1056,8 +1070,8 @@ async fn main() -> std::io::Result<()> {
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());
 
     // CTRL+C signal handling
-    let uds = matches.value_of("uds").and_then(|x| Some(x.to_string()));
-    let web_dir = matches.value_of("web").and_then(|x| Some(x.to_string()));
+    let uds = matches.value_of("uds").map(|x| x.to_string());
+    let web_dir = matches.value_of("web").map(|x| x.to_string());
     ctrlc::set_handler(move || {
         clean_up(uds.clone(), web_dir.clone());
     })
@@ -1171,43 +1185,42 @@ async fn main() -> std::io::Result<()> {
 
         // auto shutdown
         if let Ok(level) = core.level() {
-            match (core.config().auto_shutdown_level, core.config().auto_shutdown_delay) {
-                (Some(auto_shutdown_level), Some(auto_shutdown_delay)) => {
-                    if auto_shutdown_level > 0.0 && auto_shutdown_delay > 0.0 && (level as f64) < auto_shutdown_level {
-                        log::warn!("Battery low: {}", level);
+            if let (Some(auto_shutdown_level), Some(auto_shutdown_delay)) =
+                (core.config().auto_shutdown_level, core.config().auto_shutdown_delay)
+            {
+                if auto_shutdown_level > 0.0 && auto_shutdown_delay > 0.0 && (level as f64) < auto_shutdown_level {
+                    log::warn!("Battery low: {}", level);
 
-                        let now = tokio::time::Instant::now();
-                        let seconds = now.duration_since(battery_high_at).as_millis() as f64;
-                        let remains = auto_shutdown_delay - seconds;
-                        let remains = if remains < 0.0 { 0.0 } else { remains };
+                    let now = tokio::time::Instant::now();
+                    let seconds = now.duration_since(battery_high_at).as_millis() as f64;
+                    let remains = auto_shutdown_delay - seconds;
+                    let remains = if remains < 0.0 { 0.0 } else { remains };
 
-                        let should_notify = if remains <= 0.0 {
-                            false
-                        } else if remains < 30.0 {
-                            notify_at + Duration::from_secs(1) < now
-                        } else if remains < 60.0 {
-                            notify_at + Duration::from_secs(5) < now
-                        } else if remains < 120.0 {
-                            notify_at + Duration::from_secs(10) < now
-                        } else {
-                            false
-                        };
-
-                        if should_notify {
-                            let message = format!("Low battery, will power off after {} seconds", remains);
-                            log::warn!("{}", message);
-                            notify_shutdown_soon(message.as_str());
-                            notify_at = now;
-                        }
-
-                        if remains <= 0.0 {
-                            let _ = execute_shell("shutdown --poweroff 0");
-                        }
+                    let should_notify = if remains <= 0.0 {
+                        false
+                    } else if remains < 30.0 {
+                        notify_at + Duration::from_secs(1) < now
+                    } else if remains < 60.0 {
+                        notify_at + Duration::from_secs(5) < now
+                    } else if remains < 120.0 {
+                        notify_at + Duration::from_secs(10) < now
                     } else {
-                        battery_high_at = tokio::time::Instant::now();
+                        false
+                    };
+
+                    if should_notify {
+                        let message = format!("Low battery, will power off after {} seconds", remains);
+                        log::warn!("{}", message);
+                        notify_shutdown_soon(message.as_str());
+                        notify_at = now;
                     }
+
+                    if remains <= 0.0 {
+                        let _ = execute_shell("shutdown --poweroff 0");
+                    }
+                } else {
+                    battery_high_at = tokio::time::Instant::now();
                 }
-                _ => {}
             }
         }
     }
@@ -1224,7 +1237,7 @@ mod tests {
     async fn test_web_date() {
         let resp = Client::new().get(TIME_HOST.parse().unwrap()).await.unwrap();
         if let Some(date) = resp.headers().get("date") {
-            if let Ok(Ok(dt)) = date.to_str().map(|s| DateTime::parse_from_rfc2822(s)) {
+            if let Ok(Ok(dt)) = date.to_str().map(DateTime::parse_from_rfc2822) {
                 println!("{}", dt);
             }
         }
