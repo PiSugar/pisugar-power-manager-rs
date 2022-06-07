@@ -56,13 +56,7 @@ jobs:
             electron/dist
 
       # Rust cache
-      - name: Rust cargo cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo
-            target
-          key: ${{ runner.os }}-build-amd64
+      - uses: Swatinem/rust-cache@v1
 
       # Rust toolchain
       - name: Rust toolchain
@@ -118,14 +112,12 @@ jobs:
             electron/dist
 
       # Rust cache
-      - name: Rust cargo cache
-        uses: actions/cache@v3
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo
-            target
-            /opt/arm-*
-          key: ${{ runner.os }}-build-amd
+            /opt/arm-linux-musleabi-cross
+          key: ${{ runner.os }}-build-arm
 
       - name: Rust musl cross toolchain arm
         run: |
@@ -190,14 +182,12 @@ jobs:
             electron/dist
 
       # Rust cache
-      - name: Rust cargo cache
-        uses: actions/cache@v3
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo
-            target
-            /opt/arm-*
-          key: ${{ runner.os }}-build-amd
+            /opt/arm-linux-musleabihf-cross
+          key: ${{ runner.os }}-build-armhf
 
       - name: Rust musl cross toolchain armhf
         run: |
@@ -262,14 +252,12 @@ jobs:
             electron/dist
 
       # Rust cache
-      - name: Rust cargo cache
-        uses: actions/cache@v3
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo
-            target
-            /opt/aarch64-*
-          key: ${{ runner.os }}-build-amd
+            /opt/aarch64-linux-musl-cross
+          key: ${{ runner.os }}-build-aarch64
 
       - name: Rust musl cross toolchain aarch64
         run: |
