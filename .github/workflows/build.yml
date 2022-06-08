@@ -97,8 +97,8 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           for app in server poweroff programmer; do
-            cargo deb --target $TARGET --manifest-path=pisugar-$app/Cargo.toml
-            (cd pisugar-$app && cargo rpm build --target $TARGET)
+            cross deb --target $TARGET --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cross rpm build --target $TARGET)
           done
 
       # Upload artifact
