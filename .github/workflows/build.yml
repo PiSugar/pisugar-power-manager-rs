@@ -117,7 +117,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: build-app-${{ matrix.target }}
+          name: pisugar-app-${{ matrix.target }}
           path: |
             target
             !target/**/*.d
