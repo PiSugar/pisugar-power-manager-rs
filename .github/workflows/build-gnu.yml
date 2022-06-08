@@ -51,16 +51,15 @@ jobs:
           target: ${{ matrix.target }}
         run: |
           set -e
-          TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
           
+          TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
           if [ $target = "riscv64gc-unknown-linux-gnu" ]; then
             arch=riscv64
           else
             arch=${target%%-*}
           fi
-          
           runtime=${target##*-linux-}
-          gcc=gcc-$arch-linux-$runtime
+          gcc=$(echo gcc-$arch-linux-$runtime | tr '_' '-')
           prefix=$arch-linux-$runtime
           
           sudo apt update
