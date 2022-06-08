@@ -327,21 +327,40 @@ jobs:
       - name: Fix cargo config
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
-      - name: Download all
+      - name: Download web
         uses: actions/download-artifact@v3
         with:
+          name: pisugar-web
           path: |
-            download
+            electron/dist
 
-      - name: Move web
-        run: |
-          mkdir -p electron/dist
-          mv download/web electron/dist/
+      - name: Download amd64
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-amd64
+          path: |
+            target/x86_64-unknown-linux-gnu
 
-      - name: Move apps
-        run: |
-          mkdir -p target
-          mv download/* target/
+      - name: Download arm
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-arm
+          path: |
+            target/arm-unknown-linux-musleabi
+
+      - name: Download armhf
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-armhf
+          path: |
+            target/arm-unknown-linux-musleabihf
+
+      - name: Download aarch64
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-aarch64
+          path: |
+            target/aarch64-unknown-linux-musl
 
       # aur for archlinux
       - run: (cd scripts/aur; sh build-aur.sh)
