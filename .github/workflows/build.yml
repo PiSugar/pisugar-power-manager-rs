@@ -347,6 +347,8 @@ jobs:
           name: pisugar-arm
           path: |
             target
+      
+      - run: ls -r target
 
       - name: Download armhf
         uses: actions/download-artifact@v3
