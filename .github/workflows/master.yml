@@ -8,19 +8,23 @@ jobs:
   build-web:
     uses: ./.github/workflows/build-web.yml
   build-musl:
-    needs: [build-web]
+    needs:
+      - build-web
     uses: ./.github/workflows/build-musl.yml
   build-gnu:
-    needs: [build-web]
+    needs:
+      - build-web
     uses: ./.github/workflows/build-gnu.yml
   build-other:
-    needs: [build-musl, build-gnu]
+    needs:
+      - build-musl
+      - build-gnu
     uses: ./.github/workflows/build-other.yml
 
   dev-release:
     runs-on: ubuntu-latest
     needs:
-      - build-all
+      - build-other
     steps:
       # Checkout
       - name: Checkout
