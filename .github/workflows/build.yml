@@ -375,6 +375,7 @@ jobs:
           path: |
             target/**/*.deb
             target/**/*.rpm
+            !target/**/*src*.rpm
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
