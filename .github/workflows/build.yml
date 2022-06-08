@@ -71,6 +71,8 @@ jobs:
 
       # Rust cache
       - uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
 
       - name: Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -79,16 +81,21 @@ jobs:
           override: true
           target: ${{ matrix.target }}
 
-      # Latest cross
+      # Latest cross, cargo-deb and cargo-rpm
       - run: cargo install cross --git https://github.com/cross-rs/cross
+      - run: cargo install cargo-deb
+      - run: cargo install cargo-rpm
 
-      - name: Build
+      - name: Compile
         env:
           TARGET: ${{ matrix.target }}
         run: |
-          cargo install cargo-deb
-          cargo install cargo-rpm
-          cross build --target $TARGET --release
+          cross build --target $TARGET --release 
+
+      - name: Packaging
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
           for app in server poweroff programmer; do
             cargo deb --target $TARGET --manifest-path=pisugar-$app/Cargo.toml
             (cd pisugar-$app && cargo rpm build --target $TARGET)
