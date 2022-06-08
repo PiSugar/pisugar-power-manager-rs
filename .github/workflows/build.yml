@@ -35,31 +35,17 @@ jobs:
             electron/dist
           if-no-files-found: warn
 
-  build-app:
+  build-amd64:
     runs-on: ubuntu-latest
     needs:
       - build-web
-    strategy:
-      matrix:
-        target:
-          # - aarch64-unknown-linux-gnu
-          - aarch64-unknown-linux-musl
-          # - arm-unknown-linux-gnueabi
-          # - arm-unknown-linux-gnueabihf
-          # - arm-unknown-linux-musleabi
-          # - arm-unknown-linux-musleabihf
-          # - i686-unknown-linux-gnu
-          # - i686-unknown-linux-musl
-          # - riscv64gc-unknown-linux-gnu
-          # - x86_64-unknown-linux-gnu
-          # - x86_64-unknown-linux-musl
     steps:
       # Checkout
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: Fix cargo config
-        run: sed -e "s/.*replace-with.*//g" -i .cargo/config || true
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
       # Download web
       - name: Download web
@@ -71,55 +57,44 @@ jobs:
 
       # Rust cache
       - uses: Swatinem/rust-cache@v1
-        with:
-          cache-on-failure: true
 
+      # Rust toolchain
       - name: Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
-          target: ${{ matrix.target }}
+          target: x86_64-unknown-linux-gnu
 
-      # Latest cross, cargo-deb and cargo-rpm
-      - run: cargo install cross --git https://github.com/cross-rs/cross
-      - run: cargo install cargo-deb
-      - run: cargo install cargo-rpm
-
-      - name: Compile
-        env:
-          TARGET: ${{ matrix.target }}
+      # Build
+      - name: Rust build
         run: |
-          cross build --target $TARGET --release 
-
-      - name: Packaging
-        env:
-          TARGET: ${{ matrix.target }}
-        run: |
+          sudo apt update && sudo apt install -y rpm
+          cargo install cargo-deb
+          cargo install cargo-rpm
+          cargo build --target x86_64-unknown-linux-gnu --release
           for app in server poweroff programmer; do
-            cross deb --target $TARGET --manifest-path=pisugar-$app/Cargo.toml
-            (cd pisugar-$app && cross rpm build --target $TARGET)
+            cargo deb --target x86_64-unknown-linux-gnu --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cargo rpm build --target x86_64-unknown-linux-gnu)
           done
 
       # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: pisugar-app-${{ matrix.target }}
+          name: pisugar-amd64
           path: |
             target
-            !target/**/*.d
             !target/**/.fingerprint
             !target/**/build
             !target/**/deps
             !target/**/examples
             !target/**/incremental
+          if-no-files-found: warn
 
-  build-all:
+  build-arm:
     runs-on: ubuntu-latest
     needs:
       - build-web
-      - build-app
     steps:
       # Checkout
       - name: Checkout
@@ -128,7 +103,226 @@ jobs:
       - name: Fix cargo config
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
-      - name: Download All
+      # Download web
+      - name: Upload artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-web
+          path: |
+            electron/dist
+
+      # Rust cache
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /opt/arm-linux-musleabi-cross
+          key: ${{ runner.os }}-build-arm
+
+      - name: Rust musl cross toolchain arm
+        run: |
+          if ! test -d /opt/arm-linux-musleabi-cross/bin; then
+            wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
+            tar -xvf arm-linux-musleabi-cross.tgz
+            mv arm-linux-musleabi-cross /opt/
+          fi
+          echo /opt/arm-linux-musleabi-cross/bin >> $GITHUB_PATH
+
+      # Rust toolchain
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: arm-unknown-linux-musleabi
+
+      # Build
+      - name: Rust build
+        run: |
+          sudo apt update && sudo apt install -y rpm
+          cargo install cargo-deb
+          cargo install cargo-rpm
+          cargo build --target arm-unknown-linux-musleabi --release
+          for app in server poweroff programmer; do
+            cargo deb --target arm-unknown-linux-musleabi --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cargo rpm build --target arm-unknown-linux-musleabi)
+          done
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pisugar-arm
+          path: |
+            target
+            !target/**/.fingerprint
+            !target/**/build
+            !target/**/deps
+            !target/**/examples
+            !target/**/incremental
+          if-no-files-found: warn
+
+  build-armhf:
+    runs-on: ubuntu-latest
+    needs:
+      - build-web
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Fix cargo config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+
+      # Download web
+      - name: Upload artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-web
+          path: |
+            electron/dist
+
+      # Rust cache
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /opt/arm-linux-musleabihf-cross
+          key: ${{ runner.os }}-build-armhf
+
+      - name: Rust musl cross toolchain armhf
+        run: |
+          if ! test -d /opt/arm-linux-musleabihf-cross/bin; then
+            wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabihf-cross.tgz
+            tar -xvf arm-linux-musleabihf-cross.tgz
+            mv arm-linux-musleabihf-cross /opt/
+          fi
+          echo /opt/arm-linux-musleabihf-cross/bin >> $GITHUB_PATH
+
+      # Rust toolchain
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: arm-unknown-linux-musleabihf
+
+      # Build
+      - name: Rust build
+        run: |
+          sudo apt update && sudo apt install -y rpm
+          cargo install cargo-deb
+          cargo install cargo-rpm
+          cargo build --target arm-unknown-linux-musleabihf --release
+          for app in server poweroff programmer; do
+            cargo deb --target arm-unknown-linux-musleabihf --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cargo rpm build --target arm-unknown-linux-musleabihf)
+          done
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pisugar-armhf
+          path: |
+            target
+            !target/**/.fingerprint
+            !target/**/build
+            !target/**/deps
+            !target/**/examples
+            !target/**/incremental
+          if-no-files-found: warn
+
+  build-aarch64:
+    runs-on: ubuntu-latest
+    needs:
+      - build-web
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Fix cargo config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+
+      # Download web
+      - name: Download web
+        uses: actions/download-artifact@v3
+        with:
+          path: |
+            electron/dist
+
+      # Rust cache
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /opt/aarch64-linux-musl-cross
+          key: ${{ runner.os }}-build-aarch64
+
+      - name: Rust musl cross toolchain aarch64
+        run: |
+          if ! test -d /opt/aarch64-linux-musl-cross/bin; then
+            wget https://more.musl.cc/$(uname -m)-linux-musl/aarch64-linux-musl-cross.tgz
+            tar -xvf aarch64-linux-musl-cross.tgz
+            mv aarch64-linux-musl-cross /opt/
+          fi
+          echo /opt/aarch64-linux-musl-cross/bin >> $GITHUB_PATH
+      # Fix libgcc.a for aarch64
+      - run: |
+          LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
+          echo $LIBGCC
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
+          cat .cargo/config
+
+      # Rust toolchain
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-unknown-linux-musl
+
+      # Build
+      - name: Rust build
+        run: |
+          sudo apt update && sudo apt install -y rpm
+          cargo install cargo-deb
+          cargo install cargo-rpm
+          cargo build --target aarch64-unknown-linux-musl --release
+          for app in server poweroff programmer; do
+            cargo deb --target aarch64-unknown-linux-musl --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cargo rpm build --target aarch64-unknown-linux-musl)
+          done
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pisugar-aarch64
+          path: |
+            target
+            !target/**/.fingerprint
+            !target/**/build
+            !target/**/deps
+            !target/**/examples
+            !target/**/incremental
+          if-no-files-found: warn
+
+  build-all:
+    runs-on: ubuntu-latest
+    needs:
+      - build-web
+      - build-amd64
+      - build-arm
+      - build-armhf
+      - build-aarch64
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Fix cargo config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+
+      - name: Download all
         uses: actions/download-artifact@v3
         with:
           path: |
