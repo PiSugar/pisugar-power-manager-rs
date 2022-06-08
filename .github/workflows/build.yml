@@ -347,8 +347,6 @@ jobs:
           name: pisugar-arm
           path: |
             target
-      
-      - run: ls -r target
 
       - name: Download armhf
         uses: actions/download-artifact@v3
@@ -363,6 +361,8 @@ jobs:
           name: pisugar-aarch64
           path: |
             target
+
+      - run: ls -r target
 
       # aur for archlinux
       - run: (cd scripts/aur; sh build-aur.sh)
