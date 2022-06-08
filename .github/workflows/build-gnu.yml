@@ -55,7 +55,7 @@ jobs:
           
           if [ $target = "riscv64gc-unknown-linux-gnu" ]; then
             arch=riscv64
-          else:
+          else
             arch=${target%%-*}
           fi
           
