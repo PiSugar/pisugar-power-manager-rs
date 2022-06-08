@@ -105,7 +105,7 @@ jobs:
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
       # Download web
-      - name: Upload artifacts
+      - name: Download web
         uses: actions/download-artifact@v3
         with:
           name: pisugar-web
@@ -176,7 +176,7 @@ jobs:
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config
 
       # Download web
-      - name: Upload artifacts
+      - name: Download web
         uses: actions/download-artifact@v3
         with:
           name: pisugar-web
@@ -250,6 +250,7 @@ jobs:
       - name: Download web
         uses: actions/download-artifact@v3
         with:
+          name: pisugar-web
           path: |
             electron/dist
 
