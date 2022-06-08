@@ -37,6 +37,8 @@ jobs:
 
   build-app:
     runs-on: ubuntu-latest
+    needs:
+      - build-web
     strategy:
       matrix:
         target:
