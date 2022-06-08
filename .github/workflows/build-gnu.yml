@@ -50,8 +50,15 @@ jobs:
         env:
           target: ${{ matrix.target }}
         run: |
+          set -e
           TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
-          arch=${target%%-*}
+          
+          if [ $target = "riscv64gc-unknown-linux-gnu" ]; then
+            arch=riscv64
+          else:
+            arch=${target%%-*}
+          fi
+          
           runtime=${target##*-linux-}
           gcc=gcc-$arch-linux-$runtime
           prefix=$arch-linux-$runtime
