@@ -94,6 +94,7 @@ impl PiSugar3 {
     }
 
     fn i2c_write_byte(&self, cmd: u8, data: u8) -> Result<()> {
+        log::debug!("i2c write cmd: 0x{:x}, data: 0x{:x}", cmd, data);
         self.toggle_write_enable(true)?;
         let r = self.i2c.smbus_write_byte(cmd, data);
         self.toggle_write_enable(false)?;
