@@ -1,0 +1,50 @@
+name: build-other
+
+on:
+  workflow_call:
+
+jobs:
+  build-other:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Fix cargo config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+
+      - name: Download all
+        uses: actions/download-artifact@v3
+        with:
+          path: |
+            download
+
+      - name: Move files
+        run: |
+          set -x
+          mkdir -p electron/dist
+          mv -f download/pisugar-web/* electron/dist/
+          mkdir -p target
+          for i in $(ls download); do
+            mv -f download/$i/* target/
+          fi
+
+      - run: ls -r target
+
+      # aur for archlinux
+      - run: (cd scripts/aur; sh build-aur.sh)
+
+      # Upload artifact
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pisugar-all
+          path: |
+            target/**/*.deb
+            target/**/*.rpm
+            !target/**/*src*.rpm
+            scripts/*.sh
+            scripts/aur/*.tar.gz
+            !scripts/update-version.sh
+          if-no-files-found: warn

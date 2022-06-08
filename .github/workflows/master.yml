@@ -5,8 +5,17 @@ on:
     branches: [master]
 
 jobs:
-  build-all:
-    uses: ./.github/workflows/build.yml
+  build-web:
+    uses: ./.github/workflows/build-web.yml
+  build-musl:
+    needs: [build-web]
+    uses: ./.github/workflows/build-musl.yml
+  build-gnu:
+    needs: [build-web]
+    uses: ./.github/workflows/build-gnu.yml
+  build-other:
+    needs: [build-musl, build-gnu]
+    uses: ./.github/workflows/build-other.yml
 
   dev-release:
     runs-on: ubuntu-latest
