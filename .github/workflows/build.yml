@@ -85,6 +85,7 @@ jobs:
           path: |
             target
             !target/**/.fingerprint
+            !target/**/*.d
             !target/**/build
             !target/**/deps
             !target/**/examples
@@ -155,6 +156,7 @@ jobs:
           path: |
             target
             !target/**/.fingerprint
+            !target/**/*.d
             !target/**/build
             !target/**/deps
             !target/**/examples
@@ -225,6 +227,7 @@ jobs:
           path: |
             target
             !target/**/.fingerprint
+            !target/**/*.d
             !target/**/build
             !target/**/deps
             !target/**/examples
@@ -300,6 +303,7 @@ jobs:
           path: |
             target
             !target/**/.fingerprint
+            !target/**/*.d
             !target/**/build
             !target/**/deps
             !target/**/examples
