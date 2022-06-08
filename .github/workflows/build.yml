@@ -339,28 +339,28 @@ jobs:
         with:
           name: pisugar-amd64
           path: |
-            target/x86_64-unknown-linux-gnu
+            target
 
       - name: Download arm
         uses: actions/download-artifact@v3
         with:
           name: pisugar-arm
           path: |
-            target/arm-unknown-linux-musleabi
+            target
 
       - name: Download armhf
         uses: actions/download-artifact@v3
         with:
           name: pisugar-armhf
           path: |
-            target/arm-unknown-linux-musleabihf
+            target
 
       - name: Download aarch64
         uses: actions/download-artifact@v3
         with:
           name: pisugar-aarch64
           path: |
-            target/aarch64-unknown-linux-musl
+            target
 
       # aur for archlinux
       - run: (cd scripts/aur; sh build-aur.sh)
