@@ -1,0 +1,99 @@
+name: build-gnu
+
+on:
+  workflow_call:
+
+jobs:
+  build-gnu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - arm-unknown-linux-gnueabi
+          - arm-unknown-linux-gnueabihf
+          #- armv5te-unknown-linux-gnueabi
+          #- armv7-unknown-linux-gnueabi
+          #- armv7-unknown-linux-gnueabihf
+          #- i586-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - mips-unknown-linux-gnu
+          - mips64-unknown-linux-gnuabi64
+          - mips64el-unknown-linux-gnuabi64
+          - mipsel-unknown-linux-gnu
+          - powerpc-unknown-linux-gnu
+          - powerpc64-unknown-linux-gnu
+          - powerpc64le-unknown-linux-gnu
+          - riscv64gc-unknown-linux-gnu
+          - s390x-unknown-linux-gnu
+          - sparc64-unknown-linux-gnu
+          #- thumbv7neon-unknown-linux-gnueabihf
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-gnux32
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Fix cargo config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+
+      # Download web
+      - name: Download web
+        uses: actions/download-artifact@v3
+        with:
+          name: pisugar-web
+          path: |
+            electron/dist
+
+      - name: Update env
+        env:
+          target: ${{ matrix.target }}
+        run: |
+          TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
+          arch=${target%%-*}
+          runtime=${target##*-linux-}
+          gcc=gcc-$arch-linux-$runtime
+          prefix=$arch-linux-$runtime
+          
+          sudo apt update
+          sudo apt install -y $gcc
+          
+          echo "target=$target" >> $GITHUB_ENV
+          echo "CARGO_TARGET_$TARGET_LINKER=$prefix-ld" >> $GITHUB_ENV
+
+      # Rust cache
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      # Build
+      - name: Rust build
+        run: |
+          sudo apt update && sudo apt install -y rpm
+          cargo install cargo-deb
+          cargo install cargo-rpm
+          cargo build --target $target --release
+          for app in server poweroff programmer; do
+            cargo deb --target $target --manifest-path=pisugar-$app/Cargo.toml
+            (cd pisugar-$app && cargo rpm build --target $target)
+          done
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: gnu-${{ matrix.target }}
+          path: |
+            target
+            !target/**/.fingerprint
+            !target/**/*.d
+            !target/**/build
+            !target/**/deps
+            !target/**/examples
+            !target/**/incremental
+          if-no-files-found: warn

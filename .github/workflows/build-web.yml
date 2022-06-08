@@ -1,0 +1,36 @@
+name: build-web
+
+on:
+  workflow_call:
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Nodejs
+      - name: Setup Nodejs
+        uses: actions/setup-node@v1
+        with:
+          node-version: "12.x"
+
+      - name: NPM or Yarn install with caching
+        uses: bahmutov/npm-install@v1.6.0
+        with:
+          working-directory: electron
+
+      # Nodejs build web
+      - run: npm run build:web
+        working-directory: electron
+
+      # Upload artifact
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pisugar-web
+          path: |
+            electron/dist
+          if-no-files-found: warn
