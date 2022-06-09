@@ -557,7 +557,9 @@ impl Battery for PiSugar3Battery {
             match self.pisugar3.read_soft_poweroff_flag() {
                 Ok(f) => {
                     soft_poweroff = f;
-                    let _ = self.pisugar3.clear_soft_poweroff_flag();
+                    if f {
+                        let _ = self.pisugar3.clear_soft_poweroff_flag();
+                    }
                 }
                 Err(e) => log::warn!("Read soft poweroff flag error: {}", e),
             }
