@@ -67,9 +67,11 @@ jobs:
           TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
           echo "env TARGET=$TARGET"
           echo "env CARGO_TARGET_${TARGET}_LINKER=${prefix}-ld"
+          echo "env CARGO_TARGET_${TARGET}_RUSTFLAGS=\"-L /lib/${prefix}\""
           echo "target=$target" >> $GITHUB_ENV
           echo "RUSTC_LINKER=$prefix-ld" >> $GITHUB_ENV
           echo "CARGO_TARGET_${TARGET}_LINKER=${prefix}-ld" >> $GITHUB_ENV
+          echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=\"-L /lib/${prefix}\"" >> $GITHUB_ENV
 
       # Rust cache
       - uses: Swatinem/rust-cache@v1
