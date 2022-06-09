@@ -28,7 +28,7 @@ jobs:
           mkdir -p target
           for i in $(ls download); do
             mv -f download/$i/* target/
-          fi
+          done
 
       - run: ls -r target
 
