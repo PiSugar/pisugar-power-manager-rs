@@ -52,7 +52,6 @@ jobs:
         run: |
           set -e
           
-          TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
           if [ $target = "riscv64gc-unknown-linux-gnu" ]; then
             arch=riscv64
           else
@@ -65,9 +64,12 @@ jobs:
           sudo apt update
           sudo apt install -y $gcc
           
+          TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
+          echo "env TARGET=$TARGET"
+          echo "env CARGO_TARGET_${TARGET}_LINKER=${prefix}-ld"
           echo "target=$target" >> $GITHUB_ENV
           echo "RUSTC_LINKER=$prefix-ld" >> $GITHUB_ENV
-          echo "CARGO_TARGET_$TARGET_LINKER=$prefix-ld" >> $GITHUB_ENV
+          echo "CARGO_TARGET_${TARGET}_LINKER=${prefix}-ld" >> $GITHUB_ENV
 
       # Rust cache
       - uses: Swatinem/rust-cache@v1
