@@ -25,6 +25,7 @@ jobs:
           set -x
           mkdir -p electron/dist
           mv -f download/pisugar-web/* electron/dist/
+          rm -rf download/pisugar-web
           mkdir -p target
           for i in $(ls download); do
             mv -f download/$i/* target/
