@@ -66,6 +66,7 @@ jobs:
           sudo apt install -y $gcc
           
           echo "target=$target" >> $GITHUB_ENV
+          echo "RUSTC_LINKER=$prefix-ld" >> $GITHUB_ENV
           echo "CARGO_TARGET_$TARGET_LINKER=$prefix-ld" >> $GITHUB_ENV
 
       # Rust cache
