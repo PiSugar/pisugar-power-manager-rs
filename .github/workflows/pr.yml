@@ -18,5 +18,5 @@ jobs:
   build-other:
     needs:
       - build-musl
-      - build-gnu
+      #- build-gnu
     uses: ./.github/workflows/build-other.yml
