@@ -51,7 +51,7 @@ jobs:
           name: pisugar-amd64
           path: |
             target
-            !target/*
+            !target/release
             !target/**/.fingerprint
             !target/**/*.d
             !target/**/build
@@ -121,7 +121,7 @@ jobs:
           name: pisugar-arm
           path: |
             target
-            !target/*
+            !target/release
             !target/**/.fingerprint
             !target/**/*.d
             !target/**/build
@@ -191,7 +191,7 @@ jobs:
           name: pisugar-armhf
           path: |
             target
-            !target/*
+            !target/release
             !target/**/.fingerprint
             !target/**/*.d
             !target/**/build
@@ -267,7 +267,7 @@ jobs:
           name: pisugar-aarch64
           path: |
             target
-            !target/*
+            !target/release
             !target/**/.fingerprint
             !target/**/*.d
             !target/**/build
