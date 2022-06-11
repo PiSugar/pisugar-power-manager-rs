@@ -101,8 +101,15 @@ impl PiSugar3 {
         Ok(r?)
     }
 
+    fn i2c_read_byte(&self, cmd: u8) -> Result<u8> {
+        log::debug!("i2c read cmd: 0x{:x}", cmd);
+        let r = self.i2c.smbus_read_byte(cmd)?;
+        log::debug!("i2c read cmd: 0x{:x}, data: 0x{:x}", cmd, r);
+        Ok(r)
+    }
+
     pub fn read_ctr1(&self) -> Result<u8> {
-        let ctr1 = self.i2c.smbus_read_byte(IIC_CMD_CTR1)?;
+        let ctr1 = self.i2c_read_byte(IIC_CMD_CTR1)?;
         Ok(ctr1)
     }
 
@@ -112,7 +119,7 @@ impl PiSugar3 {
     }
 
     pub fn read_crt2(&self) -> Result<u8> {
-        let ctr2 = self.i2c.smbus_read_byte(IIC_CMD_CTR2)?;
+        let ctr2 = self.i2c_read_byte(IIC_CMD_CTR2)?;
         Ok(ctr2)
     }
 
@@ -166,23 +173,23 @@ impl PiSugar3 {
     }
 
     pub fn read_temp(&self) -> Result<i32> {
-        let temp = self.i2c.smbus_read_byte(IIC_CMD_TEMP)?;
+        let temp = self.i2c_read_byte(IIC_CMD_TEMP)?;
         Ok(temp as i32 - 40)
     }
 
     pub fn read_tap(&self) -> Result<u8> {
-        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
+        let tap = self.i2c_read_byte(IIC_CMD_TAP)?;
         Ok(tap & 0b0000_0011)
     }
 
     pub fn reset_tap(&self) -> Result<()> {
-        let tap = self.i2c.smbus_read_byte(IIC_CMD_TAP)?;
+        let tap = self.i2c_read_byte(IIC_CMD_TAP)?;
         self.i2c_write_byte(IIC_CMD_TAP, tap & 0b1111_1100)?;
         Ok(())
     }
 
     pub fn read_bat_ctr(&self) -> Result<u8> {
-        let ctr = self.i2c.smbus_read_byte(IIC_CMD_BAT_CTR)?;
+        let ctr = self.i2c_read_byte(IIC_CMD_BAT_CTR)?;
         Ok(ctr)
     }
 
@@ -207,7 +214,7 @@ impl PiSugar3 {
     }
 
     pub fn read_write_enable(&self) -> Result<bool> {
-        let ctr = self.i2c.smbus_read_byte(IIC_CMD_WRITE_ENABLE)?;
+        let ctr = self.i2c_read_byte(IIC_CMD_WRITE_ENABLE)?;
         Ok(ctr == 0x29)
     }
 
@@ -218,31 +225,31 @@ impl PiSugar3 {
     }
 
     pub fn read_voltage(&self) -> Result<u16> {
-        let vh: u16 = self.i2c.smbus_read_byte(IIC_CMD_VH)? as u16;
-        let vl: u16 = self.i2c.smbus_read_byte(IIC_CMD_VL)? as u16;
+        let vh: u16 = self.i2c_read_byte(IIC_CMD_VH)? as u16;
+        let vl: u16 = self.i2c_read_byte(IIC_CMD_VL)? as u16;
         let v = (vh << 8) | vl;
         Ok(v)
     }
 
     pub fn read_percent(&self) -> Result<u8> {
-        let p = self.i2c.smbus_read_byte(IIC_CMD_P)?;
+        let p = self.i2c_read_byte(IIC_CMD_P)?;
         Ok(p)
     }
 
     pub fn read_output_current(&self) -> Result<u16> {
-        let oh: u16 = self.i2c.smbus_read_byte(IIC_CMD_OH)? as u16;
-        let ol: u16 = self.i2c.smbus_read_byte(IIC_CMD_OL)? as u16;
+        let oh: u16 = self.i2c_read_byte(IIC_CMD_OH)? as u16;
+        let ol: u16 = self.i2c_read_byte(IIC_CMD_OL)? as u16;
         let oc = (oh << 8) | ol;
         Ok(oc)
     }
 
     pub fn get_alarm_enable(&self) -> Result<bool> {
-        let ctr = self.i2c.smbus_read_byte(IIC_CMD_ALM_CTR)?;
+        let ctr = self.i2c_read_byte(IIC_CMD_ALM_CTR)?;
         Ok(ctr & (0b1000_0000) != 0)
     }
 
     pub fn toggle_alarm_enable(&self, enable: bool) -> Result<()> {
-        let mut ctr = self.i2c.smbus_read_byte(IIC_CMD_ALM_CTR)?;
+        let mut ctr = self.i2c_read_byte(IIC_CMD_ALM_CTR)?;
         ctr &= 0b0111_1111;
         if enable {
             ctr |= 0b1000_0000;
@@ -252,7 +259,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_yy(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_YY)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_YY)?))
     }
 
     fn write_rtc_yy(&self, yy: u8) -> Result<()> {
@@ -260,7 +267,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_mm(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_MM)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_MM)?))
     }
 
     fn write_rtc_mm(&self, mm: u8) -> Result<()> {
@@ -268,7 +275,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_dd(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_DD)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_DD)?))
     }
 
     fn write_rtc_dd(&self, dd: u8) -> Result<()> {
@@ -276,7 +283,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_weekday(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_WD)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_WD)?))
     }
 
     fn write_rtc_weekday(&self, wd: u8) -> Result<()> {
@@ -284,7 +291,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_hh(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_HH)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_HH)?))
     }
 
     fn write_rtc_hh(&self, hh: u8) -> Result<()> {
@@ -292,7 +299,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_mn(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_MN)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_MN)?))
     }
 
     fn write_rtc_mn(&self, mn: u8) -> Result<()> {
@@ -300,7 +307,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_ss(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_RTC_SS)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_RTC_SS)?))
     }
 
     fn write_rtc_ss(&self, ss: u8) -> Result<()> {
@@ -308,7 +315,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_adj_comm(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_RTC_ADJ_COMM)?)
+        Ok(self.i2c_read_byte(IIC_CMD_RTC_ADJ_COMM)?)
     }
 
     pub fn write_rtc_adj_comm(&self, comm: u8) -> Result<()> {
@@ -317,7 +324,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_adj_diff(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_RTC_ADJ_DIFF)?)
+        Ok(self.i2c_read_byte(IIC_CMD_RTC_ADJ_DIFF)?)
     }
 
     pub fn write_rtc_adj_diff(&self, diff: u8) -> Result<()> {
@@ -326,7 +333,7 @@ impl PiSugar3 {
     }
 
     pub fn read_alarm_weekday_repeat(&self) -> Result<u8> {
-        Ok(self.i2c.smbus_read_byte(IIC_CMD_ALM_WD)?)
+        Ok(self.i2c_read_byte(IIC_CMD_ALM_WD)?)
     }
 
     fn write_alarm_weekday_repeat(&self, wd: u8) -> Result<()> {
@@ -334,7 +341,7 @@ impl PiSugar3 {
     }
 
     pub fn read_alarm_hh(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_HH)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_ALM_HH)?))
     }
 
     fn write_alarm_hh(&self, hh: u8) -> Result<()> {
@@ -342,7 +349,7 @@ impl PiSugar3 {
     }
 
     pub fn read_alarm_mn(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_MN)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_ALM_MN)?))
     }
 
     fn write_alarm_mn(&self, mn: u8) -> Result<()> {
@@ -350,7 +357,7 @@ impl PiSugar3 {
     }
 
     pub fn read_alarm_ss(&self) -> Result<u8> {
-        Ok(bcd_to_dec(self.i2c.smbus_read_byte(IIC_CMD_ALM_SS)?))
+        Ok(bcd_to_dec(self.i2c_read_byte(IIC_CMD_ALM_SS)?))
     }
 
     fn write_alarm_ss(&self, ss: u8) -> Result<()> {
@@ -361,7 +368,7 @@ impl PiSugar3 {
         let mut buf = [0; APP_VER_LEN + 1];
         let mut last = APP_VER_LEN - 1;
         for i in 0..APP_VER_LEN {
-            buf[i] = self.i2c.smbus_read_byte(IIC_CMD_APPVER + i as u8)?;
+            buf[i] = self.i2c_read_byte(IIC_CMD_APPVER + i as u8)?;
             if buf[i] == 0 {
                 last = i;
                 break;
