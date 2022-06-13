@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::time::Instant;
+use std::{collections::VecDeque, io};
 
 use rppal::i2c::I2c;
 
@@ -110,6 +110,10 @@ impl PiSugar3 {
 
     pub fn read_ctr1(&self) -> Result<u8> {
         let ctr1 = self.i2c_read_byte(IIC_CMD_CTR1)?;
+        let ctr1_again = self.i2c_read_byte(IIC_CMD_CTR1)?;
+        if ctr1 != ctr1_again {
+            return Err(Error::Other("ctr1 changed during reading".to_string()));
+        }
         Ok(ctr1)
     }
 
@@ -120,6 +124,10 @@ impl PiSugar3 {
 
     pub fn read_crt2(&self) -> Result<u8> {
         let ctr2 = self.i2c_read_byte(IIC_CMD_CTR2)?;
+        let ctr2_again = self.i2c_read_byte(IIC_CMD_CTR2)?;
+        if ctr2 != ctr2_again {
+            return Err(Error::Other("ctr2 changed during reading".to_string()));
+        }
         Ok(ctr2)
     }
 
