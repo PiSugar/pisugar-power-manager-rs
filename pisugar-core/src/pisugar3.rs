@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
+use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::time::Instant;
-use std::{collections::VecDeque, io};
 
 use rppal::i2c::I2c;
 
