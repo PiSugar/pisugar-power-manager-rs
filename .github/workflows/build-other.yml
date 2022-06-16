@@ -28,7 +28,7 @@ jobs:
           rm -rf download/pisugar-web
           mkdir -p target
           for i in $(ls download); do
-            mv -f download/$i/* target/
+            rsync -r download/$i/* target/
           done
 
       - run: ls -r target
