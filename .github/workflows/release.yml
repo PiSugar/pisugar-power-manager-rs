@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Fix cargo config
-        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       - name: Download all
         uses: actions/download-artifact@v3
