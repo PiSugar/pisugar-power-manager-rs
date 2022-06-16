@@ -65,6 +65,10 @@ jobs:
           fi
           echo /opt/aarch64-linux-musl-cross/bin >> $GITHUB_PATH
 
+          arch=${target%%-*}
+          runtime=${target##*-linux-}
+          prefix=$arch-linux-$runtime
+
           TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
           echo "prefix=$prefix" >> $GITHUB_ENV
           echo "target=$target" >> $GITHUB_ENV
