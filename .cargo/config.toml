@@ -14,32 +14,14 @@ registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index/"
 target = "arm-unknown-linux-musleabihf"
 
 [target.arm-unknown-linux-musleabi]
-linker = "arm-linux-musleabi-ld"
-ar = "arm-linux-musleabi-ar"
-strip = { path = "arm-linux-musleabi-strip" }
-objcpy = { path = "arm-linux-musleabi-objcopy" }
-rustflags = ["-C", "link-args=-s"]
+linker = "arm-linux-musleabi-gcc"
 
 [target.arm-unknown-linux-musleabihf]
-linker = "arm-linux-musleabihf-ld"
-ar = "arm-linux-musleabihf-ar"
-strip = { path = "arm-linux-musleabihf-strip" }
-objcpy = { path = "arm-linux-musleabihf-objcopy" }
-rustflags = ["-C", "link-args=-s"]
-
-[target.armv7-unknown-linux-musleabihf]
-linker = "arm-linux-musleabihf-ld"
-ar = "arm-linux-musleabihf-ar"
-strip = { path = "arm-linux-musleabihf-strip" }
-objcpy = { path = "arm-linux-musleabihf-objcopy" }
-rustflags = ["-C", "link-args=-s"]
+linker = "arm-linux-musleabihf-gcc"
 
 [target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-ld"
-ar = "aarch64-linux-musl-ar"
-rustflags = ["-C", "target-feature=+crt-static", "-C", "link-args=-s"]
-strip = { path = "aarch64-linux-musl-strip" }
-objcopy = { path = "aarch64-linux-musl-objcopy" }
+linker = "aarch64-linux-musl-gcc"
+rustflags = ["-C", "target-feature=+crt-static"]
 
 [alias]
 build-arm = "build --target arm-unknown-linux-musleabi"
