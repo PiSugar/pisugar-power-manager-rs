@@ -43,7 +43,7 @@ do
     shift
 done
 
-for i  in arm-unknown-linux-musleabi arm-unknown-linux-musleabihf aarch64-unknown-linux-musl x86_64-unknown-linux-gnu; do
+for i  in arm-unknown-linux-gnueabi arm-unknown-linux-gnueabihf aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu; do
     if ! test -d "$ROOT_DIR/target/$i" || test "$build" = "Y"; then
       echo "Building $i"
       rustup target add $i
@@ -57,9 +57,9 @@ mkdir aarch64
 mkdir x86_64
 
 for i in server poweroff programmer; do
-    cp "$ROOT_DIR/target/arm-unknown-linux-musleabi/release/pisugar-$i" arm/
-    cp "$ROOT_DIR/target/arm-unknown-linux-musleabihf/release/pisugar-$i" armhf/
-    cp "$ROOT_DIR/target/aarch64-unknown-linux-musl/release/pisugar-$i" aarch64/
+    cp "$ROOT_DIR/target/arm-unknown-linux-gnueabi/release/pisugar-$i" arm/
+    cp "$ROOT_DIR/target/arm-unknown-linux-gnueabihf/release/pisugar-$i" armhf/
+    cp "$ROOT_DIR/target/aarch64-unknown-linux-gnu/release/pisugar-$i" aarch64/
     cp "$ROOT_DIR/target/x86_64-unknown-linux-gnu/release/pisugar-$i" x86_64/
 done
 
