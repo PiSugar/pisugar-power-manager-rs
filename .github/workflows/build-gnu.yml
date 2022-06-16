@@ -89,7 +89,7 @@ jobs:
           cargo install cargo-rpm
           cargo build --target $target --release
           for app in server poweroff programmer; do
-            ${prefix}-strip -s target/${target}/pisugar-${app}
+            ${prefix}-strip -s target/${target}/release/pisugar-${app}
             cargo deb --target $target --manifest-path=pisugar-${app}/Cargo.toml
             (cd pisugar-${app} && cargo rpm build --target ${target})
           done
