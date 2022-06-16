@@ -15,13 +15,20 @@ target = "arm-unknown-linux-musleabihf"
 
 [target.arm-unknown-linux-musleabi]
 linker = "arm-linux-musleabi-gcc"
+strip = { path = "arm-linux-musleabi-strip" }
+objcopy = { path = "arm-linux-musleabi-objcopy" }
+
 
 [target.arm-unknown-linux-musleabihf]
 linker = "arm-linux-musleabihf-gcc"
+strip = { path = "arm-linux-musleabihf-strip" }
+objcopy = { path = "arm-linux-musleabihf-objcopy" }
 
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
 rustflags = ["-C", "target-feature=+crt-static"]
+strip = { path = "aarch64-linux-musl-strip" }
+objcopy = { path = "aarch64-linux-musl-objcopy" }
 
 [alias]
 build-arm = "build --target arm-unknown-linux-musleabi"
