@@ -22,12 +22,12 @@ lazy_static = "1.4"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.8", features = ["full"] }
-tokio-util = {version = "0.7", features = ["codec"]}
+tokio-util = { version = "0.7", features = ["codec"] }
 tokio-tungstenite = "0.17"
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures-channel = "0.3.5"
-hyper = {version ="0.14.10", features = ["client", "server", "tcp"]}
+hyper = { version = "0.14.10", features = ["client", "server", "tcp"] }
 hyper-staticfile = "0.8"
 hyper-tungstenite = "0.8"
 websocket-codec = "0.5"
@@ -50,18 +50,43 @@ section = "utility"
 priority = "optional"
 maintainer-scripts = "debian"
 assets = [
-    ["target/release/pisugar-server", "usr/bin/", "755"],                       # special
-    ["debian/pisugar-server.default", "etc/default/pisugar-server", "644"],
-    ["debian/pisugar-server.service", "lib/systemd/system/", "644"],
-    ["debian/config.json", "etc/pisugar-server/", "644"],
-    ["debian/_ws.json", "usr/share/pisugar-server/web/", "644"],
-    ["../electron/dist/web/*", "usr/share/pisugar-server/web/", "644"],
-    ["../electron/dist/web/fonts/*", "usr/share/pisugar-server/web/fonts", "644"]
+    [
+        "target/release/pisugar-server",
+        "usr/bin/",
+        "755",
+    ], # special
+    [
+        "debian/pisugar-server.default",
+        "etc/default/pisugar-server",
+        "644",
+    ],
+    [
+        "debian/pisugar-server.service",
+        "lib/systemd/system/",
+        "644",
+    ],
+    [
+        "debian/config.json",
+        "etc/pisugar-server/",
+        "644",
+    ],
+    [
+        "debian/_ws.json",
+        "usr/share/pisugar-server/web/",
+        "644",
+    ],
+    [
+        "../electron/dist/web/*",
+        "usr/share/pisugar-server/web/",
+        "644",
+    ],
+    [
+        "../electron/dist/web/fonts/*",
+        "usr/share/pisugar-server/web/fonts",
+        "644",
+    ],
 ]
-conf-files = [
-    "/etc/default/pisugar-server",
-    "/etc/pisugar-server/config.json"
-]
+conf-files = ["/etc/default/pisugar-server", "/etc/pisugar-server/config.json"]
 
 [package.metadata.rpm]
 package = "pisugar-server"
