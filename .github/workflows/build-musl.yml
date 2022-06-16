@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Fix cargo config
-        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       # Download web
       - name: Download web
@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Fix cargo config
-        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       # Download web
       - name: Download web
@@ -138,7 +138,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Fix cargo config
-        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       # Download web
       - name: Download web
@@ -208,7 +208,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Fix cargo config
-        run: sed -e "s/.*replace-with.*//g" -i .cargo/config
+        run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       # Download web
       - name: Download web
@@ -238,8 +238,8 @@ jobs:
       - run: |
           LIBGCC=$(find /opt/aarch64-linux-musl-cross -name libgcc.a)
           echo $LIBGCC
-          sed -e "s|\"/opt/aarch64-linux-musl-cross/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config
-          cat .cargo/config
+          sed -e "s|\"/opt/aarch64-linux-musl-cross/.*\"|\"${LIBGCC%/*}\"|" -i .cargo/config.toml
+          cat .cargo/config.toml
 
       # Rust toolchain
       - name: Rust toolchain
