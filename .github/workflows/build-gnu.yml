@@ -6,6 +6,7 @@ on:
 jobs:
   build-gnu:
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix:
         target:
@@ -16,19 +17,19 @@ jobs:
           #- armv7-unknown-linux-gnueabi
           #- armv7-unknown-linux-gnueabihf
           #- i586-unknown-linux-gnu
-          - i686-unknown-linux-gnu
+          # - i686-unknown-linux-gnu
           #- mips-unknown-linux-gnu
           #- mips64-unknown-linux-gnuabi64
           #- mips64el-unknown-linux-gnuabi64
           #- mipsel-unknown-linux-gnu not work
-          - powerpc-unknown-linux-gnu
-          - powerpc64-unknown-linux-gnu
-          - powerpc64le-unknown-linux-gnu
-          - riscv64gc-unknown-linux-gnu
+          # - powerpc-unknown-linux-gnu
+          # - powerpc64-unknown-linux-gnu
+          # - powerpc64le-unknown-linux-gnu
+          # - riscv64gc-unknown-linux-gnu
           #- s390x-unknown-linux-gnu
           #- sparc64-unknown-linux-gnu
           #- thumbv7neon-unknown-linux-gnueabihf
-          - x86_64-unknown-linux-gnu
+          # - x86_64-unknown-linux-gnu
           #- x86_64-unknown-linux-gnux32
     steps:
       # Checkout
@@ -51,7 +52,7 @@ jobs:
           target: ${{ matrix.target }}
         run: |
           set -e
-          
+
           if [ $target = "riscv64gc-unknown-linux-gnu" ]; then
             arch=riscv64
           else
@@ -60,18 +61,14 @@ jobs:
           runtime=${target##*-linux-}
           gcc=$(echo gcc-$arch-linux-$runtime | tr '_' '-')
           prefix=$arch-linux-$runtime
-          
+
           sudo apt update
           sudo apt install -y $gcc
-          
+
           TARGET=$(echo $target | tr '[a-z\-]' '[A-Z_]')
-          echo "env TARGET=$TARGET"
-          echo "env CARGO_TARGET_${TARGET}_LINKER=${prefix}-ld"
-          echo "env CARGO_TARGET_${TARGET}_RUSTFLAGS=-L=/lib/${prefix}"
+          echo "prefix=$prefix" >> $GITHUB_ENV
           echo "target=$target" >> $GITHUB_ENV
-          echo "RUSTC_LINKER=$prefix-ld" >> $GITHUB_ENV
-          echo "CARGO_TARGET_${TARGET}_LINKER=${prefix}-ld" >> $GITHUB_ENV
-          echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=-L/lib/${prefix}" >> $GITHUB_ENV
+          echo "CARGO_TARGET_${TARGET}_LINKER=${prefix}-gcc" >> $GITHUB_ENV
 
       # Rust cache
       - uses: Swatinem/rust-cache@v1
@@ -92,8 +89,9 @@ jobs:
           cargo install cargo-rpm
           cargo build --target $target --release
           for app in server poweroff programmer; do
-            cargo deb --target $target --manifest-path=pisugar-$app/Cargo.toml
-            (cd pisugar-$app && cargo rpm build --target $target)
+            ${prefix}-strip target/${target}/${app}
+            cargo deb --target $target --manifest-path=pisugar-${app}/Cargo.toml
+            (cd pisugar-${app} && cargo rpm build --target ${target})
           done
 
       # Upload artifact
@@ -103,6 +101,7 @@ jobs:
           name: gnu-${{ matrix.target }}
           path: |
             target
+            !target/release
             !target/**/.fingerprint
             !target/**/*.d
             !target/**/build
