@@ -97,10 +97,10 @@ jobs:
       - name: Rename deb and rpm
         run: |
           for i in $(find . -name '*.deb'); do
-            mv $i ${i/deb/-musl.deb}
+            mv $i ${i%.deb}-musl.deb
           done
           for i in $(find . -name '*.rpm'); do
-            mv $i ${i/rpm/-musl.rpm}
+            mv $i ${i%.rpm}-musl.rpm
           done
 
       # Upload artifact
