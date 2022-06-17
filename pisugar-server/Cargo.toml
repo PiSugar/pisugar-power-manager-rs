@@ -37,9 +37,6 @@ pisugar-core = { path = "../pisugar-core" }
 [[bin]]
 name = "pisugar-server"
 
-[profile.release]
-strip = true
-
 [package.metadata.deb]
 license-file = ["../LICENSE", "0"]
 copyright = "2020, PiSugar team"
@@ -50,41 +47,41 @@ section = "utility"
 priority = "optional"
 maintainer-scripts = "debian"
 assets = [
-    [
-        "target/release/pisugar-server",
-        "usr/bin/",
-        "755",
-    ], # special
-    [
-        "debian/pisugar-server.default",
-        "etc/default/pisugar-server",
-        "644",
-    ],
-    [
-        "debian/pisugar-server.service",
-        "lib/systemd/system/",
-        "644",
-    ],
-    [
-        "debian/config.json",
-        "etc/pisugar-server/",
-        "644",
-    ],
-    [
-        "debian/_ws.json",
-        "usr/share/pisugar-server/web/",
-        "644",
-    ],
-    [
-        "../electron/dist/web/*",
-        "usr/share/pisugar-server/web/",
-        "644",
-    ],
-    [
-        "../electron/dist/web/fonts/*",
-        "usr/share/pisugar-server/web/fonts",
-        "644",
-    ],
+  [
+    "target/release/pisugar-server",
+    "usr/bin/",
+    "755",
+  ], # special
+  [
+    "debian/pisugar-server.default",
+    "etc/default/pisugar-server",
+    "644",
+  ],
+  [
+    "debian/pisugar-server.service",
+    "lib/systemd/system/",
+    "644",
+  ],
+  [
+    "debian/config.json",
+    "etc/pisugar-server/",
+    "644",
+  ],
+  [
+    "debian/_ws.json",
+    "usr/share/pisugar-server/web/",
+    "644",
+  ],
+  [
+    "../electron/dist/web/*",
+    "usr/share/pisugar-server/web/",
+    "644",
+  ],
+  [
+    "../electron/dist/web/fonts/*",
+    "usr/share/pisugar-server/web/fonts",
+    "644",
+  ],
 ]
 conf-files = ["/etc/default/pisugar-server", "/etc/pisugar-server/config.json"]
 

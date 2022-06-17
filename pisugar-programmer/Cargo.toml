@@ -15,9 +15,6 @@ sysinfo = "0.23"
 [[bin]]
 name = "pisugar-programmer"
 
-[profile.release]
-strip = true
-
 [package.metadata.deb]
 license-file = ["../LICENSE", "0"]
 copyright = "2020, PiSugar team"
@@ -27,7 +24,7 @@ depends = "$auto"
 section = "utility"
 priority = "optional"
 assets = [
-    ["target/release/pisugar-programmer", "usr/bin/", "755"],                       # special
+  ["target/release/pisugar-programmer", "usr/bin/", "755"], # special
 ]
 
 [package.metadata.rpm]

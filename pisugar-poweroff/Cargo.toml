@@ -17,9 +17,6 @@ pisugar-core = { path = "../pisugar-core" }
 [[bin]]
 name = "pisugar-poweroff"
 
-[profile.release]
-strip = true
-
 [package.metadata.deb]
 license-file = ["../LICENSE", "0"]
 copyright = "2020, PiSugar team"
@@ -30,13 +27,23 @@ section = "utility"
 priority = "optional"
 maintainer-scripts = "debian"
 assets = [
-    ["target/release/pisugar-poweroff", "usr/bin/", "755"],                      # special
-    ["debian/pisugar-poweroff.default", "etc/default/pisugar-poweroff", "644"],
-    ["debian/pisugar-poweroff.service", "lib/systemd/system/", "644"]
+  [
+    "target/release/pisugar-poweroff",
+    "usr/bin/",
+    "755",
+  ], # special
+  [
+    "debian/pisugar-poweroff.default",
+    "etc/default/pisugar-poweroff",
+    "644",
+  ],
+  [
+    "debian/pisugar-poweroff.service",
+    "lib/systemd/system/",
+    "644",
+  ],
 ]
-conf-files = [
-    "/etc/default/pisugar-poweroff"
-]
+conf-files = ["/etc/default/pisugar-poweroff"]
 
 [package.metadata.rpm]
 package = "pisugar-poweroff"
