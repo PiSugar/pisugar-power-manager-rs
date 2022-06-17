@@ -84,8 +84,9 @@ jobs:
       # Build
       - name: Rust build
         run: |
-          find . -name '*.deb' | xargs rm -rf
-          find . -name '*.rpm' | xargs rm -rf
+          mkdir -p target
+          find target -name '*.deb' | xargs rm -rf
+          find target -name '*.rpm' | xargs rm -rf
           sudo apt update && sudo apt install -y rpm
           cargo install cargo-deb
           cargo install cargo-rpm
