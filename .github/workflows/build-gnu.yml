@@ -81,6 +81,12 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
 
+      - name: Install cargo utils
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+          cargo install cargo-deb
+          cargo install cargo-rpm
+
       # Build
       - name: Rust build
         run: |
@@ -88,9 +94,7 @@ jobs:
           find target -name '*.deb' | xargs rm -rf
           find target -name '*.rpm' | xargs rm -rf
           sudo apt update && sudo apt install -y rpm
-          cargo install cargo-deb
-          cargo install cargo-rpm
-          cargo build --target $target --release
+          cross build --target $target --release
           for app in server poweroff programmer; do
             ${prefix}-strip -s target/${target}/release/pisugar-${app}
             cargo deb --no-build --no-strip --target $target --manifest-path=pisugar-${app}/Cargo.toml
