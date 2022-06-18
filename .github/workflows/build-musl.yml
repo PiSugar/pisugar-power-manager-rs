@@ -97,15 +97,6 @@ jobs:
             (cd pisugar-${app} && cargo rpm build --target ${target})
           done
 
-      - name: Rename deb and rpm
-        run: |
-          for i in $(find . -name '*.deb'); do
-            mv $i ${i%.deb}-musl.deb
-          done
-          for i in $(find . -name '*.rpm'); do
-            mv $i ${i%.rpm}-musl.rpm
-          done
-
       # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
