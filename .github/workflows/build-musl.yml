@@ -71,6 +71,7 @@ jobs:
             tar -xvf x86_64-linux-musl-cross.tgz
             mv x86_64-linux-musl-cross /opt/
           fi
+          echo /opt/x86_64-linux-musl-cross/bin >> $GITHUB_PATH
 
           arch=${target%%-*}
           runtime=${target##*-linux-}
