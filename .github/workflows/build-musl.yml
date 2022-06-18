@@ -13,6 +13,7 @@ jobs:
           - arm-unknown-linux-musleabi
           - arm-unknown-linux-musleabihf
           - aarch64-unknown-linux-musl
+          - x86_64-unknown-linux-musl
     steps:
       # Checkout
       - name: Checkout
@@ -64,6 +65,12 @@ jobs:
             mv aarch64-linux-musl-cross /opt/
           fi
           echo /opt/aarch64-linux-musl-cross/bin >> $GITHUB_PATH
+
+          if ! test -d ; then
+            wget https://more.musl.cc/$(uname -m)-linux-musl/x86_64-linux-musl-cross.tgz
+            tar -xvf x86_64-linux-musl-cross.tgz
+            mv x86_64-linux-musl-cross /opt/
+          fi
 
           arch=${target%%-*}
           runtime=${target##*-linux-}

@@ -1,6 +1,6 @@
 v1.7.0
 1. Bugfix
-2. Switch to gnu toolchain
+2. Add gnu toolchain
 
 v1.6.7
 1. Add `soft_poweroff_shell`

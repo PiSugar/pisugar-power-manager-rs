@@ -10,9 +10,9 @@ jobs:
     strategy:
       matrix:
         target:
-          # - aarch64-unknown-linux-gnu
-          # - arm-unknown-linux-gnueabi
-          # - arm-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
+          - arm-unknown-linux-gnueabi
+          - arm-unknown-linux-gnueabihf
           #- armv5te-unknown-linux-gnueabi
           #- armv7-unknown-linux-gnueabi
           #- armv7-unknown-linux-gnueabihf
@@ -99,6 +99,15 @@ jobs:
             ${prefix}-strip -s target/${target}/release/pisugar-${app}
             cargo deb --no-build --no-strip --target $target -p pisugar-${app}
             (cd pisugar-${app} && cargo rpm build --target ${target})
+          done
+
+      - name: Rename deb and rpm
+        run: |
+          for i in $(find . -name '*.deb'); do
+            mv $i ${i%.deb}-gnu.deb
+          done
+          for i in $(find . -name '*.rpm'); do
+            mv $i ${i%.rpm}-gnu.rpm
           done
 
       # Upload artifact
