@@ -6,7 +6,6 @@ on:
 jobs:
   build-arm:
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       matrix:
         target:
