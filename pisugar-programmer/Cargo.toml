@@ -1,6 +1,6 @@
 [package]
 name = "pisugar-programmer"
-version = "1.7.0"
+version = "1.7.1"
 authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Firmware Programmer (for PiSugar 3)"
