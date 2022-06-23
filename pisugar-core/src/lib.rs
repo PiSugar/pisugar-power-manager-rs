@@ -368,7 +368,8 @@ impl PiSugarCore {
                 _ => I2C_ADDR_BAT,
             };
             log::debug!("Battery i2c addr: {:02x}({})", i2c_addr_bat, self.model);
-            let battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
+            let mut battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
+            battery.init(&self.config)?;
             self.battery = Some(battery);
         }
         Ok(())
@@ -376,7 +377,8 @@ impl PiSugarCore {
 
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
-            let rtc = self.model.rtc(self.config.i2c_bus)?;
+            let mut rtc = self.model.rtc(self.config.i2c_bus)?;
+            rtc.init(&self.config)?;
             self.rtc = Some(rtc);
         }
         Ok(())
@@ -394,8 +396,8 @@ impl PiSugarCore {
             rtc_sync_at: Instant::now(),
             ready: false,
         };
-        let _ = core.init_rtc();
-        let _ = core.init_battery();
+        core.init_rtc()?;
+        core.init_battery()?;
         Ok(core)
     }
 
@@ -640,10 +642,10 @@ impl PiSugarCore {
 
     pub async fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
         if !self.ready {
-            log::info!("Init battery...");
-            call_battery!(&mut self.battery, init, &self.config)?;
             log::info!("Init rtc...");
             call_rtc!(&mut self.rtc, init, &self.config)?;
+            log::info!("Init battery...");
+            call_battery!(&mut self.battery, init, &self.config)?;
             self.ready = true;
         }
 
