@@ -1,3 +1,6 @@
+v1.7.1
+1. Fix PiSugar 2 `auto_power_on`
+
 v1.7.0
 1. Bugfix
 2. Add gnu toolchain
