@@ -10,7 +10,9 @@ use std::convert::TryInto;
 fn shutdown(config: PiSugarConfig, model: Model, retries: u32) -> Result<()> {
     let core = PiSugarCore::new(config, model)?;
     for _ in 0..retries {
-        let _ = core.force_shutdown();
+        if let Err(e) = core.force_shutdown() {
+            eprintln!("{}", e);
+        }
         sleep(Duration::from_millis(10));
     }
     Ok(())

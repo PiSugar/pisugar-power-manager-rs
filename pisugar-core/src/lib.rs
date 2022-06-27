@@ -636,7 +636,7 @@ impl PiSugarCore {
             let _ = execute_shell("sync");
         }
 
-        let _ = call_rtc!(&self.rtc, force_shutdown);
+        call_rtc!(&self.rtc, force_shutdown)?;
         call_battery!(&self.battery, shutdown)
     }
 
