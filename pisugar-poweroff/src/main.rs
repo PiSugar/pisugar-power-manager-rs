@@ -7,9 +7,9 @@ use clap::{Arg, Command};
 use pisugar_core::{Model, PiSugarConfig, PiSugarCore, Result};
 use std::convert::TryInto;
 
-fn shutdown(config: PiSugarConfig, model: Model) -> Result<()> {
+fn shutdown(config: PiSugarConfig, model: Model, retries: u32) -> Result<()> {
     let core = PiSugarCore::new(config, model)?;
-    for _ in 0..3 {
+    for _ in 0..retries {
         let _ = core.force_shutdown();
         sleep(Duration::from_millis(10));
     }
@@ -52,6 +52,14 @@ fn main() {
                 .help("Countdown seconds, e.g. 3"),
         )
         .arg(
+            Arg::new("retries")
+                .short('r')
+                .long("retries")
+                .value_name("RETRIES")
+                .default_value("1000")
+                .help("Retries, e.g. 1000"),
+        )
+        .arg(
             Arg::new("configfile")
                 .short('f')
                 .long("config")
@@ -64,6 +72,7 @@ fn main() {
     let model: Model = matches.value_of("model").unwrap().try_into().unwrap();
 
     let countdown: u64 = matches.value_of("countdown").unwrap().parse().unwrap();
+    let retries: u32 = matches.value_of("retries").unwrap().parse().unwrap();
     let config_file: &str = matches.value_of("configfile").unwrap();
     for i in 0..countdown {
         eprint!("{} ", countdown - i);
@@ -73,5 +82,5 @@ fn main() {
 
     let mut config = PiSugarConfig::default();
     let _ = config.load(Path::new(config_file));
-    let _ = shutdown(config, model);
+    let _ = shutdown(config, model, retries);
 }
