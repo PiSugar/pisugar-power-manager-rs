@@ -11,7 +11,7 @@ registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"
 registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index/"
 
 [build]
-target = "arm-unknown-linux-musleabihf"
+# target = "arm-unknown-linux-musleabihf"
 
 [target.arm-unknown-linux-musleabi]
 linker = "arm-linux-musleabi-gcc"
