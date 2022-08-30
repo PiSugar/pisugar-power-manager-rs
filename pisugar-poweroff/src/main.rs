@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use clap::{Arg, Command};
 
+use env_logger::Env;
 use pisugar_core::{Model, PiSugarConfig, PiSugarCore, Result};
 use std::convert::TryInto;
 
@@ -29,6 +30,14 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
+        .arg(
+            Arg::new("log")
+                .short('l')
+                .long("log")
+                .takes_value(true)
+                .default_value("info")
+                .help("Log level, debug/info/warn/error"),
+        )
         .arg(
             Arg::new("model")
                 .short('m')
@@ -72,7 +81,7 @@ fn main() {
         .get_matches();
 
     let model: Model = matches.value_of("model").unwrap().try_into().unwrap();
-
+    let log_level = matches.value_of("log").unwrap();
     let countdown: u64 = matches.value_of("countdown").unwrap().parse().unwrap();
     let retries: u32 = matches.value_of("retries").unwrap().parse().unwrap();
     let config_file: &str = matches.value_of("configfile").unwrap();
@@ -81,6 +90,8 @@ fn main() {
         sleep(Duration::from_secs(1));
     }
     eprint!("0...\n");
+
+    env_logger::Builder::from_env(Env::default().default_filter_or(log_level)).init();
 
     let mut config = PiSugarConfig::default();
     let _ = config.load(Path::new(config_file));

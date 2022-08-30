@@ -811,6 +811,7 @@ name = "pisugar-poweroff"
 version = "1.7.2"
 dependencies = [
  "clap",
+ "env_logger",
  "pisugar-core",
 ]
 
