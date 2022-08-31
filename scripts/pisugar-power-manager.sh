@@ -17,9 +17,9 @@ type=deb
 rpm_n=1
 
 # check distribution
-if which apt && which dpkg ; then
+if which apt >/dev/null 2>&1 && which dpkg >/dev/null 2>&1; then
     type=deb
-elif which rpm ; then
+elif which rpm >/dev/null 2>&1 ; then
     type=rpm
 else
     echo "Unsupported linux distribution, dpkg/rpm not found"

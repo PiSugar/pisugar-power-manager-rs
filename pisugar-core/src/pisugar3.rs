@@ -94,7 +94,7 @@ impl PiSugar3 {
     }
 
     fn i2c_write_byte(&self, cmd: u8, data: u8) -> Result<()> {
-        log::debug!("i2c write cmd: 0x{:x}, data: 0x{:x}", cmd, data);
+        log::debug!("i2c write cmd: 0x{:02x}, data: 0x{:02x}", cmd, data);
         self.toggle_write_enable(true)?;
         let r = self.i2c.smbus_write_byte(cmd, data);
         self.toggle_write_enable(false)?;
@@ -102,9 +102,9 @@ impl PiSugar3 {
     }
 
     fn i2c_read_byte(&self, cmd: u8) -> Result<u8> {
-        log::debug!("i2c read cmd: 0x{:x}", cmd);
+        log::debug!("i2c read cmd: 0x{:02x}", cmd);
         let r = self.i2c.smbus_read_byte(cmd)?;
-        log::debug!("i2c read cmd: 0x{:x}, data: 0x{:x}", cmd, r);
+        log::debug!("i2c read cmd: 0x{:02x}, data: 0x{:02x}", cmd, r);
         Ok(r)
     }
 
@@ -112,7 +112,7 @@ impl PiSugar3 {
         let ctr1 = self.i2c_read_byte(IIC_CMD_CTR1)?;
         let ctr1_again = self.i2c_read_byte(IIC_CMD_CTR1)?;
         if ctr1 != ctr1_again {
-            log::warn!("ctr1 changed during reading 0x{:x}!=0x{:x}", ctr1, ctr1_again);
+            log::warn!("ctr1 changed during reading 0x{:02x}!=0x{:02x}", ctr1, ctr1_again);
         }
         Ok(ctr1)
     }
