@@ -12,6 +12,7 @@ homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
 [dependencies]
 clap = "3"
 pisugar-core = { path = "../pisugar-core" }
+log = "0.4"
 env_logger = "0.9"
 
 

@@ -142,7 +142,7 @@ pub struct PiSugarConfig {
 
     /// I2C addr, default 0x57 (87), available in PiSugar3
     #[serde(default)]
-    pub i2c_addr: Option<u8>,
+    pub i2c_addr: Option<u16>,
 
     /// Alarm time
     #[serde(default)]
@@ -309,37 +309,37 @@ pub fn notify_shutdown_soon(message: &str) {
 }
 
 macro_rules! call_i2c {
-    ($i2c_addr:expr, $obj:expr, $method:tt) => {
+    ($obj:expr, $method:tt) => {
         if let Some(obj) = $obj {
             obj.$method()
         } else {
-            Err(I2cError::InvalidSlaveAddress($i2c_addr).into())
+            Err("I2C not connected".to_string().into())
         }
     };
-    ($i2c_addr:expr, $obj:expr, $method:tt, $($arg:tt)*) => {
+    ($obj:expr, $method:tt, $($arg:tt)*) => {
         if let Some(obj) = $obj {
             obj.$method($($arg)*)
         } else {
-            Err(I2cError::InvalidSlaveAddress($i2c_addr).into())
+            Err("I2C not connected".to_string().into())
         }
     };
 }
 
 macro_rules! call_battery {
     ($battery:expr, $method:tt) => {
-        call_i2c!(I2C_ADDR_BAT, $battery, $method)
+        call_i2c!($battery, $method)
     };
     ($battery:expr, $method:tt, $($arg:tt)*) => {
-        call_i2c!(I2C_ADDR_BAT, $battery, $method, $($arg)*)
+        call_i2c!($battery, $method, $($arg)*)
     }
 }
 
 macro_rules! call_rtc {
     ($rtc:expr, $method:tt) => {
-        call_i2c!(I2C_ADDR_RTC, $rtc, $method)
+        call_i2c!($rtc, $method)
     };
     ($rtc:expr, $method:tt, $($arg:tt)*) => {
-        call_i2c!(I2C_ADDR_RTC, $rtc, $method, $($arg)*)
+        call_i2c!($rtc, $method, $($arg)*)
     }
 }
 
@@ -359,16 +359,8 @@ pub struct PiSugarCore {
 impl PiSugarCore {
     fn init_battery(&mut self) -> Result<()> {
         if self.battery.is_none() {
-            let i2c_addr_bat = match self.model {
-                Model::PiSugar_3 => self
-                    .config
-                    .i2c_addr
-                    .map(|addr| addr as u16)
-                    .unwrap_or(pisugar3::I2C_ADDR_P3),
-                _ => I2C_ADDR_BAT,
-            };
-            log::debug!("Battery i2c addr: {:02x}({})", i2c_addr_bat, self.model);
-            let mut battery = self.model.bind(self.config.i2c_bus, i2c_addr_bat)?;
+            log::debug!("Core init battery...");
+            let mut battery = self.model.bind(self.config.i2c_bus, self.config.i2c_addr)?;
             battery.init(&self.config)?;
             self.battery = Some(battery);
         }
@@ -377,7 +369,8 @@ impl PiSugarCore {
 
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
-            let mut rtc = self.model.rtc(self.config.i2c_bus)?;
+            log::debug!("Core init rtc...");
+            let mut rtc = self.model.rtc(self.config.i2c_bus, self.config.i2c_addr)?;
             rtc.init(&self.config)?;
             self.rtc = Some(rtc);
         }
@@ -398,6 +391,23 @@ impl PiSugarCore {
         };
         core.init_rtc()?;
         core.init_battery()?;
+        Ok(core)
+    }
+
+    pub fn new_without_init(config: PiSugarConfig, model: Model) -> Result<Self> {
+        let mut core = Self {
+            config_path: None,
+            config: config.clone(),
+            model,
+            battery: None,
+            battery_full_at: None,
+            rtc: None,
+            poll_check_at: Instant::now(),
+            rtc_sync_at: Instant::now(),
+            ready: false,
+        };
+        core.battery = Some(model.bind(config.i2c_bus, config.i2c_addr)?);
+        core.rtc = Some(model.rtc(config.i2c_bus, config.i2c_addr)?);
         Ok(core)
     }
 

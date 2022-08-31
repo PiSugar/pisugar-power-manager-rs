@@ -54,12 +54,11 @@ impl IP5312 {
 
     /// Parse level(%)
     pub fn parse_voltage_level(voltage: f32) -> f32 {
-        let level = if voltage > 0.0 {
+        if voltage > 0.0 {
             convert_battery_voltage_to_level(voltage, &BATTERY_CURVE)
         } else {
             100.0
-        };
-        level
+        }
     }
 
     /// Read intensity (A)

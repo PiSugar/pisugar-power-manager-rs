@@ -3,16 +3,15 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use clap::{Arg, Command};
-
 use env_logger::Env;
 use pisugar_core::{Model, PiSugarConfig, PiSugarCore, Result};
 use std::convert::TryInto;
 
 fn shutdown(config: PiSugarConfig, model: Model, retries: u32) -> Result<()> {
-    let core = PiSugarCore::new(config, model)?;
     for _ in 0..retries {
+        let core = PiSugarCore::new_without_init(config.clone(), model)?;
         if let Err(e) = core.force_shutdown() {
-            eprintln!("{}", e);
+            log::warn!("{}", e);
         }
         sleep(Duration::from_millis(10));
     }
@@ -89,11 +88,13 @@ fn main() {
         eprint!("{} ", countdown - i);
         sleep(Duration::from_secs(1));
     }
-    eprint!("0...\n");
+    eprintln!("0...");
 
     env_logger::Builder::from_env(Env::default().default_filter_or(log_level)).init();
 
     let mut config = PiSugarConfig::default();
-    let _ = config.load(Path::new(config_file));
+    if let Err(e) = config.load(Path::new(config_file)) {
+        log::warn!("Load config file {} error: {}", config_file, e);
+    }
     let _ = shutdown(config, model, retries);
 }

@@ -68,14 +68,14 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
 
 /// Handle request
 fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
-    let parts: Vec<String> = req.split(" ").map(|s| s.to_string()).collect();
+    let parts: Vec<String> = req.split(' ').map(|s| s.to_string()).collect();
     let err = "Invalid request.\n".to_string();
 
     log::debug!("Request: {}", req);
 
     let core_cloned = core.clone();
     if let Ok(mut core) = core.lock() {
-        if parts.len() > 0 {
+        if !parts.is_empty() {
             match parts[0].as_str() {
                 "get" => {
                     if parts.len() > 1 {
@@ -164,7 +164,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
                             "soft_poweroff" => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
                             "soft_poweroff_shell" => {
-                                Ok(core.config().soft_poweroff_shell.clone().unwrap_or("".to_string()))
+                                Ok(core.config().soft_poweroff_shell.clone().unwrap_or_else(|| "".to_string()))
                             }
                             "temperature" => core.get_temperature().map(|x| x.to_string()),
                             "input_protect" => core.input_protected().map(|x| x.to_string()),
@@ -536,9 +536,9 @@ where
         while let Some(Ok(buf)) = stream.next().await {
             let reqs = String::from_utf8_lossy(buf.as_ref());
             let reqs = reqs.trim_end_matches("\n");
-            for req in reqs.split("\n") {
+            for req in reqs.split('\n') {
                 log::debug!("Req: {}", req);
-                let req = req.replace("\r", "");
+                let req = req.replace('\r', "");
                 let resp = handle_request(core.clone(), req.as_str());
                 log::debug!("Resp: {}", resp);
                 tx_cloned.send(Some(resp)).await.expect("Channel failed");
@@ -606,7 +606,7 @@ async fn handle_ws_connection(
     tokio::spawn(async move {
         while let Some(Ok(msg)) = stream.next().await {
             if let Ok(msg) = msg.to_text() {
-                let req = msg.replace("\n", "");
+                let req = msg.replace('\n', "");
                 log::debug!("Req: {}", req);
                 let resp = handle_request(core.clone(), req.as_str());
                 log::debug!("Resp: {}", resp);

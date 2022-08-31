@@ -812,6 +812,7 @@ version = "1.7.2"
 dependencies = [
  "clap",
  "env_logger",
+ "log",
  "pisugar-core",
 ]
 
