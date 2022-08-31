@@ -71,7 +71,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
     let parts: Vec<String> = req.split(' ').map(|s| s.to_string()).collect();
     let err = "Invalid request.\n".to_string();
 
-    log::debug!("Request: {}", req);
+    if !req.contains("set_auth") {
+        log::debug!("Request: {}", req);
+    }
 
     let core_cloned = core.clone();
     if let Ok(mut core) = core.lock() {
@@ -824,6 +826,7 @@ async fn handle_http_req(
     core: Arc<Mutex<PiSugarCore>>,
     event_rx: EventRx,
 ) -> Result<Response<Body>, io::Error> {
+    log::info!("request: {} {}", req.method(), req.uri());
     // check for http auth
     if let Ok(config) = core.lock() {
         if let Some(account) = &config.config().digest_auth {

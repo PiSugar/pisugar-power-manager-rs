@@ -125,7 +125,7 @@ impl From<DateTime<Utc>> for RTCRawTime {
 }
 
 impl TryFrom<RTCRawTime> for DateTime<Utc> {
-    type Error = ();
+    type Error = String;
 
     fn try_from(t: RTCRawTime) -> std::result::Result<Self, Self::Error> {
         let sec = bcd_to_dec(t.0[0]) as u32;
@@ -138,7 +138,10 @@ impl TryFrom<RTCRawTime> for DateTime<Utc> {
         let datetime = Utc.ymd_opt(year, month, day_of_month).and_hms_opt(hour, min, sec);
         match datetime {
             LocalResult::Single(datetime) => Ok(datetime),
-            _ => Err(()),
+            _ => Err(format!(
+                "Invalid datetime: {}-{}-{} {}:{}:{}",
+                year, month, day_of_month, hour, min, sec
+            )),
         }
     }
 }
@@ -151,7 +154,7 @@ impl From<DateTime<Local>> for RTCRawTime {
 }
 
 impl TryFrom<RTCRawTime> for DateTime<Local> {
-    type Error = ();
+    type Error = String;
 
     fn try_from(t: RTCRawTime) -> std::result::Result<Self, Self::Error> {
         t.try_into().and_then(|dt: DateTime<Utc>| Ok(DateTime::from(dt)))
