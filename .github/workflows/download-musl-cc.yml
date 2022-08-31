@@ -21,8 +21,8 @@ jobs:
           sudo apt update && sudo apt install -y axel
 
           if ! test -d /opt/arm-linux-musleabi-cross/bin; then
-            wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
-            axel -xvf arm-linux-musleabi-cross.tgz
+            axel https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
+            tar -xvf arm-linux-musleabi-cross.tgz
             mv arm-linux-musleabi-cross /opt/
           fi
 
