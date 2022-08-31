@@ -37,6 +37,7 @@ jobs:
             /opt/arm-linux-musleabi-cross
             /opt/arm-linux-musleabihf-cross
             /opt/aarch64-linux-musl-cross
+            /opt/x86_64-linux-musl-cross
           key: musl-cc-cache
 
       # Musl gcc
