@@ -130,7 +130,7 @@ fn default_i2c_bus() -> u8 {
 }
 
 /// PiSugar configuration
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PiSugarConfig {
     /// Http digest auth
     #[serde(default)]
@@ -247,6 +247,37 @@ impl PiSugarConfig {
         log::info!("Dump config:\n{}", s);
         f.set_len(0)?;
         f.write_all(s.as_bytes())
+    }
+}
+
+impl Default for PiSugarConfig {
+    fn default() -> Self {
+        Self {
+            digest_auth: Default::default(),
+            i2c_bus: 1,
+            i2c_addr: Default::default(),
+            auto_wake_time: Default::default(),
+            auto_wake_repeat: Default::default(),
+            single_tap_enable: Default::default(),
+            single_tap_shell: Default::default(),
+            double_tap_enable: Default::default(),
+            double_tap_shell: Default::default(),
+            long_tap_enable: Default::default(),
+            long_tap_shell: Default::default(),
+            auto_shutdown_level: Default::default(),
+            auto_shutdown_delay: Default::default(),
+            auto_charging_range: Default::default(),
+            full_charge_duration: Default::default(),
+            auto_power_on: Default::default(),
+            soft_poweroff: Default::default(),
+            soft_poweroff_shell: Default::default(),
+            auto_rtc_sync: Default::default(),
+            adj_comm: Default::default(),
+            adj_diff: Default::default(),
+            rtc_adj_ppm: Default::default(),
+            anti_mistouch: Default::default(),
+            bat_protect: Default::default(),
+        }
     }
 }
 

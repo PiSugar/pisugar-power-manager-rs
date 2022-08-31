@@ -163,9 +163,11 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             }
                             "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
                             "soft_poweroff" => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
-                            "soft_poweroff_shell" => {
-                                Ok(core.config().soft_poweroff_shell.clone().unwrap_or_else(|| "".to_string()))
-                            }
+                            "soft_poweroff_shell" => Ok(core
+                                .config()
+                                .soft_poweroff_shell
+                                .clone()
+                                .unwrap_or_else(|| "".to_string())),
                             "temperature" => core.get_temperature().map(|x| x.to_string()),
                             "input_protect" => core.input_protected().map(|x| x.to_string()),
                             _ => return err,
