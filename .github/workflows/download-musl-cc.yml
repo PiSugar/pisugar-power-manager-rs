@@ -23,7 +23,7 @@ jobs:
 
           for i in arm-linux-musleabi-cross arm-linux-musleabihf-cross aarch64-linux-musl-cross x86_64-linux-musl-cross; do
             if ! test -d /opt/${i}/bin; then
-              wget http://musl.cc/${i}.tgz
+              axel http://musl.cc/${i}.tgz
               tar -xvf ${i}.tgz
               mv $i /opt/
             fi
