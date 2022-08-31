@@ -44,7 +44,7 @@ jobs:
         env:
           target: ${{ matrix.target }}
         run: |
-          audo apt update && sudo apt install -y axel
+          sudo apt update && sudo apt install -y axel
 
           if ! test -d /opt/arm-linux-musleabi-cross/bin; then
             wget https://more.musl.cc/$(uname -m)-linux-musl/arm-linux-musleabi-cross.tgz
