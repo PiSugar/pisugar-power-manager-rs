@@ -66,7 +66,8 @@ jobs:
           echo /opt/aarch64-linux-musl-cross/bin >> $GITHUB_PATH
 
           if ! test -d /opt/x86_64-linux-musl-cross/bin; then
-            wget https://more.musl.cc/$(uname -m)-linux-musl/x86_64-linux-musl-cross.tgz
+            # wget https://more.musl.cc/$(uname -m)-linux-musl/x86_64-linux-musl-cross.tgz
+            wget http://musl.cc/x86_64-linux-musl-cross.tgz
             tar -xvf x86_64-linux-musl-cross.tgz
             mv x86_64-linux-musl-cross /opt/
           fi
