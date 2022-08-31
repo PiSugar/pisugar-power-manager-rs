@@ -17,6 +17,7 @@ jobs:
   build-gnu:
     needs:
       - build-web
+      - download-musl-cc
     uses: ./.github/workflows/build-gnu.yml
   build-other:
     needs:
