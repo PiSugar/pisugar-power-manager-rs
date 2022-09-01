@@ -1,5 +1,6 @@
 v1.7.2
 1. Add `retries` option to pisugar-poweroff
+2. Fix bugs
 
 v1.7.1
 1. Fix PiSugar 2 `auto_power_on`
