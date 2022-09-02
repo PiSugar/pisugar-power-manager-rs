@@ -1084,71 +1084,86 @@ async fn main() -> std::io::Result<()> {
 
     // tcp
     if matches.is_present("tcp") {
-        let tcp_addr = matches.value_of("tcp").unwrap();
+        let tcp_addr = matches.value_of("tcp").unwrap().to_string();
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
-        match TcpListener::bind(tcp_addr).await {
-            Ok(tcp_listener) => {
-                tokio::spawn(async move {
-                    log::info!("TCP listening...");
-                    while let Ok((stream, addr)) = tcp_listener.accept().await {
-                        log::info!("TCP from {}", addr);
-                        let core = core_cloned.clone();
-                        let _ = handle_tcp_stream(core, stream, event_rx_cloned.clone()).await;
+        tokio::spawn(async move {
+            loop {
+                match TcpListener::bind(&tcp_addr).await {
+                    Ok(tcp_listener) => {
+                        log::info!("TCP listening...");
+                        while let Ok((stream, addr)) = tcp_listener.accept().await {
+                            log::info!("TCP from {}", addr);
+                            let core = core_cloned.clone();
+                            if let Err(e) = handle_tcp_stream(core, stream, event_rx_cloned.clone()).await {
+                                log::error!("Handle tcp error: {}", e);
+                            }
+                        }
+                        log::info!("TCP stopped");
                     }
-                    log::info!("TCP stopped");
-                });
+                    Err(e) => {
+                        log::warn!("TCP bind error: {}", e);
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(3)).await;
             }
-            Err(e) => {
-                log::warn!("TCP bind error: {}", e);
-            }
-        }
+        });
     }
 
     // ws
     if matches.is_present("ws") {
-        let ws_addr = matches.value_of("ws").unwrap();
+        let ws_addr = matches.value_of("ws").unwrap().to_string();
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
-        match tokio::net::TcpListener::bind(ws_addr).await {
-            Ok(ws_listener) => {
-                tokio::spawn(async move {
-                    log::info!("WS listening...");
-                    while let Ok((stream, addr)) = ws_listener.accept().await {
-                        log::info!("WS from {}", addr);
-                        let core = core_cloned.clone();
-                        let _ = handle_ws_connection(core, stream, event_rx_cloned.clone()).await;
+        tokio::spawn(async move {
+            loop {
+                match tokio::net::TcpListener::bind(&ws_addr).await {
+                    Ok(ws_listener) => {
+                        log::info!("WS listening...");
+                        while let Ok((stream, addr)) = ws_listener.accept().await {
+                            log::info!("WS from {}", addr);
+                            let core = core_cloned.clone();
+                            if let Err(e) = handle_ws_connection(core, stream, event_rx_cloned.clone()).await {
+                                log::warn!("Handle ws error: {}", e);
+                            }
+                        }
+                        log::info!("WS stopped");
                     }
-                    log::info!("WS stopped");
-                });
+                    Err(e) => {
+                        log::warn!("WS bind error: {}", e);
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(3)).await;
             }
-            Err(e) => {
-                log::warn!("WS bind error: {}", e);
-            }
-        }
+        });
     }
 
     // uds
     if matches.is_present("uds") {
-        let uds_addr = matches.value_of("uds").unwrap();
+        let uds_addr = matches.value_of("uds").unwrap().to_string();
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
-        match tokio::net::UnixListener::bind(uds_addr) {
-            Ok(uds_listener) => {
-                tokio::spawn(async move {
-                    log::info!("UDS listening...");
-                    while let Ok((stream, addr)) = uds_listener.accept().await {
-                        log::info!("UDS from {:?}", addr);
-                        let core = core_cloned.clone();
-                        let _ = handle_uds_stream(core, stream, event_rx_cloned.clone()).await;
+        tokio::spawn(async move {
+            loop {
+                match tokio::net::UnixListener::bind(&uds_addr) {
+                    Ok(uds_listener) => {
+                        log::info!("UDS listening...");
+                        while let Ok((stream, addr)) = uds_listener.accept().await {
+                            log::info!("UDS from {:?}", addr);
+                            let core = core_cloned.clone();
+                            if let Err(e) = handle_uds_stream(core, stream, event_rx_cloned.clone()).await {
+                                log::error!("Handle uds error: {}", e);
+                            }
+                        }
+                        log::info!("UDS stopped");
                     }
-                    log::info!("UDS stopped");
-                });
+                    Err(e) => {
+                        log::warn!("UDS bind error: {}", e);
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(3)).await;
             }
-            Err(e) => {
-                log::warn!("UDS bind error: {}", e);
-            }
-        }
+        });
     }
 
     // http web/ws
@@ -1159,9 +1174,12 @@ async fn main() -> std::io::Result<()> {
         let http_addr = matches.value_of("http").unwrap().parse().unwrap();
         let _web_dir_cloned = web_dir.clone();
         tokio::spawn(async move {
-            log::info!("Http web server listening...");
-            let _ = serve_http(http_addr, web_dir, core_cloned, event_rx).await;
-            log::info!("Http web server stopped");
+            loop {
+                log::info!("Http web server listening...");
+                serve_http(http_addr, web_dir.clone(), core_cloned.clone(), event_rx.clone()).await;
+                log::info!("Http web server stopped");
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
         });
 
         // Write a _ws.json file
@@ -1226,24 +1244,6 @@ async fn main() -> std::io::Result<()> {
                 } else {
                     battery_high_at = tokio::time::Instant::now();
                 }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use chrono::DateTime;
-    use hyper::Client;
-
-    use super::TIME_HOST;
-
-    #[tokio::test]
-    async fn test_web_date() {
-        let resp = Client::new().get(TIME_HOST.parse().unwrap()).await.unwrap();
-        if let Some(date) = resp.headers().get("date") {
-            if let Ok(Ok(dt)) = date.to_str().map(DateTime::parse_from_rfc2822) {
-                println!("{}", dt);
             }
         }
     }
