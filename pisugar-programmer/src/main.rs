@@ -39,7 +39,7 @@ fn show_warning() {
     println!("CONFIRM? (y or n): ");
     let mut confirm = String::new();
     io::stdin().read_line(&mut confirm).unwrap();
-    if !confirm.to_lowercase().trim_start().starts_with("y") {
+    if !confirm.to_lowercase().trim_start().starts_with('y') {
         exit(0);
     }
 

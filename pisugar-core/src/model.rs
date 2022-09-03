@@ -64,7 +64,7 @@ impl Model {
 
     pub fn rtc(&self, i2c_bus: u8, i2c_addr: Option<u16>) -> Result<Box<dyn RTC + Send>> {
         let i2c_addr = if *self == Model::PiSugar_3 {
-            i2c_addr.unwrap_or_else(self.default_rtc_i2c_addr())
+            i2c_addr.unwrap_or_else(|| self.default_rtc_i2c_addr())
         } else {
             self.default_rtc_i2c_addr()
         };
