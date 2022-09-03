@@ -14,6 +14,7 @@ clap = "3"
 pisugar-core = { path = "../pisugar-core" }
 log = "0.4"
 env_logger = "0.9"
+anyhow = "1"
 
 
 [[bin]]

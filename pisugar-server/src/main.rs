@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::remove_file;
@@ -9,7 +8,9 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Instant, SystemTime};
+use std::{collections::HashMap, fmt::format};
 
+use anyhow::{anyhow, bail, Result};
 use chrono::prelude::*;
 use clap::{Arg, Command};
 use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
@@ -175,11 +176,12 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             _ => return err,
                         };
 
-                        return if resp.is_ok() {
-                            format!("{}: {}\n", parts[1], resp.unwrap())
-                        } else {
-                            log::error!("{}", resp.err().unwrap());
-                            err
+                        return match resp {
+                            Ok(s) => format!("{}: {}\n", parts[1], s),
+                            Err(e) => {
+                                log::error!("{}", e);
+                                err
+                            }
                         };
                     };
                 }
@@ -759,7 +761,7 @@ fn build_realm(req: &Request<Body>, user: &str) -> String {
     realm
 }
 
-fn build_www_header(req: &Request<Body>, user: &str) -> String {
+fn build_www_header(req: &Request<Body>, user: &str) -> Result<String> {
     let now = SystemTime::now();
     let realm = build_realm(req, user);
 
@@ -772,11 +774,11 @@ fn build_www_header(req: &Request<Body>, user: &str) -> String {
     let opaque = base64::encode(opaque);
 
     let nc = 0;
-    SECURITY_CTX
+    let mut ctx = SECURITY_CTX
         .lock()
-        .unwrap()
-        .retain(|_, v| v.1 + Duration::from_secs(SECURITY_TIMEOUT_SECONDS) > now);
-    SECURITY_CTX.lock().unwrap().insert(opaque.clone(), (nc, now));
+        .map_err(|e| anyhow!("Lock security ctx errro: {}", e))?;
+    ctx.retain(|_, v| v.1 + Duration::from_secs(SECURITY_TIMEOUT_SECONDS) > now);
+    ctx.insert(opaque.clone(), (nc, now));
 
     let header = digest_auth::WwwAuthenticateHeader {
         domain: Some(vec!["/".to_string()]),
@@ -790,19 +792,30 @@ fn build_www_header(req: &Request<Body>, user: &str) -> String {
         charset: Charset::UTF8,
         nc,
     };
-    header.to_string()
+    Ok(header.to_string())
 }
 
-fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> Option<WwwAuthenticateHeader> {
-    auth_header.opaque.as_ref()?;
-    let opaque = auth_header.opaque.clone().unwrap();
+fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> Result<WwwAuthenticateHeader> {
+    let opaque = auth_header
+        .opaque
+        .clone()
+        .ok_or_else(|| anyhow!("Rebuild www header, server opaque not exist"))?;
 
-    let ctx = SECURITY_CTX.lock().unwrap();
-    if !ctx.contains_key(&opaque) {
-        return None;
-    }
+    let mut ctx = SECURITY_CTX
+        .lock()
+        .map_err(|e| anyhow!("Lock SECURITY_CTX error: {}", e))?;
+
+    let (nc, last_time) = ctx
+        .get(&opaque)
+        .ok_or_else(|| anyhow!("Rebuild www header, server opaque not in SECURITY_CTX"))?;
+
+    let now = SystemTime::now();
+    let duration = now.duration_since(last_time.clone())?;
+    log::info!("**** ctx nc {}, duration {}s ****", nc, duration.as_secs());
+    log::info!("**** auth nc {} ****", auth_header.nc);
 
     let realm = build_realm(req, &auth_header.username);
+    let new_nc = auth_header.nc - 1;
 
     let www_header = WwwAuthenticateHeader {
         domain: Some(vec!["/".to_string()]),
@@ -814,9 +827,13 @@ fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) ->
         qop: auth_header.qop.map(|x| vec![x]),
         userhash: auth_header.userhash,
         charset: Charset::UTF8,
-        nc: auth_header.nc - 1,
+        nc: new_nc,
     };
-    Some(www_header)
+
+    // update security ctx
+    ctx.insert(opaque, (new_nc, SystemTime::now()));
+
+    Ok(www_header)
 }
 
 /// Handle http request, /ws to websocket
@@ -825,7 +842,7 @@ async fn handle_http_req(
     static_: hyper_staticfile::Static,
     core: Arc<Mutex<PiSugarCore>>,
     event_rx: EventRx,
-) -> Result<Response<Body>, io::Error> {
+) -> Result<Response<Body>> {
     log::info!("request: {} {}", req.method(), req.uri());
     // check for http auth
     if let Ok(config) = core.lock() {
@@ -834,52 +851,44 @@ async fn handle_http_req(
             let mut auth_ok = false;
             for (name, value) in req.headers() {
                 if name.eq(&hyper::header::AUTHORIZATION) {
-                    let value = value.to_str();
-                    if value.is_err() {
-                        continue;
-                    }
+                    if let Ok(value) = value.to_str() {
+                        let auth_header = match AuthorizationHeader::parse(value) {
+                            Err(e) => {
+                                log::warn!("invalid authentication header {}", e);
+                                continue;
+                            }
+                            Ok(h) => h,
+                        };
+                        auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
 
-                    let auth_header = match AuthorizationHeader::parse(value.unwrap()) {
-                        Err(e) => {
-                            log::warn!("invalid authentication header {}", e);
-                            continue;
-                        }
-                        Ok(h) => h,
-                    };
-                    auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
-
-                    let www_header = rebuild_www_header(&req, &auth_header);
-                    if www_header.is_none() {
-                        log::warn!("rebuild www authentication header error");
-                        continue;
+                        let www_header = rebuild_www_header(&req, &auth_header)?;
+                        let mut www_header = www_header;
+                        let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                        auth_ok = auth_header2.response == auth_header.response;
                     }
-                    let mut www_header = www_header.unwrap();
-                    let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    auth_ok = auth_header2.response == auth_header.response;
                 }
             }
             if !auth_ok {
-                let www_header = build_www_header(&req, &account.0);
+                let www_header = build_www_header(&req, &account.0)?;
                 let resp = Response::builder()
                     .status(hyper::StatusCode::UNAUTHORIZED)
                     .header(hyper::header::WWW_AUTHENTICATE, www_header) // fix chrome digest auth
-                    .body(Body::empty())
-                    .unwrap();
+                    .body(Body::empty())?;
                 return Ok(resp);
             }
         }
     }
     // _ws.json
     if req.uri().path().contains(WS_JSON) {
-        if let Some(ws_addr) = *WS_ADDR.lock().unwrap() {
+        if let Some(ws_addr) = *WS_ADDR.lock().map_err(|e| anyhow!("Lock WS_ADDR error: {}", e))? {
             let json = format!("{{\"wsPort\": \"{}\"}}", ws_addr.port());
             return Ok(Response::builder()
                 .header("Content-Type", "application/json")
                 .body(Body::from(json))
                 .unwrap());
         } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, ""));
+            bail!("Not found");
         }
     }
     // websocket
@@ -894,10 +903,11 @@ async fn handle_http_req(
             });
             Ok(resp)
         } else {
-            Err(io::Error::new(io::ErrorKind::InvalidData, "/ws only serve websocket"))
+            bail!("/ws only serve websocket");
         }
     } else {
-        static_.clone().serve(req).await
+        let resp = static_.clone().serve(req).await?;
+        Ok(resp)
     }
 }
 
@@ -910,7 +920,7 @@ async fn serve_http(http_addr: SocketAddr, web_dir: String, core: Arc<Mutex<PiSu
         let core = core.clone();
         let event_rx = event_rx.clone();
         async {
-            Ok::<_, io::Error>(service_fn(move |req| {
+            Ok::<_, anyhow::Error>(service_fn(move |req| {
                 handle_http_req(req, static_.clone(), core.clone(), event_rx.clone())
             }))
         }

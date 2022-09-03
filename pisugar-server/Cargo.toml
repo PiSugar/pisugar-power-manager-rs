@@ -9,6 +9,7 @@ homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
 repository = "https://github.com/PiSugar/pisugar-power-manager-rs"
 
 [dependencies]
+anyhow = "1"
 log = "0.4.8"
 env_logger = "0.9"
 syslog = "6"

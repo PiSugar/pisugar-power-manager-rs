@@ -112,7 +112,12 @@ impl PiSugar3 {
         let ctr1 = self.i2c_read_byte(IIC_CMD_CTR1)?;
         let ctr1_again = self.i2c_read_byte(IIC_CMD_CTR1)?;
         if ctr1 != ctr1_again {
-            log::warn!("ctr1 0x{:02x} changed during reading 0x{:02x}!=0x{:02x}", IIC_CMD_CTR1, ctr1, ctr1_again);
+            log::warn!(
+                "ctr1 0x{:02x} changed during reading 0x{:02x}!=0x{:02x}",
+                IIC_CMD_CTR1,
+                ctr1,
+                ctr1_again
+            );
         }
         Ok(ctr1)
     }
@@ -126,7 +131,12 @@ impl PiSugar3 {
         let ctr2 = self.i2c_read_byte(IIC_CMD_CTR2)?;
         let ctr2_again = self.i2c_read_byte(IIC_CMD_CTR2)?;
         if ctr2 != ctr2_again {
-            log::warn!("ctr2 0x{:02x} changed during reading 0x{:x}!=0x{:x}", IIC_CMD_CTR2, ctr2, ctr2_again);
+            log::warn!(
+                "ctr2 0x{:02x} changed during reading 0x{:x}!=0x{:x}",
+                IIC_CMD_CTR2,
+                ctr2,
+                ctr2_again
+            );
         }
         Ok(ctr2)
     }
@@ -581,8 +591,8 @@ impl Battery for PiSugar3Battery {
         }
 
         let mut events = Vec::new();
-        if tap.is_some() {
-            events.push(BatteryEvent::TapEvent(tap.unwrap()));
+        if let Some(tap) = tap {
+            events.push(BatteryEvent::TapEvent(tap));
         }
         if soft_poweroff {
             events.push(BatteryEvent::SoftPowerOff);

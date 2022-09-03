@@ -751,29 +751,32 @@ impl PiSugarCore {
 
             // 2-led, auto allow charging
             if self.model != Model::PiSugar_3 && self.led_amount().unwrap_or(4) == 2 {
-                if let Some((begin, end)) = &self.config.auto_charging_range {
+                if let Some((changing_begin, changing_end)) = &self.config.auto_charging_range {
                     let l = self.level().unwrap_or(0.0);
                     let allow_charging = self.allow_charging().unwrap_or(false);
-                    if l < *begin && !allow_charging {
+                    if l < *changing_begin && !allow_charging {
                         self.battery_full_at = None;
                         let is_ok = self.toggle_allow_charging(true).map_or("fail", |_| "ok");
-                        log::info!("Battery {} <= {}, enable charging: {}", l, *begin, is_ok);
+                        log::info!("Battery {} <= {}, enable charging: {}", l, *changing_begin, is_ok);
                     }
-                    if (l >= *end && allow_charging) || l >= 99.9 {
-                        let should_stop = if self.battery_full_at.is_none() {
-                            log::info!("Battery {} >= {}, full", l, *end);
-                            self.battery_full_at = Some(now);
-                            false
-                        } else {
-                            let full_at = self.battery_full_at.unwrap();
-                            let delay = Duration::from_secs(
-                                self.config.full_charge_duration.unwrap_or(BAT_FULL_CHARGE_DURATION),
-                            );
-                            now.duration_since(full_at) > delay
+                    if (l >= *changing_end && allow_charging) || l >= 99.9 {
+                        let should_stop = match self.battery_full_at {
+                            Some(full_at) => {
+                                let delay = Duration::from_secs(
+                                    self.config.full_charge_duration.unwrap_or(BAT_FULL_CHARGE_DURATION),
+                                );
+                                now.duration_since(full_at) > delay
+                            }
+                            None => {
+                                log::debug!("Battery {} >= {}, full", l, *changing_end);
+                                self.battery_full_at = Some(now);
+                                false
+                            }
                         };
+
                         if should_stop {
                             let is_ok = self.toggle_allow_charging(false).map_or("fail", |_| "ok");
-                            log::info!("Battery {} >= {}, stop charging: {}", l, *end, is_ok);
+                            log::info!("Battery {} >= {}, stop charging: {}", l, *changing_end, is_ok);
                         }
                     }
                 }

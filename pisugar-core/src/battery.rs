@@ -94,12 +94,11 @@ pub fn check_charging(levels: &VecDeque<f32>) -> bool {
     let y_sum: f32 = levels.iter().sum();
     let _y_bar = y_sum / capacity;
     // k = Sum(yi * (xi - x_bar)) / Sum(xi - x_bar)^2
-    let mut iter = levels.iter();
     let mut a = 0.0;
     let mut b = 0.0;
     for i in 0..levels.len() {
         let xi = i as f32;
-        let yi = *iter.next().unwrap();
+        let yi = levels[i];
         a += yi * (xi - x_bar);
         b += (xi - x_bar) * (xi - x_bar);
     }
