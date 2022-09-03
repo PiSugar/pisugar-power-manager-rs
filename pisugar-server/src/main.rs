@@ -275,7 +275,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     tokio::spawn(async move {
                         if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
                             if let Some(date) = resp.headers().get("date") {
-                                if let Ok(Ok(dt)) = date.to_str().map(|s| DateTime::parse_from_rfc2822(s)) {
+                                if let Ok(Ok(dt)) = date.to_str().map(DateTime::parse_from_rfc2822) {
                                     sys_write_time(dt.into());
                                     if let Ok(core) = core_cloned.lock() {
                                         let _ = core.write_time(dt.into());
@@ -326,7 +326,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     };
                 }
                 "rtc_adjust_ppm" => {
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         if let Ok(ppm) = parts[1].parse::<f64>() {
                             let ppm = if ppm > 500.0 { 500.0 } else { ppm };
                             let ppm = if ppm < -500.0 { -500.0 } else { ppm };
@@ -347,7 +347,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     }
                 }
                 "set_safe_shutdown_level" => {
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         if let Ok(level) = parts[1].parse::<f64>() {
                             // level between <30，level < 0 means do not shutdown
                             let level = if level > 30.0 { 30.0 } else { level };
@@ -361,7 +361,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     return err;
                 }
                 "set_safe_shutdown_delay" => {
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         if let Ok(delay) = parts[1].parse::<f64>() {
                             // delay between 0-30
                             let delay = if delay < 0.0 { 0.0 } else { delay };
@@ -539,7 +539,7 @@ where
     tokio::spawn(async move {
         while let Some(Ok(buf)) = stream.next().await {
             let reqs = String::from_utf8_lossy(buf.as_ref());
-            let reqs = reqs.trim_end_matches("\n");
+            let reqs = reqs.trim_end_matches('\n');
             for req in reqs.split('\n') {
                 log::debug!("Req: {}", req);
                 let req = req.replace('\r', "");
@@ -825,7 +825,7 @@ fn rebuild_www_header(
         .ok_or_else(|| anyhow!("Rebuild www header, server opaque not in SECURITY_CTX"))?;
 
     let now = SystemTime::now();
-    let duration = now.duration_since(last_time.clone())?;
+    let duration = now.duration_since(*last_time)?;
 
     // session timeout
     if duration > session_timeout {

@@ -181,7 +181,7 @@ impl RTC for SD3078 {
     /// Write time
     fn write_time(&self, t: RTCRawTime) -> Result<()> {
         // 24h
-        let mut bcd_time = t.0.clone();
+        let mut bcd_time = t.0;
         bcd_time[2] |= 0b1000_0000;
 
         self.enable_write()?;

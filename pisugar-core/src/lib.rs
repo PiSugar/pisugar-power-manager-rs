@@ -482,7 +482,7 @@ impl PiSugarCore {
                     let local_now = Local::now();
                     let backup_path_template = format!(
                         "{}-{}{}{}",
-                        config_path.to_string_lossy().to_string(),
+                        config_path.to_string_lossy(),
                         local_now.year(),
                         local_now.month(),
                         local_now.day()
@@ -499,7 +499,7 @@ impl PiSugarCore {
                         // failed to backup, critical error!!!
                         panic!(
                             "Could not load config or recover default config, config file: {}",
-                            config_path.to_string_lossy().to_string(),
+                            config_path.to_string_lossy(),
                         )
                     }
                     // recover configuration

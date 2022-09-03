@@ -157,7 +157,7 @@ impl TryFrom<RTCRawTime> for DateTime<Local> {
     type Error = String;
 
     fn try_from(t: RTCRawTime) -> std::result::Result<Self, Self::Error> {
-        t.try_into().and_then(|dt: DateTime<Utc>| Ok(DateTime::from(dt)))
+        t.try_into().map(|dt: DateTime<Utc>| DateTime::from(dt))
     }
 }
 

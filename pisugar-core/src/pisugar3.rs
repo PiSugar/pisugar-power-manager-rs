@@ -470,7 +470,7 @@ impl Battery for PiSugar3Battery {
     fn voltage_avg(&self) -> crate::Result<f32> {
         let mut total = 0.0;
         self.voltages.iter().for_each(|v| total += v.1);
-        if self.voltages.len() > 0 {
+        if !self.voltages.is_empty() {
             Ok(total / self.voltages.len() as f32)
         } else {
             Err(Error::Other("Require initialization".to_string()))
@@ -478,7 +478,7 @@ impl Battery for PiSugar3Battery {
     }
 
     fn level(&self) -> crate::Result<f32> {
-        self.voltage_avg().and_then(|v| Ok(IP5312::parse_voltage_level(v)))
+        self.voltage_avg().map(|v| IP5312::parse_voltage_level(v))
     }
 
     fn intensity(&self) -> crate::Result<f32> {
@@ -489,7 +489,7 @@ impl Battery for PiSugar3Battery {
     fn intensity_avg(&self) -> crate::Result<f32> {
         let mut total = 0.0;
         self.intensities.iter().for_each(|i| total += i.1);
-        if self.intensities.len() > 0 {
+        if !self.intensities.is_empty() {
             Ok(total / self.intensities.len() as f32)
         } else {
             Err(Error::Other("Require initialization".to_string()))
