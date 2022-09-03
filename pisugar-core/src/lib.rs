@@ -68,6 +68,12 @@ impl From<String> for Error {
     }
 }
 
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::Other(format!("{}", e))
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -129,12 +135,24 @@ fn default_i2c_bus() -> u8 {
     1
 }
 
+/// Default auth session timeout, 1h
+fn default_session_timeout() -> u32 {
+    60 * 60
+}
+
 /// PiSugar configuration
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PiSugarConfig {
     /// Http digest auth
     #[serde(default)]
-    pub digest_auth: Option<(String, String)>,
+    pub auth_user: Option<String>,
+
+    #[serde(default)]
+    pub auth_password: Option<String>,
+
+    /// Auth session timeout in seconds
+    #[serde(default = "default_session_timeout")]
+    pub session_timeout: u32,
 
     /// I2C bus, default 1 (/dev/i2c-1)
     #[serde(default = "default_i2c_bus")]
@@ -253,8 +271,10 @@ impl PiSugarConfig {
 impl Default for PiSugarConfig {
     fn default() -> Self {
         Self {
-            digest_auth: Default::default(),
-            i2c_bus: 1,
+            auth_user: Default::default(),
+            auth_password: Default::default(),
+            session_timeout: default_session_timeout(),
+            i2c_bus: default_i2c_bus(),
             i2c_addr: Default::default(),
             auto_wake_time: Default::default(),
             auto_wake_repeat: Default::default(),
@@ -420,8 +440,12 @@ impl PiSugarCore {
             rtc_sync_at: Instant::now(),
             ready: false,
         };
-        core.init_rtc()?;
-        core.init_battery()?;
+        if let Err(e) = core.init_rtc() {
+            log::warn!("Retry to init rtc, error: {}", e);
+        }
+        if let Err(e) = core.init_battery() {
+            log::warn!("Retry to init battery later, error: {}", e);
+        }
         Ok(core)
     }
 
@@ -450,16 +474,38 @@ impl PiSugarCore {
 
         match Self::load_config(config_path.as_path(), model) {
             Ok(core) => Ok(core),
-            Err(_) => {
-                log::warn!("Load configuration failed, auto recovery...");
+            Err(e) => {
+                log::error!("Load configuration error:{}", e);
+                log::warn!("Load configuration auto recovery...");
                 if recover_config {
-                    let config = PiSugarConfig::default();
-                    let mut core = Self::new(config, model)?;
-                    core.config_path = Some(config_path.to_string_lossy().to_string());
-                    match core.save_config() {
-                        Ok(_) => log::info!("Auto recovery success"),
-                        Err(e) => log::warn!("Auto recovery failed: {}", e),
+                    // backup old config
+                    let local_now = Local::now();
+                    let backup_path_template = format!(
+                        "{}-{}{}{}",
+                        config_path.to_string_lossy().to_string(),
+                        local_now.year(),
+                        local_now.month(),
+                        local_now.day()
+                    );
+                    let mut backup_success = false;
+                    for i in 0..1000 {
+                        let backup_path = format!("{}-{:03}", backup_path_template, i);
+                        if std::fs::rename(config_path.as_path(), backup_path).is_ok() {
+                            backup_success = true;
+                            break;
+                        }
                     }
+                    if !backup_success {
+                        // failed to backup, critical error!!!
+                        panic!(
+                            "Could not load config or recover default config, config file: {}",
+                            config_path.to_string_lossy().to_string(),
+                        )
+                    }
+                    // recover configuration
+                    let config = PiSugarConfig::default();
+                    config.save_to(config_path.as_path())?;
+                    let core = Self::new(config, model)?;
                     Ok(core)
                 } else {
                     Err(Error::Other("Not recoverable".to_string()))
@@ -471,14 +517,17 @@ impl PiSugarCore {
     fn load_config(path: &Path, model: Model) -> Result<Self> {
         if path.exists() && path.is_file() {
             let mut config = PiSugarConfig::default();
-            if config.load(path).is_ok() {
-                let mut core = Self::new(config, model)?;
-                core.config_path = Some(path.to_string_lossy().to_string());
-                return Ok(core);
+            match config.load(path) {
+                Ok(_) => {
+                    let mut core = Self::new(config, model)?;
+                    core.config_path = Some(path.to_string_lossy().to_string());
+                    Ok(core)
+                }
+                Err(e) => Err(Error::Other(format!("{}", e))),
             }
+        } else {
+            Err(Error::Other("File not found or could not open".to_string()))
         }
-
-        Err(Error::Other("Failed to load config file".to_string()))
     }
 
     pub fn save_config(&self) -> Result<()> {

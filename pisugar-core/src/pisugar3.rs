@@ -333,7 +333,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_adj_comm(&self) -> Result<u8> {
-        Ok(self.i2c_read_byte(IIC_CMD_RTC_ADJ_COMM)?)
+        self.i2c_read_byte(IIC_CMD_RTC_ADJ_COMM)
     }
 
     pub fn write_rtc_adj_comm(&self, comm: u8) -> Result<()> {
@@ -342,7 +342,7 @@ impl PiSugar3 {
     }
 
     pub fn read_rtc_adj_diff(&self) -> Result<u8> {
-        Ok(self.i2c_read_byte(IIC_CMD_RTC_ADJ_DIFF)?)
+        self.i2c_read_byte(IIC_CMD_RTC_ADJ_DIFF)
     }
 
     pub fn write_rtc_adj_diff(&self, diff: u8) -> Result<()> {
@@ -351,7 +351,7 @@ impl PiSugar3 {
     }
 
     pub fn read_alarm_weekday_repeat(&self) -> Result<u8> {
-        Ok(self.i2c_read_byte(IIC_CMD_ALM_WD)?)
+        self.i2c_read_byte(IIC_CMD_ALM_WD)
     }
 
     fn write_alarm_weekday_repeat(&self, wd: u8) -> Result<()> {

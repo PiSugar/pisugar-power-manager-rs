@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::remove_file;
@@ -8,7 +9,6 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Instant, SystemTime};
-use std::{collections::HashMap, fmt::format};
 
 use anyhow::{anyhow, bail, Result};
 use chrono::prelude::*;
@@ -157,11 +157,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             }
                             "auto_power_on" => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
                             "auth_username" => {
-                                let username = if let Some(digest_auth) = &core.config().digest_auth {
-                                    digest_auth.0.to_string()
-                                } else {
-                                    "".to_string()
-                                };
+                                let username = core.config().auth_user.clone().unwrap_or_default();
                                 Ok(username)
                             }
                             "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
@@ -441,9 +437,11 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     if parts.len() > 2 {
                         let username = parts[1].as_str();
                         let password = parts[2].as_str();
-                        core.config_mut().digest_auth = Some((username.to_string(), password.to_string()));
+                        core.config_mut().auth_user = Some(username.to_string());
+                        core.config_mut().auth_password = Some(password.to_string());
                     } else {
-                        core.config_mut().digest_auth = None;
+                        core.config_mut().auth_user = None;
+                        core.config_mut().auth_password = None;
                     }
                     if let Err(e) = core.save_config() {
                         log::error!("{}", e);
@@ -740,8 +738,10 @@ async fn on_ws_client(
     Ok(())
 }
 
+type SecurityRecord = (Option<String>, u32, SystemTime);
+
 lazy_static! {
-    static ref SECURITY_CTX: Mutex<HashMap<String, (u32, SystemTime)>> = Mutex::new(HashMap::default());
+    static ref SECURITY_CTX: Mutex<HashMap<String, SecurityRecord>> = Mutex::new(HashMap::default());
 }
 const SECURITY_TIMEOUT_SECONDS: u64 = 30 * 60;
 
@@ -753,33 +753,44 @@ fn build_realm(req: &Request<Body>, user: &str) -> String {
         .map(|v| v.to_string())
         .unwrap_or_else(|| "localhost".to_string());
     let port = req.uri().port_u16();
-    let realm = if let Some(port) = port {
+    if let Some(port) = port {
         format!("{}@{}:{}", user, host, port)
     } else {
         format!("{}@{}", user, host)
-    };
-    realm
+    }
 }
 
-fn build_www_header(req: &Request<Body>, user: &str) -> Result<String> {
+fn build_www_header(req: &Request<Body>, user: &str, session_timeout: Duration) -> Result<String> {
     let now = SystemTime::now();
     let realm = build_realm(req, user);
 
+    // nonce, should unchange during the session
     let mut nonce = [0; 12];
     rand::thread_rng().fill_bytes(&mut nonce);
     let nonce = base64::encode(nonce);
 
+    // use a random number as opaque
     let mut opaque = [0; 12];
     rand::thread_rng().fill_bytes(&mut opaque);
     let opaque = base64::encode(opaque);
 
-    let nc = 0;
+    log::info!("Http auth create opaque {}, nonce: {}", opaque, nonce);
+
+    // clean timout sessions
     let mut ctx = SECURITY_CTX
         .lock()
         .map_err(|e| anyhow!("Lock security ctx errro: {}", e))?;
-    ctx.retain(|_, v| v.1 + Duration::from_secs(SECURITY_TIMEOUT_SECONDS) > now);
-    ctx.insert(opaque.clone(), (nc, now));
+    ctx.retain(|opaque, v| {
+        if v.2 + session_timeout < now {
+            log::debug!("opaque={}, cnonce={:?} timeout", opaque, v.0);
+            false
+        } else {
+            true
+        }
+    });
 
+    // new session
+    ctx.insert(opaque.clone(), (None, 0, now));
     let header = digest_auth::WwwAuthenticateHeader {
         domain: Some(vec!["/".to_string()]),
         realm,
@@ -790,12 +801,16 @@ fn build_www_header(req: &Request<Body>, user: &str) -> Result<String> {
         qop: Some(vec![Qop::AUTH, Qop::AUTH_INT]),
         userhash: false,
         charset: Charset::UTF8,
-        nc,
+        nc: 0,
     };
     Ok(header.to_string())
 }
 
-fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) -> Result<WwwAuthenticateHeader> {
+fn rebuild_www_header(
+    req: &Request<Body>,
+    auth_header: &AuthorizationHeader,
+    session_timeout: Duration,
+) -> Result<WwwAuthenticateHeader> {
     let opaque = auth_header
         .opaque
         .clone()
@@ -805,17 +820,34 @@ fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) ->
         .lock()
         .map_err(|e| anyhow!("Lock SECURITY_CTX error: {}", e))?;
 
-    let (nc, last_time) = ctx
+    let (cnonce, nc, last_time) = ctx
         .get(&opaque)
         .ok_or_else(|| anyhow!("Rebuild www header, server opaque not in SECURITY_CTX"))?;
 
     let now = SystemTime::now();
     let duration = now.duration_since(last_time.clone())?;
-    log::info!("**** ctx nc {}, duration {}s ****", nc, duration.as_secs());
-    log::info!("**** auth nc {} ****", auth_header.nc);
+
+    // session timeout
+    if duration > session_timeout {
+        bail!("SECURITY ERROR: session timout, {}s", duration.as_secs());
+    }
+
+    // cnonce replay
+    let auth_cnonce = auth_header
+        .cnonce
+        .clone()
+        .ok_or_else(|| anyhow!("SECURITY ERROR: empty cnonce"))?;
+    if let Some(cnonce) = cnonce {
+        if auth_cnonce != *cnonce {
+            bail!("SECURITY ERROR: cnonce changed");
+        }
+    }
+    if auth_header.nc < *nc {
+        bail!("SECURITY ERROR: nc replay");
+    }
 
     let realm = build_realm(req, &auth_header.username);
-    let new_nc = auth_header.nc - 1;
+    let new_nc = auth_header.nc;
 
     let www_header = WwwAuthenticateHeader {
         domain: Some(vec!["/".to_string()]),
@@ -827,11 +859,11 @@ fn rebuild_www_header(req: &Request<Body>, auth_header: &AuthorizationHeader) ->
         qop: auth_header.qop.map(|x| vec![x]),
         userhash: auth_header.userhash,
         charset: Charset::UTF8,
-        nc: new_nc,
+        nc: auth_header.nc - 1,
     };
 
     // update security ctx
-    ctx.insert(opaque, (new_nc, SystemTime::now()));
+    ctx.insert(opaque, (Some(auth_cnonce), new_nc, now));
 
     Ok(www_header)
 }
@@ -846,31 +878,38 @@ async fn handle_http_req(
     log::info!("request: {} {}", req.method(), req.uri());
     // check for http auth
     if let Ok(config) = core.lock() {
-        if let Some(account) = &config.config().digest_auth {
-            let mut auth_context = AuthContext::new(account.0.as_str(), account.1.as_str(), req.uri().to_string());
+        if let (Some(auth_user), Some(auth_pass)) =
+            (config.config().auth_user.clone(), config.config().auth_password.clone())
+        {
+            let mut auth_context = AuthContext::new(auth_user.clone(), auth_pass, req.uri().to_string());
             let mut auth_ok = false;
             for (name, value) in req.headers() {
                 if name.eq(&hyper::header::AUTHORIZATION) {
                     if let Ok(value) = value.to_str() {
                         let auth_header = match AuthorizationHeader::parse(value) {
                             Err(e) => {
-                                log::warn!("invalid authentication header {}", e);
+                                log::warn!("Invalid authentication header {}", e);
                                 continue;
                             }
                             Ok(h) => h,
                         };
                         auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
 
-                        let www_header = rebuild_www_header(&req, &auth_header)?;
-                        let mut www_header = www_header;
-                        let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
-                            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                        auth_ok = auth_header2.response == auth_header.response;
+                        match rebuild_www_header(&req, &auth_header, Duration::from_secs(SECURITY_TIMEOUT_SECONDS)) {
+                            Ok(mut www_header) => {
+                                let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
+                                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                                auth_ok = auth_header2.response == auth_header.response;
+                            }
+                            Err(e) => {
+                                log::error!("Rebuid auth header error: {}", e);
+                            }
+                        };
                     }
                 }
             }
             if !auth_ok {
-                let www_header = build_www_header(&req, &account.0)?;
+                let www_header = build_www_header(&req, &auth_user, Duration::from_secs(SECURITY_TIMEOUT_SECONDS))?;
                 let resp = Response::builder()
                     .status(hyper::StatusCode::UNAUTHORIZED)
                     .header(hyper::header::WWW_AUTHENTICATE, www_header) // fix chrome digest auth
@@ -885,8 +924,7 @@ async fn handle_http_req(
             let json = format!("{{\"wsPort\": \"{}\"}}", ws_addr.port());
             return Ok(Response::builder()
                 .header("Content-Type", "application/json")
-                .body(Body::from(json))
-                .unwrap());
+                .body(Body::from(json))?);
         } else {
             bail!("Not found");
         }
@@ -921,7 +959,10 @@ async fn serve_http(http_addr: SocketAddr, web_dir: String, core: Arc<Mutex<PiSu
         let event_rx = event_rx.clone();
         async {
             Ok::<_, anyhow::Error>(service_fn(move |req| {
-                handle_http_req(req, static_.clone(), core.clone(), event_rx.clone())
+                handle_http_req(req, static_.clone(), core.clone(), event_rx.clone()).map_err(|e| {
+                    log::error!("Handle http req error: {}", e);
+                    e
+                })
             }))
         }
     });
