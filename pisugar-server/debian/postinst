@@ -40,10 +40,10 @@ if [ -e /usr/share/debconf/confmodule ]; then
     db_set pisugar-server/auth-password ""
 
     config=$(cat /etc/pisugar-server/config.json)
-    if test "x$username" = "x" || test "x$password" = "x"; then
-      echo "$config" | jq '.digest_auth=null' > /etc/pisugar-server/config.json
-    else
-      echo "$config" | jq '.digest_auth=["'"$username"'", "'"$password"'"]' > /etc/pisugar-server/config.json
+    if test "x$username" != "x" || test "x$password" != "x"; then
+      echo "$config" |\
+        jq ".auth_user=\"$username\"" |\
+        jq ".auth_password=\"$password\"" > /etc/pisugar-server/config.json
     fi
 
     db_input high pisugar-server/auth-note
