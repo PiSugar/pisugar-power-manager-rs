@@ -732,7 +732,9 @@ async fn on_ws_client(
 
     // send back
     while let Some(Some(rsp)) = rx.next().await {
-        sink.send(rsp).await.expect("Channel failed");
+        sink.send(rsp)
+            .await
+            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))?;
     }
 
     Ok(())
