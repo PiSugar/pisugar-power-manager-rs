@@ -1,3 +1,7 @@
+v1.7.3
+1. Fix bugs
+2. Update config.json
+
 v1.7.2
 1. Add `retries` option to pisugar-poweroff
 2. Fix bugs
