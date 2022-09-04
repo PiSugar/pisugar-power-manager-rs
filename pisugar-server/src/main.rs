@@ -839,11 +839,10 @@ fn rebuild_www_header(
         .ok_or_else(|| anyhow!("SECURITY ERROR: empty cnonce"))?;
     if let Some(cnonce) = cnonce {
         if auth_cnonce != *cnonce {
-            bail!("SECURITY ERROR: cnonce changed");
+            log::debug!("SECURITY: cnonce changed, current {}", auth_cnonce);
+        } else if auth_header.nc < *nc {
+            bail!("SECURITY ERROR: nc replay");
         }
-    }
-    if auth_header.nc < *nc {
-        bail!("SECURITY ERROR: nc replay");
     }
 
     let realm = build_realm(req, &auth_header.username);
