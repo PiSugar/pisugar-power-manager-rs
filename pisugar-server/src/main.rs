@@ -881,40 +881,46 @@ async fn handle_http_req(
         if let (Some(auth_user), Some(auth_pass)) =
             (config.config().auth_user.clone(), config.config().auth_password.clone())
         {
-            let mut auth_context = AuthContext::new(auth_user.clone(), auth_pass, req.uri().to_string());
-            let mut auth_ok = false;
-            for (name, value) in req.headers() {
-                if name.eq(&hyper::header::AUTHORIZATION) {
-                    if let Ok(value) = value.to_str() {
-                        let auth_header = match AuthorizationHeader::parse(value) {
-                            Err(e) => {
-                                log::warn!("Invalid authentication header {}", e);
-                                continue;
-                            }
-                            Ok(h) => h,
-                        };
-                        auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
+            let auth_user = auth_user.trim().to_string();
+            let auth_password = auth_pass.trim().to_string();
+            if !auth_user.is_empty() && !auth_password.is_empty() {
+                let mut auth_context = AuthContext::new(auth_user.clone(), auth_pass, req.uri().to_string());
+                let mut auth_ok = false;
+                for (name, value) in req.headers() {
+                    if name.eq(&hyper::header::AUTHORIZATION) {
+                        if let Ok(value) = value.to_str() {
+                            let auth_header = match AuthorizationHeader::parse(value) {
+                                Err(e) => {
+                                    log::warn!("Invalid authentication header {}", e);
+                                    continue;
+                                }
+                                Ok(h) => h,
+                            };
+                            auth_context
+                                .set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
 
-                        match rebuild_www_header(&req, &auth_header, Duration::from_secs(SECURITY_TIMEOUT_SECONDS)) {
-                            Ok(mut www_header) => {
-                                let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
-                                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                                auth_ok = auth_header2.response == auth_header.response;
-                            }
-                            Err(e) => {
-                                log::error!("Rebuid auth header error: {}", e);
-                            }
-                        };
+                            match rebuild_www_header(&req, &auth_header, Duration::from_secs(SECURITY_TIMEOUT_SECONDS))
+                            {
+                                Ok(mut www_header) => {
+                                    let auth_header2 = AuthorizationHeader::from_prompt(&mut www_header, &auth_context)
+                                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                                    auth_ok = auth_header2.response == auth_header.response;
+                                }
+                                Err(e) => {
+                                    log::error!("Rebuid auth header error: {}", e);
+                                }
+                            };
+                        }
                     }
                 }
-            }
-            if !auth_ok {
-                let www_header = build_www_header(&req, &auth_user, Duration::from_secs(SECURITY_TIMEOUT_SECONDS))?;
-                let resp = Response::builder()
-                    .status(hyper::StatusCode::UNAUTHORIZED)
-                    .header(hyper::header::WWW_AUTHENTICATE, www_header) // fix chrome digest auth
-                    .body(Body::empty())?;
-                return Ok(resp);
+                if !auth_ok {
+                    let www_header = build_www_header(&req, &auth_user, Duration::from_secs(SECURITY_TIMEOUT_SECONDS))?;
+                    let resp = Response::builder()
+                        .status(hyper::StatusCode::UNAUTHORIZED)
+                        .header(hyper::header::WWW_AUTHENTICATE, www_header) // fix chrome digest auth
+                        .body(Body::empty())?;
+                    return Ok(resp);
+                }
             }
         }
     }
