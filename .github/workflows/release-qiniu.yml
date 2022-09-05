@@ -39,5 +39,7 @@ jobs:
             if (echo "$filename" | grep '.*.sh$'); then
               mimetype=text/plain
             fi
-            ./qshell rput --overwrite --mimetype ${mimetype} ${QINIU_BUCKET} release/${filename} ${filename}
+            ./qshell rput --overwrite --mimetype ${mimetype} ${QINIU_BUCKET} release/${filename} ${filename} &
           done
+          wait
+          echo "All uploaded to qiniu"

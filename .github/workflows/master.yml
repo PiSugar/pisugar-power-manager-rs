@@ -92,5 +92,7 @@ jobs:
           for f in $(find scripts -name '*.sh' ); do
             filename=${f##*/}
             key=nightly/${filename}
-            ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f}
+            ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f} &
           done
+          wait
+          echo "All uploaded to qiniu"
