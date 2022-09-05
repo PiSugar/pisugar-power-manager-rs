@@ -181,7 +181,8 @@ impl PiSugar3 {
 
     pub fn read_soft_poweroff_flag(&self) -> Result<bool> {
         let ctr2 = self.read_crt2()?;
-        Ok((ctr2 & 0b0000_1000) != 0)
+        // soft poweroff, bit4 and bit3 must be 1 at the same time
+        Ok((ctr2 & 0b0001_1000) == 0b0001_1000)
     }
 
     pub fn clear_soft_poweroff_flag(&self) -> Result<()> {
