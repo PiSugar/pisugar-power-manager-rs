@@ -404,7 +404,6 @@ pub struct PiSugarCore {
     rtc: Option<Box<dyn RTC + Send>>,
     poll_check_at: Instant,
     rtc_sync_at: Instant,
-    ready: bool,
 }
 
 impl PiSugarCore {
@@ -438,7 +437,6 @@ impl PiSugarCore {
             rtc: None,
             poll_check_at: Instant::now(),
             rtc_sync_at: Instant::now(),
-            ready: false,
         };
         if let Err(e) = core.init_rtc() {
             log::warn!("Retry to init rtc, error: {}", e);
@@ -731,12 +729,13 @@ impl PiSugarCore {
     }
 
     pub async fn poll(&mut self, now: Instant) -> Result<Option<TapType>> {
-        if !self.ready {
+        if self.rtc.is_none() {
             log::info!("Init rtc...");
-            call_rtc!(&mut self.rtc, init, &self.config)?;
+            self.init_rtc()?;
+        }
+        if !self.battery.is_none() {
             log::info!("Init battery...");
-            call_battery!(&mut self.battery, init, &self.config)?;
-            self.ready = true;
+            self.init_battery()?;
         }
 
         // battery events
