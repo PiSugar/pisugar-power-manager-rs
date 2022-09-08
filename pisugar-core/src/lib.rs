@@ -457,7 +457,6 @@ impl PiSugarCore {
             rtc: None,
             poll_check_at: Instant::now(),
             rtc_sync_at: Instant::now(),
-            ready: false,
         };
         core.battery = Some(model.bind(config.i2c_bus, config.i2c_addr)?);
         core.rtc = Some(model.rtc(config.i2c_bus, config.i2c_addr)?);
