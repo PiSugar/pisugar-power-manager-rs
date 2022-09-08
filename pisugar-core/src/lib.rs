@@ -732,7 +732,7 @@ impl PiSugarCore {
             log::info!("Init rtc...");
             self.init_rtc()?;
         }
-        if !self.battery.is_none() {
+        if self.battery.is_none() {
             log::info!("Init battery...");
             self.init_battery()?;
         }
