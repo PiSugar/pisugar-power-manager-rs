@@ -29,7 +29,7 @@ futures = "0.3.5"
 futures-util = "0.3.5"
 futures-channel = "0.3.5"
 hyper = { version = "0.14.10", features = ["client", "server", "tcp"] }
-hyper-staticfile = "0.8"
+hyper-staticfile = "0.9"
 hyper-tungstenite = "0.8"
 websocket-codec = "0.5"
 digest_auth = "0.3.0"
