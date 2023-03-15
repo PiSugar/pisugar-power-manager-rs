@@ -1297,7 +1297,12 @@ async fn main() -> std::io::Result<()> {
                     }
 
                     if remains <= 0.0 {
-                        let _ = execute_shell("shutdown --poweroff 0");
+                        let shell = core
+                            .config()
+                            .soft_poweroff_shell
+                            .clone()
+                            .unwrap_or_else(|| "shutdown --poweroff 0".to_string());
+                        let _ = execute_shell(&shell);
                     }
                 } else {
                     battery_high_at = tokio::time::Instant::now();

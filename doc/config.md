@@ -28,6 +28,7 @@ Json format configuration file of pisugar-server:
     long_tap_shell  See single_tap_shell
     
     auto_shutdown_level Shutdown when battery is low, optional
+                    will execute `soft_poweroff_shell` if it exist
                     default 0 (disable), suggested value 10
     auto_shutdown_delay Delay before auto shutdown (seconds), optional
                     default 0 (disable auto shutdown), suggested value 30
