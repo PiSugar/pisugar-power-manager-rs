@@ -193,7 +193,7 @@ fn main() {
         println!("Seg offset: {}, size: {}", offset, n);
 
         // Send seg
-        while send_seg(&i2c, offset as u16).is_err() {
+        while send_seg(&i2c, offset).is_err() {
             println!("Send seg offset {} error, retry...", offset);
             sleep(Duration::from_millis(50));
         }

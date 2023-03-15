@@ -165,8 +165,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             "soft_poweroff_shell" => Ok(core
                                 .config()
                                 .soft_poweroff_shell
-                                .clone()
-                                .unwrap_or_else(|| "".to_string())),
+                                .clone().unwrap_or_default()),
                             "temperature" => core.get_temperature().map(|x| x.to_string()),
                             "input_protect" => core.input_protected().map(|x| x.to_string()),
                             _ => return err,
@@ -898,7 +897,7 @@ async fn handle_http_req(
                                 Ok(h) => h,
                             };
                             auth_context
-                                .set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_else(|| "".to_string()));
+                                .set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_default());
 
                             match rebuild_www_header(&req, &auth_header, Duration::from_secs(SECURITY_TIMEOUT_SECONDS))
                             {
