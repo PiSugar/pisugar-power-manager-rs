@@ -11,6 +11,8 @@ homepage = "https://github.com/PiSugar/pisugar-power-manager-rs"
 rppal = "0.13"
 clap = "3"
 sysinfo = "0.23"
+log = "0.4.17"
+env_logger = "0.10.0"
 
 [[bin]]
 name = "pisugar-programmer"

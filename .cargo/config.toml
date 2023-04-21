@@ -1,14 +1,16 @@
 [source.crates-io]
-replace-with = "tuna"
+replace-with = 'rsproxy'
 
-[source.ustc]
-registry = "https://mirrors.ustc.edu.cn/crates.io-index"
+[source.rsproxy]
+registry = "https://rsproxy.cn/crates.io-index"
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
 
-[source.tuna]
-registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"
+[registries.rsproxy]
+index = "https://rsproxy.cn/crates.io-index"
 
-[source.sjtu]
-registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index/"
+[net]
+git-fetch-with-cli = true
 
 [build]
 # target = "arm-unknown-linux-musleabihf"
