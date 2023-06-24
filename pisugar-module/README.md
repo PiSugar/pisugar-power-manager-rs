@@ -1,9 +1,14 @@
-# Linux kernel modules
+# PiSugar Linux kernel modules
 
 Make kernel modules:
 
     make
 
-## RTC
+Load module:
 
-rtc-sd3078.c https://github.com/torvalds/linux/blob/master/drivers/rtc/rtc-sd3078.c
+    sudo insmod pisugar_3_battery.ko
+
+Remove module:
+
+    sudo rmmod pisugar_3_battery.ko
+

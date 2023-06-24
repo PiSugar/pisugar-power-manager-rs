@@ -1,18 +1,10 @@
-obj-m := rtc-sd3078.o
-CURRENT_PATH := $(shell pwd)
-LINUX_KERNEL := $(shell uname -r)
-LINUX_KERNEL_PATH := /usr/src/linux-headers-$(LINUX_KERNEL)
-BUILD_DIR := $(shell pwd)/build
-BUILD_DIR_MAKEFILE := $(PWD)/build/Makefile
+obj-m += pisugar_3_battery.o
 
-all: $(BUILD_DIR_MAKEFILE)
-	$(MAKE) -C $(LINUX_KERNEL_PATH) M=$(BUILD_DIR) src=$(PWD) modules
+KERN_VER=$(shell uname -r)
 
-$(BUILD_DIR):
-	mkdir -p "$@"
-
-$(BUILD_DIR_MAKEFILE): $(BUILD_DIR)
-	touch "$@"
+all:
+	make -C /lib/modules/$(KERN_VER)/build M=$(shell pwd) modules
 
 clean:
-	$(MAKE) -C $(LINUX_KERNEL_PATH) M=$(BUILD_DIR) src=$(PWD) clean
+	rm -f *.cmd *.ko *.o Module.symvers modules.order *.mod.c
+
