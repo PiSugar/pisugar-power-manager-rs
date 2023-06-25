@@ -39,24 +39,39 @@ When it is done, copy and rename `linux` folder to PI `/lib/modules/$(uname -r)/
 ## Compiling kernel module
 
 Clone this repository, make kernel modules:
-
-    make
+```shell
+make
+```
 
 Load module:
+```shell
+sudo insmod pisugar_3_battery.ko
+# or
+sudo insmod pisugar_3_battery.ko i2c_bus=1 i2c_addr=0x57
+```
 
-    sudo insmod pisugar_3_battery.ko
-    # or
-    sudo insmod pisugar_3_battery.ko i2c_bus=1 i2c_addr=0x57
+Now, it is loaded:
+```shell
+lsmod | grep battery
+```
 
-Then you will see extra battry files in `/sys/class/power_supply`
-
-    ls /sys/class/power_supply
+And you will see extra device files in `/sys/class/power_supply`
+```shell
+ls /sys/class/power_supply
+```
 
 Remove module:
-
-    sudo rmmod pisugar_3_battery.ko
+```shell
+sudo rmmod pisugar_3_battery.ko
+```
 
 Now, you can enable [battery monitor plugin](https://github.com/raspberrypi-ui/lxplug-ptbatt).
+
+If you want to load kernel module at boot time, copy it to `/lib/modules/$(uname -r)/kernel/drivers`, then
+```shell
+sudo echo pisugar_3_battery >> /etc/modules
+sudo depmod -a
+```
 
 ## License
 
