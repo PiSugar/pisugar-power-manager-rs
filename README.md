@@ -153,7 +153,7 @@ Default ports:
 | :- | :-: | :-: |
 | get firmware_version    | firmware version | firmware_version: [string] |
 | get battery             | battery level % | battery: [number] |
-| get battery_i           | BAT current in A | battery_i: [number] |
+| get battery_i           | BAT current in A (PiSugar 2 only) | battery_i: [number] |
 | get battery_v           | BAT voltage in V | battery_v: [number] |
 | get battery_charging    | charging status (for new model please use battery_power_plugged and battery_allow_charging to get charging status)  | battery_charging: [true\|false] |
 | get battery_input_protect_enabled  | BAT input protect enabled | battery_input_protect_enable: [true\|false] |
