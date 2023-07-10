@@ -92,10 +92,15 @@ done
 
 # package names
 if [ "$type"x == "deb"x ]; then
-    if [ "$arch"x == "arm"x ]; then
-        arch_deb=armhf
+    dpkg_arch=$(dpkg --print-architecture)
+    if [ "$?" == 0 ]; then
+        arch_deb=${dpkg_arch}
     else
-        arch_deb=arm64
+        if [ "$arch"x == "arm"x ]; then
+            arch_deb=armhf
+        else
+            arch_deb=arm64
+        fi
     fi
     package_server="pisugar-server_${version}_${arch_deb}.deb"
     package_poweroff="pisugar-poweroff_${version}_${arch_deb}.deb"
