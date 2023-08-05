@@ -66,8 +66,8 @@ fn main() {
                 .short('r')
                 .long("retries")
                 .value_name("RETRIES")
-                .default_value("1000")
-                .help("Retries, e.g. 1000"),
+                .default_value("100")
+                .help("Retries, e.g. 100"),
         )
         .arg(
             Arg::new("configfile")
