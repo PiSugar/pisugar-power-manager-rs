@@ -1,5 +1,5 @@
 #/bin/bash
-echo "\033[1;34mOpen I2C Interface \033[0m"
+echo "\033[1;34mClose I2C Interface \033[0m"
 echo "\033[1;34mIf you stay here too long, please remove the PiSugar and manually close the I2C interface before using PiSugar S \033[0m"
 sudo raspi-config nonint do_i2c 0
 
