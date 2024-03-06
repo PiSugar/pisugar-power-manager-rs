@@ -22,11 +22,11 @@ Uninstall
 
 These packages are hosted in QiNiu CDN (For zero/zerowh/pi3/pi3b/pi4 with 32bit os only, you need to download and install packages manually in pi4 with 64bit os)
 
-    curl http://cdn.pisugar.com/release/pisugar-power-manager.sh | sudo bash
+    curl https://cdn.pisugar.com/release/pisugar-power-manager.sh | bash
 
 or
 
-    wget http://cdn.pisugar.com/release/pisugar-power-manager.sh
+    wget https://cdn.pisugar.com/release/pisugar-power-manager.sh
     bash pisugar-power-manager.sh -c release
 
 Install script usage
