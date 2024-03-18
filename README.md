@@ -38,7 +38,7 @@ Install script usage
 
     For more details, see https://github.com/PiSugar/pisugar-power-manager-rs
 
-**NOTE** In centos/redhat like linux, RPM could not ask question in interactive mode, PiSugar model **MUST** be configured manually. Available models are:
+**NOTE** In centos/redhat like linux, RPM could not ask question in interactive mode, PiSugar model **MUST** be configured manually (`/etc/default/pisugar-*`). Available models are:
 
     PiSugar 2 (4-LEDs)
     PiSugar 2 (2-LEDs)
@@ -72,6 +72,10 @@ Download latest `pisugar-archlinux_<version>_all.tar.gz` from https://github.com
 
     tar -xvf pisugar-archlinux_<version>_all.tar.gz
     (cd pisugar-archlinux; sh install.sh)
+
+## Linux kernel power supply driver
+
+You might want to install the kernel driver to display battery status, see [pisugar-module/README.md](pisugar-module/README.md).
 
 ## Prerequisites
 
