@@ -20,11 +20,7 @@ Uninstall
     sudo dpkg --purge pisugar-server
     sudo dpkg --purge pisugar-poweroff
 
-These packages are hosted in QiNiu CDN (For zero/zerowh/pi3/pi3b/pi4 with 32bit os only, you need to download and install packages manually in pi4 with 64bit os)
-
-    curl https://cdn.pisugar.com/release/pisugar-power-manager.sh | bash
-
-or
+These packages are hosted in QiNiu CDN (For zero/zerowh/pi3/pi3b/pi4 with 32bit os, you might need to download and install packages manually in 64bit os)
 
     wget https://cdn.pisugar.com/release/pisugar-power-manager.sh
     bash pisugar-power-manager.sh -c release
