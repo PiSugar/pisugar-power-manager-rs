@@ -162,10 +162,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             }
                             "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
                             "soft_poweroff" => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
-                            "soft_poweroff_shell" => Ok(core
-                                .config()
-                                .soft_poweroff_shell
-                                .clone().unwrap_or_default()),
+                            "soft_poweroff_shell" => Ok(core.config().soft_poweroff_shell.clone().unwrap_or_default()),
                             "temperature" => core.get_temperature().map(|x| x.to_string()),
                             "input_protect" => core.input_protected().map(|x| x.to_string()),
                             _ => return err,
@@ -896,8 +893,7 @@ async fn handle_http_req(
                                 }
                                 Ok(h) => h,
                             };
-                            auth_context
-                                .set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_default());
+                            auth_context.set_custom_cnonce(auth_header.cnonce.clone().unwrap_or_default());
 
                             match rebuild_www_header(&req, &auth_header, Duration::from_secs(SECURITY_TIMEOUT_SECONDS))
                             {
@@ -1256,57 +1252,65 @@ async fn main() -> std::io::Result<()> {
     let core_cloned = core.clone();
     let mut interval = tokio::time::interval(I2C_READ_INTERVAL);
     let mut notify_at = tokio::time::Instant::now();
-    let mut battery_high_at = tokio::time::Instant::now();
+    let mut battery_high_at = tokio::time::Instant::now(); // last battery high timestamp
     loop {
         interval.tick().await;
         log::debug!("Polling");
         let mut core = core_cloned.lock().expect("unexpected lock failed");
         poll_pisugar_status(&mut core, &event_tx).await;
 
-        // auto shutdown
-        if let Ok(level) = core.level() {
-            if let (Some(auto_shutdown_level), Some(auto_shutdown_delay)) =
-                (core.config().auto_shutdown_level, core.config().auto_shutdown_delay)
-            {
-                if auto_shutdown_level > 0.0 && auto_shutdown_delay > 0.0 && (level as f64) < auto_shutdown_level {
-                    log::warn!("Battery low: {}", level);
+        // auto shutdown at battery low
+        let mut battery_high = true;
+        let level = core.level().unwrap_or(100.0);
+        let auto_shutdown_level = core.config().auto_shutdown_level.unwrap_or(0.0);
 
-                    let now = tokio::time::Instant::now();
-                    let seconds = now.duration_since(battery_high_at).as_millis() as f64;
-                    let remains = auto_shutdown_delay - seconds;
-                    let remains = if remains < 0.0 { 0.0 } else { remains };
+        // check battery level
+        if auto_shutdown_level > 0.0 && auto_shutdown_level > (level as f64) {
+            battery_high = false;
+        }
 
-                    let should_notify = if remains <= 0.0 {
-                        false
-                    } else if remains < 30.0 {
-                        notify_at + Duration::from_secs(1) < now
-                    } else if remains < 60.0 {
-                        notify_at + Duration::from_secs(5) < now
-                    } else if remains < 120.0 {
-                        notify_at + Duration::from_secs(10) < now
-                    } else {
-                        false
-                    };
+        // skip if battery high
+        if battery_high {
+            battery_high_at = tokio::time::Instant::now();
+            continue;
+        }
 
-                    if should_notify {
-                        let message = format!("Low battery, will power off after {} seconds", remains);
-                        log::warn!("{}", message);
-                        notify_shutdown_soon(message.as_str());
-                        notify_at = now;
-                    }
+        // battery low
+        log::debug!("Battery low: {}", level);
+        let auto_shutdown_delay = core.config().auto_shutdown_delay.unwrap_or(0.0);
+        let now = tokio::time::Instant::now();
+        let battery_low_secs = now.duration_since(battery_high_at).as_secs() as f64;
+        let shutdown_remain_secs = auto_shutdown_delay - battery_low_secs;
 
-                    if remains <= 0.0 {
-                        let shell = core
-                            .config()
-                            .soft_poweroff_shell
-                            .clone()
-                            .unwrap_or_else(|| "shutdown --poweroff 0".to_string());
-                        let _ = execute_shell(&shell);
-                    }
-                } else {
-                    battery_high_at = tokio::time::Instant::now();
-                }
+        // notify battery low
+        let should_notify = if shutdown_remain_secs > 0.0 {
+            if shutdown_remain_secs < 10.0 {
+                notify_at + Duration::from_secs(1) < now // every 1s
+            } else if shutdown_remain_secs < 30.0 {
+                notify_at + Duration::from_secs(3) < now // every 3s
+            } else if shutdown_remain_secs < 60.0 {
+                notify_at + Duration::from_secs(5) < now // every 5s
+            } else {
+                false
             }
+        } else {
+            false
+        };
+        if should_notify {
+            let message = format!("Low battery, will power off after {} seconds", shutdown_remain_secs);
+            log::warn!("{}", message);
+            notify_shutdown_soon(message.as_str());
+            notify_at = now;
+        }
+
+        // shutdown
+        if shutdown_remain_secs <= 0.0 {
+            let shell = core
+                .config()
+                .soft_poweroff_shell
+                .clone()
+                .unwrap_or_else(|| "shutdown --poweroff 0".to_string());
+            let _ = execute_shell(&shell);
         }
     }
 }

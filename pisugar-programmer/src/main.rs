@@ -1,9 +1,9 @@
+use std::fs;
 use std::io;
 use std::io::Read;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
-use std::fs;
 
 use clap::Arg;
 use clap::Command;

@@ -353,6 +353,12 @@ pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
     child.wait()
 }
 
+/// Execute cmds
+pub fn execute_cmd(cmd: &str, args: &[&str]) -> io::Result<ExitStatus> {
+    let mut child = Command::new(cmd).args(args).spawn()?;
+    child.wait()
+}
+
 /// Notify shutdown with message
 pub fn notify_shutdown_soon(message: &str) {
     let shell = format!("/usr/bin/wall -n '{}'", message);
