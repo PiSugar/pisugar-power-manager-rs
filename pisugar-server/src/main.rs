@@ -58,7 +58,7 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
     let now = Instant::now();
     match core.poll(now).await {
         Ok(Some(tap_type)) => {
-            let _ = tx.send(format!("{}", tap_type));
+            let _ = tx.send(format!("{}\n", tap_type));
         }
         Err(e) => {
             log::debug!("Poll error: {}", e);
@@ -1311,6 +1311,7 @@ async fn main() -> std::io::Result<()> {
                 .clone()
                 .unwrap_or_else(|| "shutdown --poweroff 0".to_string());
             let _ = execute_shell(&shell);
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
 }
