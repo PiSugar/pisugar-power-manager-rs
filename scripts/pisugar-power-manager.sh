@@ -18,7 +18,7 @@ rpm_n=1
 
 # since version 1.7.6, cargo deb add a deb_version "-1" to the deb file name
 deb_version=""
-if [ $(echo "$version\n1.7.6" | sort -V | head -n 1) == "1.7.6" ]; then
+if [ $(echo -e "$version\n1.7.6" | sort -V | head -n 1) == "1.7.6" ]; then
     deb_version="-1"
 fi
 
