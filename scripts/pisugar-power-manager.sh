@@ -16,6 +16,12 @@ type=deb
 # rpm build number, default 1
 rpm_n=1
 
+# since version 1.7.6, cargo deb add a deb_version "-1" to the deb file name
+deb_version=""
+if [ $(echo "$version\n1.7.6" | sort -V | head -n 1) == "1.7.6" ]; then
+    deb_version="-1"
+fi
+
 # check distribution
 if which apt >/dev/null 2>&1 && which dpkg >/dev/null 2>&1; then
     type=deb
@@ -102,9 +108,9 @@ if [ "$type"x == "deb"x ]; then
             arch_deb=arm64
         fi
     fi
-    package_server="pisugar-server_${version}_${arch_deb}.deb"
-    package_poweroff="pisugar-poweroff_${version}_${arch_deb}.deb"
-    package_programmer="pisugar-programmer_${version}_${arch_deb}.deb"
+    package_server="pisugar-server_${version}${deb_version}_${arch_deb}.deb"
+    package_poweroff="pisugar-poweroff_${version}${deb_version}_${arch_deb}.deb"
+    package_programmer="pisugar-programmer_${version}${deb_version}_${arch_deb}.deb"
 else
     if [ "$arch"x == "arm"x ]; then
         arch_rpm=armv7hl
