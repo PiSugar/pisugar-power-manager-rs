@@ -16,7 +16,10 @@
 /* Based heavily on
  * https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/drivers/power/test_power.c?id=refs/tags/v4.2.6
  */
-/* Fork from https://github.com/hoelzro/linux-fake-battery-module */
+/* 
+ * Fork from https://github.com/hoelzro/linux-fake-battery-module
+ * https://docs.kernel.org/power/power_supply_class.html
+ */
 
 #include <linux/fs.h>
 #include <linux/i2c.h>
@@ -30,6 +33,10 @@
 
 #define PISUGAR_3_BAT_I2C_BUS  0x01
 #define PISUGAR_3_BAT_I2C_ADDR 0x57
+
+#define TOTAL_LIFE_SECONDS          (3*60*60)
+#define TOTAL_CHARGE                (2000*1000)     // uAH
+#define TOTAL_CHARGE_FULL_SECONDS   (60*60)
 
 enum pisugar_3_bat_reg {
     PISUGAR_3_VER = 0x00,
@@ -77,7 +84,9 @@ static struct battery_status {
     .status = POWER_SUPPLY_STATUS_FULL,
     .capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_FULL,
     .capacity = 100,
-    .time_left = 3600,
+    .time_left = TOTAL_LIFE_SECONDS,
+    .voltage = 4200 * 1000, // uV
+    .temperature = 30
 }};
 
 static int ac_status = 1;
@@ -92,6 +101,7 @@ static enum power_supply_property pisugar_3_battery_properties[] = {
     POWER_SUPPLY_PROP_HEALTH,
     POWER_SUPPLY_PROP_PRESENT,
     POWER_SUPPLY_PROP_TECHNOLOGY,
+    POWER_SUPPLY_PROP_CHARGE_EMPTY,
     POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
     POWER_SUPPLY_PROP_CHARGE_FULL,
     POWER_SUPPLY_PROP_CHARGE_NOW,
@@ -171,16 +181,21 @@ static int pisugar_3_battery_generic_get_property(struct power_supply *psy,
         case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
             val->intval = status->capacity_level;
             break;
+        case POWER_SUPPLY_PROP_CHARGE_EMPTY:
+            val->intval = 0;
+            break;
         case POWER_SUPPLY_PROP_CHARGE_NOW:
-            val->intval = status->capacity;
+            val->intval = status->capacity * TOTAL_CHARGE / 100;
             break;
         case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
         case POWER_SUPPLY_PROP_CHARGE_FULL:
-            val->intval = 100;
+            val->intval = TOTAL_CHARGE;
             break;
         case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
-        case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
             val->intval = status->time_left;
+            break;
+        case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+            val->intval = (100 - status->capacity) * TOTAL_CHARGE_FULL_SECONDS / 100;
             break;
         case POWER_SUPPLY_PROP_TEMP:
             val->intval = status->temperature;
@@ -274,17 +289,20 @@ static int pisugar_3_monitor(void *args)
             int cap = i2c_smbus_read_byte_data(pisugar_3_client, PISUGAR_3_CAP);
             cap = cap > 100 ? 100 : cap;
             pisugar_3_battery_statuses->capacity = cap;
-            if (cap > 98) {
+            if (cap > 95) {
                 pisugar_3_battery_statuses->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_FULL;
-            } else if (cap > 90) {
+            } else if (cap > 85) {
                 pisugar_3_battery_statuses->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_HIGH;
-            } else if (cap > 50) {
+            } else if (cap > 40) {
                 pisugar_3_battery_statuses->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_NORMAL;
             } else if (cap > 30) {
                 pisugar_3_battery_statuses->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_LOW;
             } else {
                 pisugar_3_battery_statuses->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
             }
+
+            // time left
+            pisugar_3_battery_statuses->time_left = cap * TOTAL_LIFE_SECONDS / 100;
 
             // voltage
             int vol_h = i2c_smbus_read_byte_data(pisugar_3_client, PISUGAR_3_VOL_H);
@@ -296,7 +314,7 @@ static int pisugar_3_monitor(void *args)
 
             // charging status
             if (online && ch_en) {
-                if (cap > 98) {
+                if (cap > 95) {
                     pisugar_3_battery_statuses->status = POWER_SUPPLY_STATUS_FULL;
                 } else {
                     pisugar_3_battery_statuses->status = POWER_SUPPLY_STATUS_CHARGING;

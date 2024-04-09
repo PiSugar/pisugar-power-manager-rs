@@ -13,6 +13,8 @@ Install `build-essential` and `linux-headers`
 sudo apt install -y build-essential linux-headers-$(uname -r)
 ```
 
+Running 32bit OS in a 64bit machine, see [this](https://forums.raspberrypi.com/viewtopic.php?t=367669).
+
 ### Old raspberry Pi OS
 
 As kernel symbols is not included in Raspberry Pi OS (no `/lib/modules/$(uname -r)/build`), so you need to compile the kernel and generate the kernel symbols by yourself. 
