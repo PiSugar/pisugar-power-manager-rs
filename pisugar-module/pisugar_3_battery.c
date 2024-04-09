@@ -324,6 +324,7 @@ static int pisugar_3_monitor(void *args)
             }
         }
     sleep:
+        set_current_state(TASK_RUNNING);
         schedule_timeout(HZ);
     }
 
