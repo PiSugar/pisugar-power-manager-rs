@@ -51,6 +51,7 @@ jobs:
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
+            pisugar-module.tar.gz
           if-no-files-found: warn
 
       # Draft Release
@@ -65,6 +66,7 @@ jobs:
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
+            pisugar-module.tar.gz
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"

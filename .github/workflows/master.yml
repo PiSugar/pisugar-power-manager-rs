@@ -63,6 +63,7 @@ jobs:
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
+            pisugar-module.tar.gz
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"

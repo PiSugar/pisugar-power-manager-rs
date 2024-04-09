@@ -36,6 +36,9 @@ jobs:
       # aur for archlinux
       - run: (cd scripts/aur; sh build-aur.sh)
 
+      # Linux module
+      - run: tar -xvf pisugar-module.tar.gz pisugar-module
+
       # Upload artifact
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
@@ -48,4 +51,5 @@ jobs:
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
+            pisugar-module.tar.gz
           if-no-files-found: warn
