@@ -1,9 +1,23 @@
-use std::io;
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Read, Write},
+    path::Path,
+};
 
+use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 
 /// Battery voltage threshold, (low, percentage at low)
-type BatteryThreshold = (f32, f32);
+pub type BatteryThreshold = (f32, f32);
+
+fn default_i2c_bus() -> u8 {
+    1
+}
+
+/// Default auth session timeout, 1h
+fn default_session_timeout() -> u32 {
+    60 * 60
+}
 
 /// PiSugar configuration
 #[derive(Clone, Serialize, Deserialize)]
@@ -119,10 +133,10 @@ pub struct PiSugarConfig {
 impl PiSugarConfig {
     fn _validate_battery_curve(cfg: &PiSugarConfig) -> bool {
         let mut curve = cfg.battery_curve.clone().unwrap_or_default();
-        curve.sort();
+        curve.sort_by(|x, y| x.0.total_cmp(&y.0));
         for i in 1..curve.len() {
             if curve[i].0 == curve[i - 1].0 || curve[i].1 <= curve[i - 1].1 {
-                log::error!("Invalid customized battery curve {} {}", curve[i - 1], curve[i]);
+                log::error!("Invalid customized battery curve {:?} {:?}", curve[i - 1], curve[i]);
                 return false;
             }
         }

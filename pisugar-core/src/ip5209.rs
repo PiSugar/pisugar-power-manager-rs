@@ -3,8 +3,12 @@ use std::time::Instant;
 
 use rppal::i2c::I2c;
 
-use crate::{battery::{Battery, BatteryEvent}, I2C_ADDR_BAT};
-use crate::{convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Model, PiSugarConfig, Result};
+use crate::config::BatteryThreshold;
+use crate::{
+    battery::{Battery, BatteryEvent},
+    I2C_ADDR_BAT,
+};
+use crate::{convert_battery_voltage_to_level, gpio_detect_tap, Error, Model, PiSugarConfig, Result};
 
 /// Battery threshold curve
 pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
@@ -54,9 +58,9 @@ impl IP5209 {
     }
 
     /// Parse level(%)
-    pub fn parse_voltage_level(voltage: f32) -> f32 {
+    pub fn parse_voltage_level(voltage: f32, curve: &[BatteryThreshold]) -> f32 {
         if voltage > 0.0 {
-            convert_battery_voltage_to_level(voltage, &BATTERY_CURVE)
+            convert_battery_voltage_to_level(voltage, curve)
         } else {
             100.0
         }
@@ -245,7 +249,7 @@ pub struct IP5209Battery {
     levels: VecDeque<f32>,
     intensities: VecDeque<(Instant, f32)>,
     tap_history: String,
-    cfg: PiSugarConfig
+    cfg: PiSugarConfig,
 }
 
 impl IP5209Battery {
@@ -319,7 +323,13 @@ impl Battery for IP5209Battery {
     }
 
     fn level(&self) -> Result<f32> {
-        self.voltage_avg().map(IP5209::parse_voltage_level)
+        let curve = self
+            .cfg
+            .battery_curve
+            .as_ref()
+            .map(|x| &x[..])
+            .unwrap_or(BATTERY_CURVE.as_ref());
+        self.voltage_avg().map(|x| IP5209::parse_voltage_level(x, curve))
     }
 
     fn intensity(&self) -> Result<f32> {
@@ -399,11 +409,11 @@ impl Battery for IP5209Battery {
         }
         self.voltages.push_back((now, voltage));
 
-        let level = IP5209::parse_voltage_level(voltage);
+        let level = self.level()?;
         if self.levels.len() >= self.levels.capacity() {
             self.levels.pop_front();
         }
-        self.levels.push_back(level as f32);
+        self.levels.push_back(level);
 
         let intensity = self.intensity()?;
         if self.intensities.len() >= self.intensities.capacity() {

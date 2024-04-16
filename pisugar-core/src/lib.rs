@@ -1,9 +1,9 @@
 use std::convert::{From, TryInto};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::fs::{File, OpenOptions};
+
 use std::io;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::thread;
@@ -11,10 +11,9 @@ use std::time::{Duration, Instant};
 
 use battery::BatteryEvent;
 use chrono::{DateTime, Datelike, Local, Timelike};
-use config::PiSugarConfig;
+pub use config::{BatteryThreshold, PiSugarConfig};
 use hyper::client::Client;
 use rppal::i2c::Error as I2cError;
-use serde::{Deserialize, Serialize};
 
 pub use model::Model;
 pub use sd3078::*;
@@ -24,13 +23,13 @@ pub use crate::rtc::RTCRawTime;
 use crate::rtc::RTC;
 
 mod battery;
+mod config;
 mod ip5209;
 mod ip5312;
 mod model;
 mod pisugar3;
 mod rtc;
 mod sd3078;
-mod config;
 
 /// Time host
 pub const TIME_HOST: &str = "http://cdn.pisugar.com";
@@ -88,8 +87,6 @@ impl Display for Error {
 /// PiSugar result
 pub type Result<T> = std::result::Result<T, Error>;
 
-
-
 /// Battery voltage to percentage level
 fn convert_battery_voltage_to_level(voltage: f32, battery_curve: &[BatteryThreshold]) -> f32 {
     for i in 0..battery_curve.len() {
@@ -130,15 +127,6 @@ pub fn sys_write_time(dt: DateTime<Local>) {
     } else {
         log::error!("Failed to set system time");
     }
-}
-
-fn default_i2c_bus() -> u8 {
-    1
-}
-
-/// Default auth session timeout, 1h
-fn default_session_timeout() -> u32 {
-    60 * 60
 }
 
 /// Button tap type
@@ -189,7 +177,7 @@ pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
 /// Execute shell with sh
 pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
     let args = ["-c", shell];
-    let mut child = Command::new("/bin/sh").args(&args).spawn()?;
+    let mut child = Command::new("/bin/sh").args(args).spawn()?;
     child.wait()
 }
 
@@ -266,7 +254,7 @@ impl PiSugarCore {
     fn init_rtc(&mut self) -> Result<()> {
         if self.rtc.is_none() {
             log::debug!("Core init rtc...");
-            let mut rtc = self.model.rtc(self.config.i2c_bus, self.config.i2c_addr)?;
+            let mut rtc = self.model.rtc(self.config.clone())?;
             rtc.init(&self.config)?;
             self.rtc = Some(rtc);
         }
@@ -304,8 +292,8 @@ impl PiSugarCore {
             poll_check_at: Instant::now(),
             rtc_sync_at: Instant::now(),
         };
-        core.battery = Some(model.bind(config.i2c_bus, config.i2c_addr)?);
-        core.rtc = Some(model.rtc(config.i2c_bus, config.i2c_addr)?);
+        core.battery = Some(model.bind(config.clone())?);
+        core.rtc = Some(model.rtc(config.clone())?);
         Ok(core)
     }
 

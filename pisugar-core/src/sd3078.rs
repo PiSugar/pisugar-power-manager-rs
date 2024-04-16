@@ -1,19 +1,23 @@
 use rppal::i2c::I2c;
 
-use crate::rtc::{bcd_to_dec, dec_to_bcd, RTCRawTime, RTC};
+use crate::{
+    rtc::{bcd_to_dec, dec_to_bcd, RTCRawTime, RTC},
+    Model,
+};
 use crate::{PiSugarConfig, Result};
 
 /// SD3078, rtc chip
 pub struct SD3078 {
     i2c: I2c,
+    cfg: PiSugarConfig,
 }
 
 impl SD3078 {
     /// Create new SD3078
-    pub fn new(i2c_bus: u8, i2c_addr: u16) -> Result<Self> {
-        let mut i2c = I2c::with_bus(i2c_bus)?;
-        i2c.set_slave_address(i2c_addr)?;
-        Ok(Self { i2c })
+    pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
+        let mut i2c = I2c::with_bus(cfg.i2c_bus)?;
+        i2c.set_slave_address(model.default_rtc_i2c_addr())?;
+        Ok(Self { i2c, cfg })
     }
 
     /// Disable write protect

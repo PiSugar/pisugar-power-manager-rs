@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::{config::PiSugarConfig, ip5209::IP5209Battery};
 use crate::ip5312::IP5312Battery;
 use crate::pisugar3::{PiSugar3Battery, PiSugar3RTC, I2C_ADDR_P3};
 use crate::rtc::RTC;
 use crate::{battery::Battery, I2C_ADDR_BAT};
+use crate::{config::PiSugarConfig, ip5209::IP5209Battery};
 use crate::{Result, I2C_ADDR_RTC, SD3078};
 
 const PISUGAR_2_4LEDS: &str = "PiSugar 2 (4-LEDs)";
@@ -47,30 +47,30 @@ impl Model {
         }
     }
 
-    pub fn bind(&self, config: PiSugarConfig) -> Result<Box<dyn Battery + Send>> {
-        let i2c_addr = if *self == Model::PiSugar_3 {
-            i2c_addr.unwrap_or_else(|| self.default_battery_i2c_addr())
-        } else {
-            self.default_battery_i2c_addr()
-        };
+    pub fn bind(&self, cfg: PiSugarConfig) -> Result<Box<dyn Battery + Send>> {
+        log::info!(
+            "Binding battery i2c bus={} addr={}",
+            cfg.i2c_bus,
+            cfg.i2c_addr.unwrap_or(self.default_battery_i2c_addr())
+        );
         let b: Box<dyn Battery + Send> = match *self {
-            Model::PiSugar_2_4LEDs => Box::new(IP5209Battery::new(i2c_bus, i2c_addr, *self)?),
-            Model::PiSugar_2_2LEDs => Box::new(IP5209Battery::new(i2c_bus, i2c_addr, *self)?),
-            Model::PiSugar_2_Pro => Box::new(IP5312Battery::new(i2c_bus, i2c_addr, *self)?),
-            Model::PiSugar_3 => Box::new(PiSugar3Battery::new(i2c_bus, i2c_addr, *self)?),
+            Model::PiSugar_2_4LEDs => Box::new(IP5209Battery::new(cfg, *self)?),
+            Model::PiSugar_2_2LEDs => Box::new(IP5209Battery::new(cfg, *self)?),
+            Model::PiSugar_2_Pro => Box::new(IP5312Battery::new(cfg, *self)?),
+            Model::PiSugar_3 => Box::new(PiSugar3Battery::new(cfg, *self)?),
         };
         Ok(b)
     }
 
-    pub fn rtc(&self, i2c_bus: u8, i2c_addr: Option<u16>) -> Result<Box<dyn RTC + Send>> {
-        let i2c_addr = if *self == Model::PiSugar_3 {
-            i2c_addr.unwrap_or_else(|| self.default_rtc_i2c_addr())
-        } else {
+    pub fn rtc(&self, cfg: PiSugarConfig) -> Result<Box<dyn RTC + Send>> {
+        log::info!(
+            "Bindig rtc i2c bus={} addr={}",
+            cfg.i2c_bus,
             self.default_rtc_i2c_addr()
-        };
+        );
         let r: Box<dyn RTC + Send> = match *self {
-            Model::PiSugar_3 => Box::new(PiSugar3RTC::new(i2c_bus, i2c_addr)?),
-            _ => Box::new(SD3078::new(i2c_bus, i2c_addr)?),
+            Model::PiSugar_3 => Box::new(PiSugar3RTC::new(cfg, *self)?),
+            _ => Box::new(SD3078::new(cfg, *self)?),
         };
         Ok(r)
     }

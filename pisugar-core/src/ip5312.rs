@@ -3,10 +3,13 @@ use std::time::Instant;
 
 use rppal::i2c::I2c;
 
-use crate::battery::{Battery, BatteryEvent};
+use crate::Error;
+use crate::{
+    battery::{Battery, BatteryEvent},
+    config::BatteryThreshold,
+};
 use crate::{convert_battery_voltage_to_level, I2cError, Model, PiSugarConfig};
 use crate::{gpio_detect_tap, Result};
-use crate::{BatteryThreshold, Error};
 
 /// Battery threshold curve
 pub const BATTERY_CURVE: [BatteryThreshold; 10] = [
@@ -53,9 +56,9 @@ impl IP5312 {
     }
 
     /// Parse level(%)
-    pub fn parse_voltage_level(voltage: f32) -> f32 {
+    pub fn parse_voltage_level(voltage: f32, curve: &[BatteryThreshold]) -> f32 {
         if voltage > 0.0 {
-            convert_battery_voltage_to_level(voltage, &BATTERY_CURVE)
+            convert_battery_voltage_to_level(voltage, curve)
         } else {
             100.0
         }
@@ -242,11 +245,12 @@ pub struct IP5312Battery {
     intensities: VecDeque<(Instant, f32)>,
     levels: VecDeque<f32>,
     tap_history: String,
+    cfg: PiSugarConfig,
 }
 
 impl IP5312Battery {
-    pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
-        let ip5312 = IP5312::new(i2c_bus, i2c_addr)?;
+    pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
+        let ip5312 = IP5312::new(cfg.i2c_bus, cfg.i2c_addr.unwrap_or(model.default_battery_i2c_addr()))?;
         Ok(Self {
             ip5312,
             model,
@@ -254,6 +258,7 @@ impl IP5312Battery {
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
             tap_history: String::with_capacity(30),
+            cfg,
         })
     }
 }
@@ -315,7 +320,13 @@ impl Battery for IP5312Battery {
     }
 
     fn level(&self) -> Result<f32> {
-        self.voltage_avg().map(IP5312::parse_voltage_level)
+        let curve = self
+            .cfg
+            .battery_curve
+            .as_ref()
+            .map(|x| &x[..])
+            .unwrap_or(BATTERY_CURVE.as_ref());
+        self.voltage_avg().map(|x| IP5312::parse_voltage_level(x, curve))
     }
 
     fn intensity(&self) -> Result<f32> {
@@ -395,7 +406,7 @@ impl Battery for IP5312Battery {
             self.voltages.push_back((now, voltage));
         }
 
-        let level = IP5312::parse_voltage_level(voltage);
+        let level = self.level()?;
         self.levels.pop_front();
         while self.levels.len() < self.levels.capacity() {
             self.levels.push_back(level);
