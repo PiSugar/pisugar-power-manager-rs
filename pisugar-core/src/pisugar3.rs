@@ -6,9 +6,12 @@ use std::time::Instant;
 
 use rppal::i2c::I2c;
 
-use crate::battery::{Battery, BatteryEvent};
 use crate::ip5312::IP5312;
 use crate::rtc::{bcd_to_dec, dec_to_bcd, RTC};
+use crate::{
+    battery::{Battery, BatteryEvent},
+    ip5312::BATTERY_CURVE,
+};
 use crate::{Error, Model, PiSugarConfig, RTCRawTime, Result, TapType};
 
 /// PiSugar 3 i2c addr
@@ -409,12 +412,12 @@ pub struct PiSugar3Battery {
     levels: VecDeque<f32>,
     poll_at: Instant,
     version: String,
+    cfg: PiSugarConfig,
 }
 
 impl PiSugar3Battery {
-    pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
-        log::info!("PiSugar3 battery bus: 0x{:02x} addr: 0x{:02x}", i2c_bus, i2c_addr);
-        let pisugar3 = PiSugar3::new(i2c_bus, i2c_addr)?;
+    pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
+        let pisugar3 = PiSugar3::new(cfg.i2c_bus, cfg.i2c_addr.unwrap_or(model.default_battery_i2c_addr()))?;
         let poll_at = Instant::now() - std::time::Duration::from_secs(10);
         Ok(Self {
             pisugar3,
@@ -424,6 +427,7 @@ impl PiSugar3Battery {
             levels: VecDeque::with_capacity(30),
             poll_at,
             version: "".to_string(),
+            cfg,
         })
     }
 }
@@ -479,7 +483,13 @@ impl Battery for PiSugar3Battery {
     }
 
     fn level(&self) -> crate::Result<f32> {
-        self.voltage_avg().map(|v| IP5312::parse_voltage_level(v))
+        let curve = self
+            .cfg
+            .battery_curve
+            .as_ref()
+            .map(|x| &x[..])
+            .unwrap_or(BATTERY_CURVE.as_ref());
+        self.voltage_avg().map(|v| IP5312::parse_voltage_level(v, curve))
     }
 
     fn intensity(&self) -> crate::Result<f32> {
@@ -555,7 +565,7 @@ impl Battery for PiSugar3Battery {
             self.voltages.push_back((now, voltage));
         }
 
-        let level = IP5312::parse_voltage_level(voltage);
+        let level = self.level()?;
         self.levels.pop_front();
         while self.levels.len() < self.levels.capacity() {
             self.levels.push_back(level);
@@ -633,13 +643,13 @@ impl Battery for PiSugar3Battery {
 
 pub struct PiSugar3RTC {
     pisugar3: PiSugar3,
+    cfg: PiSugarConfig,
 }
 
 impl PiSugar3RTC {
-    pub fn new(i2c_bus: u8, i2c_addr: u16) -> Result<Self> {
-        log::debug!("PiSugar3 rtc bus: 0x{:02x} addr: 0x{:02x}", i2c_bus, i2c_addr);
-        let pisugar3 = PiSugar3::new(i2c_bus, i2c_addr)?;
-        Ok(Self { pisugar3 })
+    pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
+        let pisugar3 = PiSugar3::new(cfg.i2c_bus, model.default_rtc_i2c_addr())?;
+        Ok(Self { pisugar3, cfg })
     }
 }
 
