@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use rppal::i2c::I2c;
 
-use crate::battery::{Battery, BatteryEvent};
+use crate::{battery::{Battery, BatteryEvent}, I2C_ADDR_BAT};
 use crate::{convert_battery_voltage_to_level, gpio_detect_tap, BatteryThreshold, Error, Model, PiSugarConfig, Result};
 
 /// Battery threshold curve
@@ -245,11 +245,12 @@ pub struct IP5209Battery {
     levels: VecDeque<f32>,
     intensities: VecDeque<(Instant, f32)>,
     tap_history: String,
+    cfg: PiSugarConfig
 }
 
 impl IP5209Battery {
-    pub fn new(i2c_bus: u8, i2c_addr: u16, model: Model) -> Result<Self> {
-        let ip5209 = IP5209::new(i2c_bus, i2c_addr)?;
+    pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
+        let ip5209 = IP5209::new(cfg.i2c_bus, cfg.i2c_addr.unwrap_or(I2C_ADDR_BAT))?;
         Ok(Self {
             ip5209,
             model,
@@ -257,6 +258,7 @@ impl IP5209Battery {
             intensities: VecDeque::with_capacity(30),
             levels: VecDeque::with_capacity(30),
             tap_history: String::with_capacity(30),
+            cfg,
         })
     }
 }

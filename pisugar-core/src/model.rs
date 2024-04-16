@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::ip5209::IP5209Battery;
+use crate::{config::PiSugarConfig, ip5209::IP5209Battery};
 use crate::ip5312::IP5312Battery;
 use crate::pisugar3::{PiSugar3Battery, PiSugar3RTC, I2C_ADDR_P3};
 use crate::rtc::RTC;
@@ -47,7 +47,7 @@ impl Model {
         }
     }
 
-    pub fn bind(&self, i2c_bus: u8, i2c_addr: Option<u16>) -> Result<Box<dyn Battery + Send>> {
+    pub fn bind(&self, config: PiSugarConfig) -> Result<Box<dyn Battery + Send>> {
         let i2c_addr = if *self == Model::PiSugar_3 {
             i2c_addr.unwrap_or_else(|| self.default_battery_i2c_addr())
         } else {

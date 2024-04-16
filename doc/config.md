@@ -44,3 +44,6 @@ Json format configuration file of pisugar-server:
     soft_poweroff_shell Shell script of soft poweroff, default null
 
     auto_rtc_sync   Automatically sync rtc time (Every 10s)
+
+    battery_curve   Customized battery curve, optional, e.g.:
+                    [[3.2, 5], [3.3, 20], [3.5, 60], [3.7, 80], [3.8, 90], [4.0, 100]]
