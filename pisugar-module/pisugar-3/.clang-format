@@ -1,0 +1,26 @@
+BasedOnStyle: Google
+IndentWidth: 4
+---
+Language: Cpp
+AllowShortBlocksOnASingleLine: Never
+ColumnLimit: 120
+AlignTrailingComments: true
+AllowShortFunctionsOnASingleLine: Empty
+AlignConsecutiveMacros: true
+MaxEmptyLinesToKeep: 1
+UseTab: Never
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: "^<.*>"
+    Priority: -99
+  - Regex: ".*"
+    Priority: 0
+ReflowComments: true
+TabWidth: 4
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+BinPackArguments: false
+BinPackParameters: false
+AlignEscapedNewlinesLeft: false
