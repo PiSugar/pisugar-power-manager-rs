@@ -39,30 +39,30 @@
 #define TOTAL_CHARGE              (2000 * 1000)  // uAH
 #define TOTAL_CHARGE_FULL_SECONDS (60 * 60)
 
-const float IP5209_CURVE[10][2] = {
-    {4.16, 100.0},
-    {4.05, 95.0},
-    {4.00, 80.0},
-    {3.92, 65.0},
-    {3.86, 40.0},
-    {3.79, 25.5},
-    {3.66, 10.0},
-    {3.52, 6.5},
-    {3.49, 3.2},
-    {3.1, 0.0},
+const int IP5209_CURVE[10][2] = {
+    {4160, 100},
+    {4050, 95},
+    {4000, 80},
+    {3920, 65},
+    {3860, 40},
+    {3790, 25},
+    {3660, 10},
+    {3520, 6},
+    {3490, 3},
+    {3100, 0},
 };
 
-const float IP5312_CURVE[10][2] = {
-    {4.10, 100.0},
-    {4.05, 95.0},
-    {3.90, 88.0},
-    {3.80, 77.0},
-    {3.70, 65.0},
-    {3.62, 55.0},
-    {3.58, 49.0},
-    {3.49, 25.6},
-    {3.32, 4.5},
-    {3.1, 0.0},
+const int IP5312_CURVE[10][2] = {
+    {4100, 100},
+    {4050, 95},
+    {3900, 88},
+    {3800, 77},
+    {3700, 65},
+    {3620, 55},
+    {3580, 49},
+    {3490, 25},
+    {3320, 4},
+    {3100, 0},
 };
 
 enum BAT_MODEL {
@@ -71,7 +71,7 @@ enum BAT_MODEL {
 };
 
 #define BAT_HIS_LEN 30
-float bat_voltage_his[BAT_HIS_LEN] = {0};  // mV
+int bat_voltage_his[BAT_HIS_LEN] = {0};  // mV
 
 static short int i2c_bus = BAT_I2C_BUS;
 static short int i2c_addr = IP5209_I2C_ADDR;
@@ -93,6 +93,16 @@ static int pisugar_2_battery_get_property1(struct power_supply *psy,
 static int pisugar_2_ac_get_property(struct power_supply *psy,
                                      enum power_supply_property psp,
                                      union power_supply_propval *val);
+
+static void push_bat_voltage(int vol);
+
+static int get_bat_avg_voltage();
+
+static void update_bat_capacity_level_and_status();
+
+static void ip5209_monitor_once(struct i2c_client *pisugar_2_client);
+
+static void ip5312_monitor_once(struct i2c_client *pisugar_2_client);
 
 static struct task_struct *pisugar_2_monitor_task = NULL;
 
@@ -268,7 +278,7 @@ static int pisugar_2_ac_get_property(struct power_supply *psy,
 
 #define CHECK_VALID(val) ((val) >= 0 && (val) <= 255)
 
-static void push_bat_voltage(float vol)
+static void push_bat_voltage(int vol)
 {
     for (int i = 0; i < BAT_HIS_LEN - 1; i++) {
         bat_voltage_his[i] = bat_voltage_his[i + 1];
@@ -276,13 +286,13 @@ static void push_bat_voltage(float vol)
     bat_voltage_his[BAT_HIS_LEN - 1] = vol;
 }
 
-static float get_bat_avg_voltage()
+static int get_bat_avg_voltage()
 {
-    double vol_sum = 0;
+    long vol_sum = 0;
     for (int i = 0; i < BAT_HIS_LEN; i++) {
         vol_sum += bat_voltage_his[i];
     }
-    return (float)(vol_sum / BAT_HIS_LEN);
+    return (int)(vol_sum / BAT_HIS_LEN);
 }
 
 static void update_bat_capacity_level_and_status()
@@ -315,76 +325,82 @@ static void update_bat_capacity_level_and_status()
 
 static void ip5209_monitor_once(struct i2c_client *pisugar_2_client)
 {
+    int vol_low, vol_high, cap, charging_flags;
+    int vol, vol_avg, vol_avg_v;
+
     // read voltage
-    int vol_low = i2c_smbus_read_byte_data(pisugar_2_client, 0xa2);
-    int vol_high = i2c_smbus_read_byte_data(pisugar_2_client, 0xa3);
-    float vol = 0;  // mv
+    vol_low = i2c_smbus_read_byte_data(pisugar_2_client, 0xa2);
+    vol_high = i2c_smbus_read_byte_data(pisugar_2_client, 0xa3);
+    vol = 0;  // mv
     if (!CHECK_VALID(vol_high) || !CHECK_VALID(vol_low)) {
         return;
     }
     if ((vol_high & 0x20) == 0x20) {
-        vol = 2600.0 - (float)((~vol_low) + (~(vol_high & 0x1F)) * 256 + 1) * 0.26855;
+        vol = 2600 - (long)((~vol_low) + (~(vol_high & 0x1F)) * 256 + 1) * 27 / 100;
     } else {
-        vol = 2600.0 + (float)(vol_low + vol_high * 256) * 0.26855;
+        vol = 2600 + (long)(vol_low + vol_high * 256) * 27 / 100;
     }
     push_bat_voltage(vol);
-    float vol_avg = get_bat_avg_voltage();                 // mV
+    vol_avg = get_bat_avg_voltage();                       // mV
     pisugar_2_battery_statuses->voltage = vol_avg * 1000;  // uV
 
     // capacity
-    int cap = 0;
-    float vol_avg_v = vol_avg / 1000;
+    cap = 0;
+    vol_avg_v = vol_avg / 1000;
     for (int i = 0; i < ARRAY_SIZE(IP5209_CURVE); i++) {
         if (vol_avg_v >= IP5209_CURVE[i][0]) {
             cap = IP5209_CURVE[i][1];
         }
         if (i > 0) {
-            float vol_diff_v = vol_avg_v - IP5209_CURVE[i];
-            float k = (IP5209_CURVE[i - 1][1] - IP5209_CURVE[i][1]) / (IP5209_CURVE[i - 1][0] - IP5209_CURVE[i][0]);
+            int vol_diff_v = vol_avg_v - IP5209_CURVE[i][0];
+            int k = (IP5209_CURVE[i - 1][1] - IP5209_CURVE[i][1]) / (IP5209_CURVE[i - 1][0] - IP5209_CURVE[i][0]);
             cap += (int)(k * vol_diff_v);
         }
     }
     pisugar_2_battery_statuses->capacity = cap;
 
     // charging status
-    int charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x71);
+    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x71);
     ac_status = charging_flags > 0 ? 1 : 0;
 
     update_bat_capacity_level_and_status();
 }
 
-static void ip5312_monitor_once()
+static void ip5312_monitor_once(struct i2c_client *pisugar_2_client)
 {
+    int vol_low, vol_high, cap, charging_flags;
+    int vol, vol_avg, vol_avg_v;
+
     // read voltage
-    int vol_low = i2c_smbus_read_byte_data(pisugar_2_client, 0xd0);
-    int vol_high = i2c_smbus_read_byte_data(pisugar_2_client, 0xd1);
-    float vol = 0;  // mv
+    vol_low = i2c_smbus_read_byte_data(pisugar_2_client, 0xd0);
+    vol_high = i2c_smbus_read_byte_data(pisugar_2_client, 0xd1);
+    vol = 0;  // mv
     if (!CHECK_VALID(vol_high) || !CHECK_VALID(vol_low)) {
         return;
     }
-    vol = 2600.0 + (float)(vol_low + (vol_high & (0x1F)) * 256) * 0.26855;
+    vol = 2600.0 + (long)(vol_low + (vol_high & (0x1F)) * 256) * 27 / 100;
 
     push_bat_voltage(vol);
-    float vol_avg = get_bat_avg_voltage();                 // mV
+    vol_avg = get_bat_avg_voltage();                       // mV
     pisugar_2_battery_statuses->voltage = vol_avg * 1000;  // uV
 
     // capacity
-    int cap = 0;
-    float vol_avg_v = vol_avg / 1000;
+    cap = 0;
+    vol_avg_v = vol_avg / 1000;
     for (int i = 0; i < ARRAY_SIZE(IP5312_CURVE); i++) {
         if (vol_avg_v >= IP5312_CURVE[i][0]) {
             cap = IP5312_CURVE[i][1];
         }
         if (i > 0) {
-            float vol_diff_v = vol_avg_v - IP5312_CURVE[i];
-            float k = (IP5312_CURVE[i - 1][1] - IP5312_CURVE[i][1]) / (IP5312_CURVE[i - 1][0] - IP5312_CURVE[i][0]);
+            int vol_diff_v = vol_avg_v - IP5312_CURVE[i][0];
+            int k = (IP5312_CURVE[i - 1][1] - IP5312_CURVE[i][1]) / (IP5312_CURVE[i - 1][0] - IP5312_CURVE[i][0]);
             cap += (int)(k * vol_diff_v);
         }
     }
     pisugar_2_battery_statuses->capacity = cap;
 
     // charging status
-    int charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x79);
+    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x79);
     ac_status = (charging_flags >> 6) > 0 ? 1 : 0;
 
     update_bat_capacity_level_and_status();
