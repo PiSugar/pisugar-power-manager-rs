@@ -71,7 +71,7 @@ enum BAT_MODEL {
 };
 
 #define BAT_HIS_LEN 30
-int bat_voltage_his[BAT_HIS_LEN] = {0};  // mV
+static int bat_voltage_his[BAT_HIS_LEN] = {0};  // mV
 
 static short int i2c_bus = BAT_I2C_BUS;
 static short int i2c_addr = IP5209_I2C_ADDR;
@@ -93,16 +93,6 @@ static int pisugar_2_battery_get_property1(struct power_supply *psy,
 static int pisugar_2_ac_get_property(struct power_supply *psy,
                                      enum power_supply_property psp,
                                      union power_supply_propval *val);
-
-static void push_bat_voltage(int vol);
-
-static int get_bat_avg_voltage();
-
-static void update_bat_capacity_level_and_status();
-
-static void ip5209_monitor_once(struct i2c_client *pisugar_2_client);
-
-static void ip5312_monitor_once(struct i2c_client *pisugar_2_client);
 
 static struct task_struct *pisugar_2_monitor_task = NULL;
 
@@ -286,7 +276,7 @@ static void push_bat_voltage(int vol)
     bat_voltage_his[BAT_HIS_LEN - 1] = vol;
 }
 
-static int get_bat_avg_voltage()
+int get_bat_avg_voltage(void)
 {
     long vol_sum = 0;
     for (int i = 0; i < BAT_HIS_LEN; i++) {
@@ -295,7 +285,7 @@ static int get_bat_avg_voltage()
     return (int)(vol_sum / BAT_HIS_LEN);
 }
 
-static void update_bat_capacity_level_and_status()
+static void update_bat_capacity_level_and_status(void)
 {
     // capacity level
     int cap = pisugar_2_battery_statuses->capacity;
@@ -326,12 +316,11 @@ static void update_bat_capacity_level_and_status()
 static void ip5209_monitor_once(struct i2c_client *pisugar_2_client)
 {
     int vol_low, vol_high, cap, charging_flags;
-    int vol, vol_avg, vol_avg_v;
+    int vol, vol_avg;  // mV
 
     // read voltage
     vol_low = i2c_smbus_read_byte_data(pisugar_2_client, 0xa2);
     vol_high = i2c_smbus_read_byte_data(pisugar_2_client, 0xa3);
-    vol = 0;  // mv
     if (!CHECK_VALID(vol_high) || !CHECK_VALID(vol_low)) {
         return;
     }
@@ -346,13 +335,12 @@ static void ip5209_monitor_once(struct i2c_client *pisugar_2_client)
 
     // capacity
     cap = 0;
-    vol_avg_v = vol_avg / 1000;
     for (int i = 0; i < ARRAY_SIZE(IP5209_CURVE); i++) {
-        if (vol_avg_v >= IP5209_CURVE[i][0]) {
+        if (vol_avg >= IP5209_CURVE[i][0]) {
             cap = IP5209_CURVE[i][1];
         }
         if (i > 0) {
-            int vol_diff_v = vol_avg_v - IP5209_CURVE[i][0];
+            int vol_diff_v = vol_avg - IP5209_CURVE[i][0];
             int k = (IP5209_CURVE[i - 1][1] - IP5209_CURVE[i][1]) / (IP5209_CURVE[i - 1][0] - IP5209_CURVE[i][0]);
             cap += (int)(k * vol_diff_v);
         }
@@ -369,16 +357,15 @@ static void ip5209_monitor_once(struct i2c_client *pisugar_2_client)
 static void ip5312_monitor_once(struct i2c_client *pisugar_2_client)
 {
     int vol_low, vol_high, cap, charging_flags;
-    int vol, vol_avg, vol_avg_v;
+    int vol, vol_avg;
 
     // read voltage
     vol_low = i2c_smbus_read_byte_data(pisugar_2_client, 0xd0);
     vol_high = i2c_smbus_read_byte_data(pisugar_2_client, 0xd1);
-    vol = 0;  // mv
     if (!CHECK_VALID(vol_high) || !CHECK_VALID(vol_low)) {
         return;
     }
-    vol = 2600.0 + (long)(vol_low + (vol_high & (0x1F)) * 256) * 27 / 100;
+    vol = 2600 + (long)(vol_low + (vol_high & (0x1F)) * 256) * 27 / 100;
 
     push_bat_voltage(vol);
     vol_avg = get_bat_avg_voltage();                       // mV
@@ -386,13 +373,12 @@ static void ip5312_monitor_once(struct i2c_client *pisugar_2_client)
 
     // capacity
     cap = 0;
-    vol_avg_v = vol_avg / 1000;
     for (int i = 0; i < ARRAY_SIZE(IP5312_CURVE); i++) {
-        if (vol_avg_v >= IP5312_CURVE[i][0]) {
+        if (vol_avg >= IP5312_CURVE[i][0]) {
             cap = IP5312_CURVE[i][1];
         }
         if (i > 0) {
-            int vol_diff_v = vol_avg_v - IP5312_CURVE[i][0];
+            int vol_diff_v = vol_avg - IP5312_CURVE[i][0];
             int k = (IP5312_CURVE[i - 1][1] - IP5312_CURVE[i][1]) / (IP5312_CURVE[i - 1][0] - IP5312_CURVE[i][0]);
             cap += (int)(k * vol_diff_v);
         }
@@ -450,6 +436,10 @@ static int __init pisugar_2_battery_init(void)
 {
     int result;
     int i;
+
+    for (int i=0; i<BAT_HIS_LEN; i++) {
+        bat_voltage_his[i] = 4200;
+    }
 
     // create a monitor kthread
     pisugar_2_monitor_task = kthread_run(pisugar_2_monitor, NULL, "pisugar_2_monitor");
