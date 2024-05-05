@@ -437,7 +437,7 @@ static int __init pisugar_2_battery_init(void)
     int result;
     int i;
 
-    for (int i=0; i<BAT_HIS_LEN; i++) {
+    for (int i = 0; i < BAT_HIS_LEN; i++) {
         bat_voltage_his[i] = 4200;
     }
 
