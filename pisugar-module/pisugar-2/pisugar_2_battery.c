@@ -348,8 +348,8 @@ static void ip5209_monitor_once(struct i2c_client *pisugar_2_client)
     pisugar_2_battery_statuses->capacity = cap;
 
     // charging status
-    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x71);
-    ac_status = charging_flags > 0 ? 1 : 0;
+    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x55);
+    ac_status = (charging_flags & 0x10) > 0 ? 1 : 0;
 
     update_bat_capacity_level_and_status();
 }
@@ -386,8 +386,8 @@ static void ip5312_monitor_once(struct i2c_client *pisugar_2_client)
     pisugar_2_battery_statuses->capacity = cap;
 
     // charging status
-    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x79);
-    ac_status = (charging_flags >> 6) > 0 ? 1 : 0;
+    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x58);
+    ac_status = (charging_flags & 0x10) > 0 ? 1 : 0;
 
     update_bat_capacity_level_and_status();
 }
