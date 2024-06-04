@@ -8,9 +8,12 @@ on:
 jobs:
   build-web:
     uses: ./.github/workflows/build-web.yml
+  download-musl-cc:
+    uses: ./.github/workflows/download-musl-cc.yml
   build-musl:
     needs:
       - build-web
+      - download-musl-cc
     uses: ./.github/workflows/build-musl.yml
   build-gnu:
     needs:
