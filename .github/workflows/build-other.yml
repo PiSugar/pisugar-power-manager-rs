@@ -37,7 +37,7 @@ jobs:
       - run: (cd scripts/aur; sh build-aur.sh)
 
       # Linux module
-      - run: tar -xvf pisugar-module.tar.gz pisugar-module
+      - run: tar -czvf pisugar-module.tar.gz pisugar-module
 
       # Upload artifact
       - name: Upload artifacts
