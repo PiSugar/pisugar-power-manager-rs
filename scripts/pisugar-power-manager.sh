@@ -119,7 +119,7 @@ else
     fi
     package_server="pisugar-server-${version}-${rpm_n}.${arch_rpm}.rpm"
     package_poweroff="pisugar-poweroff-${version}-${rpm_n}.${arch_rpm}.rpm"
-    package_programmer="pisugar-programmer_${version}-${rpm_n}.${arch_rpm}.rpm"
+    package_programmer="pisugar-programmer-${version}-${rpm_n}.${arch_rpm}.rpm"
 fi
 
 local_host="$(hostname --fqdn)"
