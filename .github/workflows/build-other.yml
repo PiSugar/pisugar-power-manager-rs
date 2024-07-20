@@ -45,6 +45,9 @@ jobs:
         with:
           name: pisugar-all
           path: |
+            target/**/pisugar-server
+            target/**/pisugar-poweroff
+            target/**/pisugar-programmer
             target/**/*.deb
             target/**/*.rpm
             !target/**/*src*.rpm
