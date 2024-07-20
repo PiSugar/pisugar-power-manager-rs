@@ -116,12 +116,9 @@ jobs:
         with:
           name: gnu-${{ matrix.target }}
           path: |
-            target
-            !target/release
-            !target/**/.fingerprint
-            !target/**/*.d
-            !target/**/build
-            !target/**/deps
-            !target/**/examples
-            !target/**/incremental
+            target/**/*.deb
+            target/**/*.rpm
+            target/**/pisugar-server
+            target/**/pisugar-poweroff
+            target/**/pisugar-programmer
           if-no-files-found: warn

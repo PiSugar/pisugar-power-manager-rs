@@ -85,15 +85,14 @@ jobs:
       # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
+        env:
+          target: ${{ matrix.target }}
         with:
           name: musl-${{ matrix.target }}
           path: |
-            target
-            !target/release
-            !target/**/.fingerprint
-            !target/**/*.d
-            !target/**/build
-            !target/**/deps
-            !target/**/examples
-            !target/**/incremental
+            target/**/*.deb
+            target/**/*.rpm
+            target/**/pisugar-server
+            target/**/pisugar-poweroff
+            target/**/pisugar-programmer
           if-no-files-found: warn
