@@ -39,7 +39,7 @@ jobs:
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       - name: Download all
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: pisugar-all
 
