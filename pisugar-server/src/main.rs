@@ -272,7 +272,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                             Ok(ntp_datetime) => {
                                 sys_write_time(ntp_datetime.into());
                                 if let Ok(core) = core_cloned.lock() {
-                                    let _ = core.write_time(dt.into());
+                                    let _ = core.write_time(ntp_datetime.into());
                                 }
                             }
                             Err(e) => log::warn!("Sync NTP time error: {}", e)
