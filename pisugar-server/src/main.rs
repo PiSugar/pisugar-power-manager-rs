@@ -34,8 +34,7 @@ use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
 
 use pisugar_core::{
-    execute_shell, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime,
-    I2C_READ_INTERVAL, TIME_HOST,
+    execute_shell, get_ntp_datetime, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime, I2C_READ_INTERVAL
 };
 
 /// Websocket info
@@ -269,19 +268,14 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 }
                 "rtc_web" => {
                     tokio::spawn(async move {
-                        if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
-                            if let Some(date) = resp.headers().get("date") {
-                                if let Ok(Ok(dt)) = date.to_str().map(DateTime::parse_from_rfc2822) {
-                                    sys_write_time(dt.into());
-                                    if let Ok(core) = core_cloned.lock() {
-                                        let _ = core.write_time(dt.into());
-                                    }
-                                } else {
-                                    log::warn!("Parse date error");
+                        match get_ntp_datetime().await {
+                            Ok(ntp_datetime) => {
+                                sys_write_time(ntp_datetime.into());
+                                if let Ok(core) = core_cloned.lock() {
+                                    let _ = core.write_time(dt.into());
                                 }
-                            } else {
-                                log::warn!("Failed to get date from {}", TIME_HOST);
                             }
+                            Err(e) => log::warn!("Sync NTP time error: {}", e)
                         }
                     });
                     return format!("{}: done\n", parts[0]);

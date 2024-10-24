@@ -877,20 +877,21 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pisugar-core"
-version = "1.7.7"
+version = "1.7.8"
 dependencies = [
  "anyhow",
  "chrono",
  "hyper",
  "log",
  "rppal",
+ "rsntp",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "pisugar-poweroff"
-version = "1.7.7"
+version = "1.7.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -901,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "pisugar-programmer"
-version = "1.7.7"
+version = "1.7.8"
 dependencies = [
  "clap",
  "env_logger 0.10.0",
@@ -912,7 +913,7 @@ dependencies = [
 
 [[package]]
 name = "pisugar-server"
-version = "1.7.7"
+version = "1.7.8"
 dependencies = [
  "anyhow",
  "base64",
@@ -1053,6 +1054,16 @@ checksum = "c88c9c6248de4d337747b619d8f671055ef48a87dc21b97998833f189a0bbd4f"
 dependencies = [
  "lazy_static",
  "libc",
+]
+
+[[package]]
+name = "rsntp"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cce5f45764fc4f0da82badc165fec123f137f2b2ba7112778a83575bc6af3e1"
+dependencies = [
+ "chrono",
+ "tokio",
 ]
 
 [[package]]

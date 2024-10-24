@@ -1,6 +1,6 @@
 [package]
 name = "pisugar-poweroff"
-version = "1.7.7"
+version = "1.7.8"
 authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Poweroff"

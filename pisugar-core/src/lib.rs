@@ -10,12 +10,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use battery::BatteryEvent;
-use chrono::{DateTime, Datelike, Local, Timelike};
+use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 pub use config::{BatteryThreshold, PiSugarConfig};
 use hyper::client::Client;
 use rppal::i2c::Error as I2cError;
 
 pub use model::Model;
+use rsntp::{AsyncSntpClient, SntpClient};
 pub use sd3078::*;
 
 use crate::battery::Battery;
@@ -31,8 +32,8 @@ mod pisugar3;
 mod rtc;
 mod sd3078;
 
-/// Time host
-pub const TIME_HOST: &str = "http://cdn.pisugar.com";
+/// NTP addr
+pub const NTP_ADDR: &str = "pool.ntp.org";
 
 /// RTC Time record
 pub const RTC_TIME: &str = "rtc.time";
@@ -176,6 +177,7 @@ pub fn gpio_detect_tap(gpio_history: &mut String) -> Option<TapType> {
 
 /// Execute shell with sh
 pub fn execute_shell(shell: &str) -> io::Result<ExitStatus> {
+    log::info!("Execute shell: {}", shell);
     let args = ["-c", shell];
     let mut child = Command::new("/bin/sh").args(args).spawn()?;
     child.wait()
@@ -678,20 +680,21 @@ impl PiSugarCore {
         // much slower
         if self.config.auto_rtc_sync == Some(true) && self.rtc_sync_at + Duration::from_secs(10) <= now {
             self.rtc_sync_at = now;
-            if let Ok(resp) = Client::new().get(TIME_HOST.parse().unwrap()).await {
-                if let Some(date) = resp.headers().get("Date") {
-                    if let Ok(s) = date.to_str() {
-                        if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
-                            sys_write_time(dt.into());
-                            let _ = self.write_time(dt.into());
-                        }
-                    }
-                }
+            if let Ok(ntp_datime) = get_ntp_datetime().await {
+                sys_write_time(ntp_datime.into());
+                let _ = self.write_time(ntp_datime.into());
             }
         }
 
         Ok(tap)
     }
+}
+
+/// Get ntp datetime.
+pub async fn get_ntp_datetime() -> Result<DateTime<Utc>> {
+    let sntp_client = AsyncSntpClient::new();
+    let result = sntp_client.synchronize(NTP_ADDR).await?;
+    Ok(result.datetime().into_chrono_datetime()?)
 }
 
 // Fix aarch64
