@@ -694,7 +694,7 @@ impl PiSugarCore {
 pub async fn get_ntp_datetime() -> Result<DateTime<Utc>> {
     let sntp_client = AsyncSntpClient::new();
     let result = sntp_client.synchronize(NTP_ADDR).await?;
-    Ok(result.datetime().into_chrono_datetime()?)
+    Ok(result.datetime().into_chrono_datetime().map_err(|e| Error::Other(format!("{}", e)))?)
 }
 
 // Fix aarch64
