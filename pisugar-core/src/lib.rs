@@ -693,7 +693,7 @@ impl PiSugarCore {
 /// Get ntp datetime.
 pub async fn get_ntp_datetime() -> Result<DateTime<Utc>> {
     let sntp_client = AsyncSntpClient::new();
-    let result = sntp_client.synchronize(NTP_ADDR).await?;
+    let result = sntp_client.synchronize(NTP_ADDR).await.map_err(|e| Error::Other(format!("{}", e)))?;
     Ok(result.datetime().into_chrono_datetime().map_err(|e| Error::Other(format!("{}", e)))?)
 }
 
