@@ -334,16 +334,16 @@ static void ip5209_monitor_once(struct i2c_client *pisugar_2_client)
     pisugar_2_battery_statuses->voltage = vol_avg * 1000;  // uV
 
     // capacity
-    cap = 0;
+    cap = 100;
+    int vol_top = IP5209_CURVE[0][0];
     for (int i = 0; i < ARRAY_SIZE(IP5209_CURVE); i++) {
-        if (vol_avg >= IP5209_CURVE[i][0]) {
+        if (vol_avg >= IP5209_CURVE[i][0] && vol_avg < vol_top) {
             cap = IP5209_CURVE[i][1];
-        }
-        if (i > 0) {
             int vol_diff_v = vol_avg - IP5209_CURVE[i][0];
             int k = (IP5209_CURVE[i - 1][1] - IP5209_CURVE[i][1]) / (IP5209_CURVE[i - 1][0] - IP5209_CURVE[i][0]);
             cap += (int)(k * vol_diff_v);
         }
+        vol_top = IP5209_CURVE[i][0];
     }
     pisugar_2_battery_statuses->capacity = cap;
 
@@ -372,22 +372,22 @@ static void ip5312_monitor_once(struct i2c_client *pisugar_2_client)
     pisugar_2_battery_statuses->voltage = vol_avg * 1000;  // uV
 
     // capacity
-    cap = 0;
+    cap = 100;
+    int vol_top = IP5312_CURVE[0][0];
     for (int i = 0; i < ARRAY_SIZE(IP5312_CURVE); i++) {
-        if (vol_avg >= IP5312_CURVE[i][0]) {
-            cap = IP5312_CURVE[i][1];
-        }
-        if (i > 0) {
-            int vol_diff_v = vol_avg - IP5312_CURVE[i][0];
-            int k = (IP5312_CURVE[i - 1][1] - IP5312_CURVE[i][1]) / (IP5312_CURVE[i - 1][0] - IP5312_CURVE[i][0]);
-            cap += (int)(k * vol_diff_v);
-        }
-    }
+        if (vol_avg >= IP5312_CURVE[i][0] && vol_avg < vol_top) {
+           cap = IP5312_CURVE[i][1];
+           int vol_diff_v = vol_avg - IP5312_CURVE[i][0];
+           int k = (IP5312_CURVE[i - 1][1] - IP5312_CURVE[i][1]) / (IP5312_CURVE[i - 1][0] - IP5312_CURVE[i][0]);
+           cap += (int)(k * vol_diff_v);
+         }
+        vol_top = IP5312_CURVE[i][0];
+    } 
     pisugar_2_battery_statuses->capacity = cap;
 
     // charging status
-    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0x58);
-    ac_status = (charging_flags & 0x10) > 0 ? 1 : 0;
+    charging_flags = i2c_smbus_read_byte_data(pisugar_2_client, 0xdd);
+    ac_status = charging_flags == 0x1f ? 1 : 0;
 
     update_bat_capacity_level_and_status();
 }

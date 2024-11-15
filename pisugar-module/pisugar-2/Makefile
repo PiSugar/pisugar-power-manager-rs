@@ -20,7 +20,7 @@ clean:
 install: all
 	cp -f pisugar_2_battery.ko /lib/modules/$(KERN_VER)/kernel/drivers/power/supply
 	grep -q pisugar_2_battery /etc/modules || sed -i '$$a pisugar_2_battery' /etc/modules
-	echo "options pisugar_2_battery i2c_bus=$(I2C_BUS) i2c_addr=$(I2C_ADDR) bat_model=$(BAT_MODEL)" > /etc/modprobe.d/pisugar_2_battery.conf
+	echo "options pisugar_2_battery i2c_bus=$(I2C_BUS) i2c_addr=$(I2C_ADDR) bat_module=$(BAT_MODEL)" > /etc/modprobe.d/pisugar_2_battery.conf
 	depmod -a
 	modprobe pisugar_2_battery
 

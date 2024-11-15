@@ -37,12 +37,12 @@ Module params:
 ```
 i2c_bus     i2c bus, default 0x01
 i2c_addr    i2c addr, default 0x75
-bat_model   PiSugar2 model, 0 (for pi zero) or 1 (pro for pi 3/4)
+bat_module   PiSugar2 model, 0 (for pi zero) or 1 (Plus for pi 3B/4B)
 ```
 
 Install with parameters:
 ```shell
-sudo make install i2c_bus=0x01 i2c_addr=0x75 bat_model=0
+sudo make install i2c_bus=0x01 i2c_addr=0x75 bat_module=0
 ```
 
 Uninstall:
@@ -56,7 +56,7 @@ Load module:
 ```shell
 sudo insmod pisugar_2_battery.ko
 # or
-sudo insmod pisugar_2_battery.ko i2c_bus=1 i2c_addr=0x75 bat_model=0
+sudo insmod pisugar_2_battery.ko i2c_bus=1 i2c_addr=0x75 bat_module=0
 ```
 
 Now, it is loaded:
@@ -85,7 +85,7 @@ sudo depmod -a
 
 You may want to change module parameters:
 ```shell
-echo "options pisugar_2_battery i2c_bus=0x01 i2c_addr=0x75 bat_model=0" | sudo tee /etc/modprobe.d/pisugar_2_battery.conf
+echo "options pisugar_2_battery i2c_bus=0x01 i2c_addr=0x75 bat_module=0" | sudo tee /etc/modprobe.d/pisugar_2_battery.conf
 ```
 
 ## License
