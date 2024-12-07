@@ -12,11 +12,10 @@ use std::time::{Duration, Instant};
 use battery::BatteryEvent;
 use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 pub use config::{BatteryThreshold, PiSugarConfig};
-use hyper::client::Client;
 use rppal::i2c::Error as I2cError;
 
 pub use model::Model;
-use rsntp::{AsyncSntpClient, SntpClient};
+use rsntp::AsyncSntpClient;
 pub use sd3078::*;
 
 use crate::battery::Battery;
@@ -320,12 +319,15 @@ impl PiSugarCore {
                         local_now.month(),
                         local_now.day()
                     );
-                    let mut backup_success = false;
-                    for i in 0..1000 {
-                        let backup_path = format!("{}-{:03}", backup_path_template, i);
-                        if std::fs::rename(config_path.as_path(), backup_path).is_ok() {
-                            backup_success = true;
-                            break;
+                    let mut backup_success = true;
+                    if let Ok(true) = std::fs::exists(config_path.as_path()) {
+                        backup_success = false;
+                        for i in 0..3 {
+                            let backup_path = format!("{}-{:03}", backup_path_template, i);
+                            if std::fs::rename(config_path.as_path(), backup_path).is_ok() {
+                                backup_success = true;
+                                break;
+                            }
                         }
                     }
                     if !backup_success {
@@ -693,8 +695,14 @@ impl PiSugarCore {
 /// Get ntp datetime.
 pub async fn get_ntp_datetime() -> Result<DateTime<Utc>> {
     let sntp_client = AsyncSntpClient::new();
-    let result = sntp_client.synchronize(NTP_ADDR).await.map_err(|e| Error::Other(format!("{}", e)))?;
-    Ok(result.datetime().into_chrono_datetime().map_err(|e| Error::Other(format!("{}", e)))?)
+    let result = sntp_client
+        .synchronize(NTP_ADDR)
+        .await
+        .map_err(|e| Error::Other(format!("{}", e)))?;
+    Ok(result
+        .datetime()
+        .into_chrono_datetime()
+        .map_err(|e| Error::Other(format!("{}", e)))?)
 }
 
 // Fix aarch64

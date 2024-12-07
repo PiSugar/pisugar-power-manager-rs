@@ -18,7 +18,6 @@ use env_logger::Env;
 use futures::prelude::*;
 use futures::SinkExt;
 use futures_channel::mpsc::unbounded;
-use hyper::client::Client;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response};
 use hyper::{Request, Server};
