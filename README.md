@@ -149,6 +149,8 @@ Default ports:
     ws      0.0.0.0:8422    # standalone websocket api
     http    0.0.0.0:8421    # web UI and websocket (/ws)
 
+To get the full command list, please send a `help xx` request.
+
 | Command | Description | Response/Usage |
 | :- | :-: | :-: |
 | get firmware_version    | firmware version | firmware_version: [string] |

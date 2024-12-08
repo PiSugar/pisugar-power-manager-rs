@@ -1,6 +1,6 @@
 [package]
 name = "pisugar-server"
-version = "1.7.8"
+version = "2.0.0"
 authors = ["PiSugar"]
 edition = "2018"
 description = "PiSugar Power Manager"
@@ -16,7 +16,7 @@ syslog = "6"
 rand = "0.8"
 base64 = "0.13"
 libc = "0.2"
-clap = "3"
+clap = { version = "4", features = ["derive"] }
 bytes = "1"
 ctrlc = "3.1.4"
 lazy_static = "1.4"
@@ -34,9 +34,14 @@ hyper-tungstenite = "0.8"
 websocket-codec = "0.5"
 digest_auth = "0.3.0"
 pisugar-core = { path = "../pisugar-core" }
+shlex = "1.3.0"
+enum-variants-strings = "0.3.0"
 
 [[bin]]
 name = "pisugar-server"
+
+[dev-dependencies]
+rstest = "0.23.0"
 
 [package.metadata.deb]
 license-file = ["../LICENSE", "0"]

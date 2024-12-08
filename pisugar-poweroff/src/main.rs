@@ -5,7 +5,6 @@ use std::time::Duration;
 use clap::{Arg, Command};
 use env_logger::Env;
 use pisugar_core::{Model, PiSugarConfig, PiSugarCore, Result};
-use std::convert::TryInto;
 
 fn shutdown(config: PiSugarConfig, model: Model, retries: u32) -> Result<()> {
     for _ in 0..retries {
@@ -79,7 +78,7 @@ fn main() {
         )
         .get_matches();
 
-    let model: Model = matches.value_of("model").unwrap().try_into().unwrap();
+    let model: Model = matches.value_of("model").unwrap().parse().unwrap();
     let log_level = matches.value_of("log").unwrap();
     let countdown: u64 = matches.value_of("countdown").unwrap().parse().unwrap();
     let retries: u32 = matches.value_of("retries").unwrap().parse().unwrap();

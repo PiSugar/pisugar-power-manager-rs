@@ -3,7 +3,6 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use std::io;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::thread;

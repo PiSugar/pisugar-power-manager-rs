@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::env;
 use std::fs::remove_file;
 use std::io;
@@ -10,9 +10,12 @@ use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Instant, SystemTime};
 
+use std::str::FromStr;
+
 use anyhow::{anyhow, bail, Result};
 use chrono::prelude::*;
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
+use cmds::{BoolArg, ButtonMode, Cmds};
 use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
 use env_logger::Env;
 use futures::prelude::*;
@@ -33,8 +36,11 @@ use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, Framed};
 
 use pisugar_core::{
-    execute_shell, get_ntp_datetime, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore, RTCRawTime, I2C_READ_INTERVAL
+    execute_shell, get_ntp_datetime, notify_shutdown_soon, sys_write_time, Error, Model, PiSugarConfig, PiSugarCore,
+    RTCRawTime, I2C_READ_INTERVAL,
 };
+
+mod cmds;
 
 /// Websocket info
 const WS_JSON: &str = "_ws.json";
@@ -74,445 +80,246 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
         log::debug!("Request: {}", req);
     }
 
-    let core_cloned = core.clone();
-    if let Ok(mut core) = core.lock() {
-        if !parts.is_empty() {
-            match parts[0].as_str() {
-                "get" => {
-                    if parts.len() > 1 {
-                        let resp = match parts[1].as_str() {
-                            "version" => Ok(env!("CARGO_PKG_VERSION").to_string()),
-                            "model" => Ok(core.model()),
-                            "firmware_version" => core.version(),
-                            "battery" => core.level().map(|l| l.to_string()),
-                            "battery_v" => core.voltage_avg().map(|v| v.to_string()),
-                            "battery_i" => core.intensity_avg().map(|i| i.to_string()),
-                            "battery_led_amount" => core.led_amount().map(|n| n.to_string()),
-                            "battery_power_plugged" => core.power_plugged().map(|p| p.to_string()),
-                            "battery_allow_charging" => core.allow_charging().map(|a| a.to_string()),
-                            "battery_charging_range" => core
-                                .charging_range()
-                                .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
-                            "battery_charging" => core.charging().map(|c| c.to_string()),
-                            "battery_input_protect_enabled" => core.input_protected().map(|c| c.to_string()),
-                            "battery_output_enabled" => core.output_enabled().map(|o| o.to_string()),
-                            "full_charge_duration" => Ok(core
-                                .config()
-                                .full_charge_duration
-                                .map_or("".to_string(), |d| d.to_string())),
-                            "system_time" => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
-                            "rtc_time" => core
-                                .read_time()
-                                .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
-                            "rtc_time_list" => core.read_raw_time().map(|r| r.to_string()),
-                            "rtc_alarm_flag" => core.read_alarm_flag().map(|f| f.to_string()),
-                            "rtc_alarm_time" => {
-                                let t = core
-                                    .read_alarm_time()
-                                    .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())));
-                                t.map(|t: DateTime<Utc>| {
-                                    t.with_timezone(Local::now().offset())
-                                        .to_rfc3339_opts(SecondsFormat::Millis, false)
-                                })
-                            }
-                            "rtc_alarm_time_list" => core.read_alarm_time().map(|r| r.to_string()),
-                            "rtc_alarm_enabled" => core.read_alarm_enabled().map(|e| e.to_string()),
-                            "rtc_adjust_ppm" => Ok(core.config().rtc_adj_ppm.unwrap_or_default().to_string()),
-                            "alarm_repeat" => Ok(core.config().auto_wake_repeat.to_string()),
-                            "safe_shutdown_level" => Ok(core.config().auto_shutdown_level.unwrap_or(0.0).to_string()),
-                            "safe_shutdown_delay" => Ok(core.config().auto_shutdown_delay.unwrap_or(0.0).to_string()),
-                            "button_enable" => {
-                                if parts.len() > 2 {
-                                    let enable = match parts[2].as_str() {
-                                        "single" => core.config().single_tap_enable,
-                                        "double" => core.config().double_tap_enable,
-                                        "long" => core.config().long_tap_enable,
-                                        _ => {
-                                            log::error!("{} {}: unknown tap type", parts[0], parts[1]);
-                                            return err;
-                                        }
-                                    };
-                                    Ok(format!("{} {}", parts[2], enable))
-                                } else {
-                                    return err;
-                                }
-                            }
-                            "button_shell" => {
-                                if parts.len() > 2 {
-                                    let shell = match parts[2].as_str() {
-                                        "single" => core.config().single_tap_shell.as_str(),
-                                        "double" => core.config().double_tap_shell.as_str(),
-                                        "long" => core.config().long_tap_shell.as_str(),
-                                        _ => {
-                                            log::error!("{} {}: unknown tap type", parts[0], parts[1]);
-                                            return err;
-                                        }
-                                    };
-                                    Ok(format!("{} {}", parts[2], shell))
-                                } else {
-                                    return err;
-                                }
-                            }
-                            "auto_power_on" => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
-                            "auth_username" => {
-                                let username = core.config().auth_user.clone().unwrap_or_default();
-                                Ok(username)
-                            }
-                            "anti_mistouch" => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
-                            "soft_poweroff" => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
-                            "soft_poweroff_shell" => Ok(core.config().soft_poweroff_shell.clone().unwrap_or_default()),
-                            "temperature" => core.get_temperature().map(|x| x.to_string()),
-                            "input_protect" => core.input_protected().map(|x| x.to_string()),
-                            _ => return err,
-                        };
-
-                        return match resp {
-                            Ok(s) => format!("{}: {}\n", parts[1], s),
-                            Err(e) => {
-                                log::error!("{}", e);
-                                err
-                            }
-                        };
-                    };
-                }
-                "set_battery_charging_range" => {
-                    let mut charging_range = None;
-                    if parts.len() > 1 {
-                        let range: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
-                        if range.len() == 2 {
-                            if let (Ok(begin), Ok(end)) = (range[0].parse::<f32>(), range[1].parse::<f32>()) {
-                                charging_range = Some((begin, end));
-                            }
-                        }
-                    }
-                    return match core.set_charging_range(charging_range) {
-                        Ok(_) => format!("{}: done\n", parts[0]),
-                        Err(e) => {
-                            log::error!("{}", e);
-                            err
-                        }
-                    };
-                }
-                "set_battery_input_protect" => {
-                    if parts.len() > 1 {
-                        if let Ok(enable) = parts[1].parse::<bool>() {
-                            if core.toggle_input_protected(enable).is_ok() {
-                                return format!("{}: done\n", parts[0]);
-                            }
-                        }
-                    }
-                    return err;
-                }
-                "set_battery_output" => {
-                    if parts.len() > 1 {
-                        if let Ok(enable) = parts[1].parse::<bool>() {
-                            if core.toggle_output_enabled(enable).is_ok() {
-                                return format!("{}: done\n", parts[0]);
-                            }
-                        }
-                    }
-                    return err;
-                }
-                "set_full_charge_duration" => {
-                    if parts.len() > 1 {
-                        if let Ok(d) = parts[1].parse::<u64>() {
-                            core.config_mut().full_charge_duration = Some(d);
-                            if core.save_config().is_ok() {
-                                return format!("{}: done\n", parts[0]);
-                            }
-                        }
-                    }
-                    return err;
-                }
-                "set_allow_charging" => {
-                    if parts.len() > 1 {
-                        if let Ok(enable) = parts[1].parse::<bool>() {
-                            if core.toggle_allow_charging(enable).is_ok() {
-                                return format!("{}: done\n", parts[0]);
-                            }
-                        }
-                    }
-                    return err;
-                }
-                "rtc_clear_flag" => {
-                    return match core.clear_alarm_flag() {
-                        Ok(_) => format!("{}: done\n", parts[0]),
-                        Err(e) => {
-                            log::error!("{}", e);
-                            err
-                        }
-                    };
-                }
-                "rtc_pi2rtc" => {
-                    let now = Local::now();
-                    return match core.write_time(now) {
-                        Ok(_) => format!("{}: done\n", parts[0]),
-                        Err(e) => {
-                            log::error!("{}", e);
-                            err
-                        }
-                    };
-                }
-                "rtc_rtc2pi" => {
-                    return match core.read_time() {
-                        Ok(t) => {
-                            sys_write_time(t);
-                            format!("{}: done\n", parts[0])
-                        }
-                        Err(e) => {
-                            log::error!("{}", e);
-                            err
-                        }
-                    };
-                }
-                "rtc_web" => {
-                    tokio::spawn(async move {
-                        match get_ntp_datetime().await {
-                            Ok(ntp_datetime) => {
-                                sys_write_time(ntp_datetime.into());
-                                if let Ok(core) = core_cloned.lock() {
-                                    let _ = core.write_time(ntp_datetime.into());
-                                }
-                            }
-                            Err(e) => log::warn!("Sync NTP time error: {}", e)
-                        }
-                    });
-                    return format!("{}: done\n", parts[0]);
-                }
-                "rtc_alarm_set" => {
-                    // rtc_alarm_set <iso8601 ignore ymd> weekday_repeat
-                    if parts.len() >= 3 {
-                        if let Ok(datetime) = parts[1].parse::<DateTime<FixedOffset>>() {
-                            let datetime: DateTime<Local> = datetime.into();
-                            let sd3078_time: RTCRawTime = datetime.into();
-                            if let Ok(weekday_repeat) = parts[2].parse::<u8>() {
-                                match core.write_alarm(sd3078_time, weekday_repeat) {
-                                    Ok(_) => {
-                                        core.config_mut().auto_wake_repeat = weekday_repeat;
-                                        core.config_mut().auto_wake_time = Some(datetime);
-                                        if let Err(e) = core.save_config() {
-                                            log::warn!("{}", e);
-                                        }
-                                        return format!("{}: done\n", parts[0]);
-                                    }
-                                    Err(e) => log::error!("{}", e),
-                                }
-                            }
-                        }
-                    }
-                    return err;
-                }
-                "rtc_alarm_disable" => {
-                    return match core.disable_alarm() {
-                        Ok(_) => {
-                            core.config_mut().auto_wake_time = None;
-                            if let Err(e) = core.save_config() {
-                                log::warn!("{}", e);
-                            }
-                            format!("{}: done\n", parts[0])
-                        }
-                        Err(_) => err,
-                    };
-                }
-                "rtc_adjust_ppm" => {
-                    if !parts.is_empty() {
-                        if let Ok(ppm) = parts[1].parse::<f64>() {
-                            let ppm = if ppm > 500.0 { 500.0 } else { ppm };
-                            let ppm = if ppm < -500.0 { -500.0 } else { ppm };
-                            return match core.write_rtc_adjust_ppm(ppm) {
-                                Ok(()) => {
-                                    core.config_mut().rtc_adj_ppm = Some(ppm);
-                                    if let Err(e) = core.save_config() {
-                                        log::warn!("{}", e);
-                                    }
-                                    format!("{}: done\n", parts[0])
-                                }
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                    err
-                                }
-                            };
-                        }
-                    }
-                }
-                "set_safe_shutdown_level" => {
-                    if !parts.is_empty() {
-                        if let Ok(level) = parts[1].parse::<f64>() {
-                            // level between <30，level < 0 means do not shutdown
-                            let level = if level > 30.0 { 30.0 } else { level };
-                            core.config_mut().auto_shutdown_level = Some(level);
-                            if let Err(e) = core.save_config() {
-                                log::error!("{}", e);
-                            }
-                            return format!("{}: done\n", parts[0]);
-                        }
-                    }
-                    return err;
-                }
-                "set_safe_shutdown_delay" => {
-                    if !parts.is_empty() {
-                        if let Ok(delay) = parts[1].parse::<f64>() {
-                            // delay between 0-30
-                            let delay = if delay < 0.0 { 0.0 } else { delay };
-                            let delay = if delay > 120.0 { 120.0 } else { delay };
-                            core.config_mut().auto_shutdown_delay = Some(delay);
-                            if let Err(e) = core.save_config() {
-                                log::error!("{}", e);
-                            }
-                            return format!("{}: done\n", parts[0]);
-                        }
-                    }
-                    return err;
-                }
-                "rtc_test_wake" => {
-                    return match core.test_wake() {
-                        Ok(_) => format!("{}: wakeup after 1 min 30 sec\n", parts[0]),
-                        Err(e) => {
-                            log::error!("{}", e);
-                            err
-                        }
-                    };
-                }
-                "set_button_enable" => {
-                    if parts.len() > 2 {
-                        let enable = parts[2].as_str().ne("0");
-                        match parts[1].as_str() {
-                            "single" => core.config_mut().single_tap_enable = enable,
-                            "double" => core.config_mut().double_tap_enable = enable,
-                            "long" => core.config_mut().long_tap_enable = enable,
-                            _ => {
-                                return err;
-                            }
-                        }
-                        if let Err(e) = core.save_config() {
-                            log::error!("{}", e);
-                        }
-                        return format!("{}: done\n", parts[0]);
-                    }
-                    return err;
-                }
-                "set_button_shell" => {
-                    let action = if parts.len() > 1 { parts[1].as_str() } else { "" };
-                    let cmd = if parts.len() > 2 {
-                        parts[2..].join(" ")
-                    } else {
-                        "".to_string()
-                    };
-                    match action {
-                        "single" => core.config_mut().single_tap_shell = cmd,
-                        "double" => core.config_mut().double_tap_shell = cmd,
-                        "long" => core.config_mut().long_tap_shell = cmd,
-                        _ => {
-                            return err;
-                        }
-                    }
-                    if let Err(e) = core.save_config() {
-                        log::error!("{}", e);
-                    }
-                    return format!("{}: done\n", parts[0]);
-                }
-                "set_auto_power_on" => {
-                    if parts.len() > 1 {
-                        if let Ok(auto_power_on) = parts[1].parse::<bool>() {
-                            if let Err(e) = core.toggle_auto_power_on(auto_power_on) {
-                                log::error!("{}", e);
-                            }
-                            return format!("{}: done\n", parts[0]);
-                        }
-                    }
-                    return err;
-                }
-                "set_auth" => {
-                    if parts.len() > 2 {
-                        let username = parts[1].as_str();
-                        let password = parts[2].as_str();
-                        core.config_mut().auth_user = Some(username.to_string());
-                        core.config_mut().auth_password = Some(password.to_string());
-                    } else {
-                        core.config_mut().auth_user = None;
-                        core.config_mut().auth_password = None;
-                    }
-                    if let Err(e) = core.save_config() {
-                        log::error!("{}", e);
-                        return err;
-                    }
-                    return format!("{}: done\n", parts[0]);
-                }
-                "force_shutdown" => {
-                    match core.force_shutdown() {
-                        Ok(_) => {
-                            return format!("{}: done\n", parts[0]);
-                        }
-                        Err(e) => {
-                            log::error!("{}", e);
-                        }
-                    }
-                    return err;
-                }
-                "set_anti_mistouch" => {
-                    if parts.len() > 1 {
-                        if let Ok(anti_mistouch) = parts[1].parse::<bool>() {
-                            match core.toggle_anti_mistouch(anti_mistouch) {
-                                Ok(_) => {
-                                    return format!("{}: done\n", parts[0]);
-                                }
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                }
-                            }
-                        }
-                    }
-                    return err;
-                }
-                "set_soft_poweroff" => {
-                    if parts.len() > 1 {
-                        if let Ok(soft_poweroff) = parts[1].parse::<bool>() {
-                            match core.toggle_soft_poweroff(soft_poweroff) {
-                                Ok(_) => {
-                                    return format!("{}: done\n", parts[0]);
-                                }
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                }
-                            }
-                        }
-                        return err;
-                    }
-                }
-                "set_soft_poweroff_shell" => {
-                    if parts.len() > 1 {
-                        let script = parts[1..].join(" ");
-                        core.config_mut().soft_poweroff_shell = Some(script);
-                    } else {
-                        core.config_mut().soft_poweroff_shell = None;
-                    }
-                    if let Err(e) = core.save_config() {
-                        log::error!("{}", e);
-                        return err;
-                    }
-                    return format!("{}: done\n", parts[0]);
-                }
-                "set_input_protect" => {
-                    if parts.len() > 1 {
-                        if let Ok(protect) = parts[1].parse::<bool>() {
-                            match core.toggle_input_protected(protect) {
-                                Ok(_) => {
-                                    return format!("{}: done\n", parts[0]);
-                                }
-                                Err(e) => {
-                                    log::error!("{}", e);
-                                }
-                            }
-                        }
-                        return err;
-                    }
-                }
-                _ => return err,
-            }
-        };
+    if req.starts_with("help") {
+        let help = Cmds::from_str(req).expect_err("");
+        return help.to_string();
     }
 
-    err
+    let cmd = match Cmds::from_str(req) {
+        Ok(cmd) => cmd,
+        Err(e) => {
+            log::warn!("Invalid cmd: {}", e);
+            return err;
+        }
+    };
+
+    let core_cloned = core.clone();
+    let mut core = core_cloned.lock().unwrap();
+    let r = match &cmd {
+        Cmds::Get(get_cmd) => match get_cmd {
+            cmds::GetCmds::Version => Ok(env!("CARGO_PKG_VERSION").to_string()),
+            cmds::GetCmds::Model => Ok(core.model()),
+            cmds::GetCmds::FirmwareVersion => core.version(),
+            cmds::GetCmds::Battery => core.level().map(|l| l.to_string()),
+            cmds::GetCmds::BatteryI => core.intensity_avg().map(|i| i.to_string()),
+            cmds::GetCmds::BatteryV => core.voltage_avg().map(|v| v.to_string()),
+            cmds::GetCmds::BatteryLedAmount => core.led_amount().map(|n| n.to_string()),
+            cmds::GetCmds::BatteryPowerPlugged => core.power_plugged().map(|p| p.to_string()),
+            cmds::GetCmds::BatteryAllowCharging => core.allow_charging().map(|a| a.to_string()),
+            cmds::GetCmds::BatteryChargingRange => core
+                .charging_range()
+                .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
+            cmds::GetCmds::BatteryCharging => core.charging().map(|c| c.to_string()),
+            cmds::GetCmds::BatteryInputProtectEnabled => core.input_protected().map(|c| c.to_string()),
+            cmds::GetCmds::BatteryOutputEnabled => core.output_enabled().map(|o| o.to_string()),
+            cmds::GetCmds::FullChargeDuration => Ok(core
+                .config()
+                .full_charge_duration
+                .map_or("".to_string(), |d| d.to_string())),
+            cmds::GetCmds::SystemTime => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+            cmds::GetCmds::RtcTime => core
+                .read_time()
+                .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
+            cmds::GetCmds::RtcTimeList => core.read_raw_time().map(|r| r.to_string()),
+            cmds::GetCmds::RtcAlarmFlag => core.read_alarm_flag().map(|f| f.to_string()),
+            cmds::GetCmds::RtcAlarmTime => {
+                let t = core
+                    .read_alarm_time()
+                    .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())));
+                t.map(|t: DateTime<Utc>| {
+                    t.with_timezone(Local::now().offset())
+                        .to_rfc3339_opts(SecondsFormat::Millis, false)
+                })
+            }
+            cmds::GetCmds::RtcAlarmTimeList => core.read_alarm_time().map(|r| r.to_string()),
+            cmds::GetCmds::RtcAlarmEnabled => core.read_alarm_enabled().map(|e| e.to_string()),
+            cmds::GetCmds::RtcAdjustPpm => Ok(core.config().rtc_adj_ppm.unwrap_or_default().to_string()),
+            cmds::GetCmds::AlarmRepeat => Ok(core.config().auto_wake_repeat.to_string()),
+            cmds::GetCmds::SafeShutdownLevel => Ok(core.config().auto_shutdown_level.unwrap_or(0.0).to_string()),
+            cmds::GetCmds::SafeShutdownDelay => Ok(core.config().auto_shutdown_delay.unwrap_or(0.0).to_string()),
+            cmds::GetCmds::ButtonEnable { mode } => Ok(match mode {
+                cmds::ButtonMode::Single => core.config().single_tap_enable,
+                cmds::ButtonMode::Double => core.config().double_tap_enable,
+                cmds::ButtonMode::Long => core.config().long_tap_enable,
+            })
+            .map(|b| b.to_string()),
+            cmds::GetCmds::ButtonShell { mode } => Ok(match mode {
+                cmds::ButtonMode::Single => core.config().single_tap_shell.clone(),
+                cmds::ButtonMode::Double => core.config().double_tap_shell.clone(),
+                cmds::ButtonMode::Long => core.config().long_tap_shell.clone(),
+            }),
+            cmds::GetCmds::AutoPowerOn => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
+            cmds::GetCmds::AuthUsername => Ok(core.config().auth_user.clone().unwrap_or_default()),
+            cmds::GetCmds::AntiMistouch => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
+            cmds::GetCmds::SoftPoweroff => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
+            cmds::GetCmds::SoftPoweroffShell => Ok(core.config().soft_poweroff_shell.clone().unwrap_or_default()),
+            cmds::GetCmds::Temperature => core.get_temperature().map(|x| x.to_string()),
+            cmds::GetCmds::InputProtect => core.input_protected().map(|x| x.to_string()),
+        },
+        Cmds::SetBatteryChargingRange { range } => {
+            let charging_range = if range.len() == 2 {
+                Some((range[0], range[1]))
+            } else {
+                None
+            };
+            core.set_charging_range(charging_range)
+                .map(|_| format!("{}: done\n", parts[0]))
+        }
+        Cmds::SetBatteryInputProtect(BoolArg { enable }) => core
+            .toggle_input_protected(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetBatteryOutput(BoolArg { enable }) => core
+            .toggle_output_enabled(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetFullChargeDuration { seconds } => {
+            core.config_mut().full_charge_duration = Some(*seconds);
+            core.save_config().map(|_| format!("{}: done\n", parts[0]))
+        }
+        Cmds::SetAllowCharging(BoolArg { enable }) => core
+            .toggle_allow_charging(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::RtcClearFlag => core.clear_alarm_flag().map(|_| format!("{}: done\n", parts[0])),
+        Cmds::RtcPi2rtc => core.write_time(Local::now()).map(|_| format!("{}: done\n", parts[0])),
+        Cmds::RtcRtc2pi => core.read_time().map(|t| {
+            sys_write_time(t);
+            format!("{}: done\n", parts[0])
+        }),
+        Cmds::RtcWeb => {
+            let core_cloned = core_cloned.clone();
+            tokio::spawn(async move {
+                match get_ntp_datetime().await {
+                    Ok(ntp_datetime) => {
+                        sys_write_time(ntp_datetime.into());
+                        if let Ok(core) = core_cloned.lock() {
+                            let _ = core.write_time(ntp_datetime.into());
+                        }
+                    }
+                    Err(e) => log::warn!("Sync NTP time error: {}", e),
+                }
+            });
+            Ok(format!("{}: done\n", parts[0]))
+        }
+        Cmds::RtcAlarmSet { datetime, weekdays } => {
+            let datetime: DateTime<Local> = datetime.clone().into();
+            let sd3078_time: RTCRawTime = datetime.clone().into();
+            core.write_alarm(sd3078_time, *weekdays).map(|_| {
+                core.config_mut().auto_wake_repeat = *weekdays;
+                core.config_mut().auto_wake_time = Some(datetime.clone());
+                if let Err(e) = core.save_config() {
+                    log::warn!("{}", e);
+                }
+                format!("{}: done\n", parts[0])
+            })
+        }
+        Cmds::RtcAlarmDisable => core.disable_alarm().map(|_| {
+            core.config_mut().auto_wake_time = None;
+            if let Err(e) = core.save_config() {
+                log::warn!("{}", e);
+            }
+            format!("{}: done\n", parts[0])
+        }),
+        Cmds::RtcAdjustPpm { ppm } => {
+            let ppm = if *ppm > 500.0 { 500.0 } else { *ppm };
+            let ppm = if ppm < -500.0 { -500.0 } else { ppm };
+            core.write_rtc_adjust_ppm(ppm).map(|_| {
+                core.config_mut().rtc_adj_ppm = Some(ppm);
+                if let Err(e) = core.save_config() {
+                    log::warn!("{}", e);
+                }
+                format!("{}: done\n", parts[0])
+            })
+        }
+        Cmds::SetSafeShutdownLevel { level } => {
+            // level between <30，level < 0 means do not shutdown
+            let level = if *level > 30.0 { 30.0 } else { *level };
+            core.config_mut().auto_shutdown_level = Some(level);
+            if let Err(e) = core.save_config() {
+                log::error!("{}", e);
+            }
+            Ok(format!("{}: done\n", parts[0]))
+        }
+        Cmds::SetSafeShutdownDelay { delay } => {
+            // delay between 0-30
+            let delay = if *delay < 0.0 { 0.0 } else { *delay };
+            let delay = if delay > 120.0 { 120.0 } else { delay };
+            core.config_mut().auto_shutdown_delay = Some(delay);
+            if let Err(e) = core.save_config() {
+                log::error!("{}", e);
+            }
+            Ok(format!("{}: done\n", parts[0]))
+        }
+        Cmds::RtcTestWake => core
+            .test_wake()
+            .map(|_| format!("{}: wakeup after 1 min 30 sec\n", parts[0])),
+        Cmds::SetButtonEnable { mode, enable } => {
+            match *mode {
+                ButtonMode::Single => core.config_mut().single_tap_enable = *enable,
+                ButtonMode::Double => core.config_mut().double_tap_enable = *enable,
+                ButtonMode::Long => core.config_mut().long_tap_enable = *enable,
+            }
+            if let Err(e) = core.save_config() {
+                log::error!("{}", e);
+            }
+            Ok(format!("{}: done\n", parts[0]))
+        }
+        Cmds::SetButtonShell { mode, shell } => {
+            let cmd = shell.join(" ");
+            match mode {
+                ButtonMode::Single => core.config_mut().single_tap_shell = cmd,
+                ButtonMode::Double => core.config_mut().double_tap_shell = cmd,
+                ButtonMode::Long => core.config_mut().long_tap_shell = cmd,
+            }
+            if let Err(e) = core.save_config() {
+                log::error!("{}", e);
+            }
+            Ok(format!("{}: done\n", parts[0]))
+        }
+        Cmds::SetAutoPowerOn(BoolArg { enable }) => core
+            .toggle_auto_power_on(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetAuth { username, password } => {
+            if let (Some(username), Some(password)) = (username, password) {
+                core.config_mut().auth_user = Some(username.to_string());
+                core.config_mut().auth_password = Some(password.to_string());
+            } else {
+                core.config_mut().auth_user = None;
+                core.config_mut().auth_password = None;
+            }
+            core.save_config().map(|_| format!("{}: done\n", parts[0]))
+        }
+        Cmds::ForceShutdown => core.force_shutdown().map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetAntiMistouch(BoolArg { enable }) => core
+            .toggle_anti_mistouch(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetSoftPoweroff(BoolArg { enable }) => core
+            .toggle_soft_poweroff(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetSoftPoweroffShell { shell } => {
+            let script = shell.join(" ");
+            core.config_mut().soft_poweroff_shell = if script.len() > 0 {
+                Some(script.to_string())
+            } else {
+                None
+            };
+            core.save_config().map(|_| format!("{}: done\n", parts[0]))
+        }
+        Cmds::SetInputProtect(BoolArg { enable }) => core
+            .toggle_input_protected(*enable)
+            .map(|_| format!("{}: done\n", parts[0])),
+    };
+
+    match r {
+        Ok(mut r) => {
+            if !r.ends_with("\n") {
+                r += "\n";
+            }
+            r
+        }
+        Err(e) => {
+            log::warn!("{}", e);
+            err
+        }
+    }
 }
 
 async fn _handle_stream<T>(core: Arc<Mutex<PiSugarCore>>, stream: T, mut event_rx: EventRx) -> io::Result<()>
@@ -996,13 +803,6 @@ fn init_logging(debug: bool, syslog: bool) {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let models = vec![
-        Model::PiSugar_3.to_string(),
-        Model::PiSugar_2_Pro.to_string(),
-        Model::PiSugar_2_2LEDs.to_string(),
-        Model::PiSugar_2_4LEDs.to_string(),
-    ];
-
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -1055,61 +855,47 @@ async fn main() -> std::io::Result<()> {
             Arg::new("debug")
                 .short('d')
                 .long("debug")
-                .takes_value(false)
+                .action(ArgAction::SetTrue)
                 .help("Debug output"),
         )
         .arg(
             Arg::new("syslog")
                 .short('s')
                 .long("syslog")
-                .takes_value(false)
+                .action(ArgAction::SetTrue)
                 .help("Log to syslog"),
         )
-        .arg(
-            Arg::new("led")
-                .long("led")
-                .takes_value(true)
-                .default_value("4")
-                .help("2-led or 4-led"),
-        )
+        .arg(Arg::new("led").long("led").default_value("4").help("2-led or 4-led"))
         .arg(
             Arg::new("model")
                 .long("model")
-                .takes_value(true)
                 .required(true)
-                .help(format!("{:?}", models).as_str())
-                .validator(move |x| {
-                    if models.contains(&x.to_string()) {
-                        Ok(())
-                    } else {
-                        Err("Invalid model".to_string())
-                    }
-                }),
+                .value_parser(clap::value_parser!(Model)),
         )
         .get_matches();
 
     // init logging
-    let debug = matches.is_present("debug");
-    let syslog = matches.is_present("syslog");
+    let debug = matches.get_flag("debug");
+    let syslog = matches.get_flag("syslog");
     init_logging(debug, syslog);
 
     // model
-    let m = matches.value_of("model").unwrap();
-    let model = Model::try_from(m).unwrap_or_else(|_| panic!("Unknown PiSugar model: {}", m));
-    log::debug!("Running with model: {}({})", model, m);
+    let model = matches.get_one::<Model>("model").unwrap();
+    log::debug!("Running with model: {}", model);
 
     // core
     let core;
     loop {
-        let c = if matches.is_present("config") {
-            PiSugarCore::new_with_path(matches.value_of("config").unwrap(), true, model)
-        } else {
-            let config = PiSugarConfig::default();
-            PiSugarCore::new(config, model)
-        };
+        let c = matches
+            .get_one::<String>("config")
+            .map(|c| PiSugarCore::new_with_path(c, true, model.clone()))
+            .unwrap_or_else(|| {
+                let config = PiSugarConfig::default();
+                PiSugarCore::new(config, model.clone())
+            });
         match c {
-            Ok(_) => {
-                core = Arc::new(Mutex::new(c.unwrap()));
+            Ok(c) => {
+                core = Arc::new(Mutex::new(c));
                 break;
             }
             Err(e) => log::error!("PiSugar init failed: {}", e),
@@ -1121,16 +907,15 @@ async fn main() -> std::io::Result<()> {
     let (event_tx, event_rx) = tokio::sync::watch::channel("".to_string());
 
     // CTRL+C signal handling
-    let uds = matches.value_of("uds").map(|x| x.to_string());
-    let web_dir = matches.value_of("web").map(|x| x.to_string());
+    let uds = matches.get_one::<String>("uds").cloned();
+    let web_dir = matches.get_one::<String>("web").cloned();
     ctrlc::set_handler(move || {
         clean_up(uds.clone(), web_dir.clone());
     })
     .expect("Failed to setup ctrl+c");
 
     // tcp
-    if matches.is_present("tcp") {
-        let tcp_addr = matches.value_of("tcp").unwrap().to_string();
+    if let Some(tcp_addr) = matches.get_one::<String>("tcp").cloned() {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
         tokio::spawn(async move {
@@ -1157,8 +942,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     // ws
-    if matches.is_present("ws") {
-        let ws_addr = matches.value_of("ws").unwrap().to_string();
+    if let Some(ws_addr) = matches.get_one::<String>("ws").cloned() {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
         tokio::spawn(async move {
@@ -1185,8 +969,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     // uds
-    if matches.is_present("uds") {
-        let uds_addr = matches.value_of("uds").unwrap().to_string();
+    if let Some(uds_addr) = matches.get_one::<String>("uds").cloned() {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
         tokio::spawn(async move {
@@ -1213,31 +996,32 @@ async fn main() -> std::io::Result<()> {
     }
 
     // http web/ws
-    if matches.is_present("http") && matches.is_present("web") {
+    if let (Some(http_addr), Some(web_dir)) = (
+        matches.get_one::<String>("http").cloned(),
+        matches.get_one::<String>("web").cloned(),
+    ) {
         let core_cloned = core.clone();
         let event_rx = event_rx.clone();
-        let web_dir = matches.value_of("web").unwrap().to_string();
-        let http_addr = matches.value_of("http").unwrap().parse().unwrap();
         let _web_dir_cloned = web_dir.clone();
         tokio::spawn(async move {
             loop {
                 log::info!("Http web server listening...");
-                serve_http(http_addr, web_dir.clone(), core_cloned.clone(), event_rx.clone()).await;
+                serve_http(
+                    http_addr.parse().unwrap(),
+                    web_dir.clone(),
+                    core_cloned.clone(),
+                    event_rx.clone(),
+                )
+                .await;
                 log::info!("Http web server stopped");
                 tokio::time::sleep(Duration::from_secs(3)).await;
             }
         });
 
         // Write a _ws.json file
-        if matches.is_present("ws") {
-            let ws_addr = matches.value_of("ws").unwrap();
+        if let Some(ws_addr) = matches.get_one::<String>("ws") {
             let ws_sock_addr: SocketAddr = ws_addr.parse().unwrap();
             *WS_ADDR.lock().unwrap() = Some(ws_sock_addr);
-            // let content = format!("{{\"wsPort\": \"{}\"}}", ws_sock_addr.port());
-            // let filename = PathBuf::from(web_dir_cloned).join(WS_JSON);
-            // let mut file = OpenOptions::default().create(true).write(true).open(filename).await?;
-            // file.set_len(0).await?;
-            // file.write_all(content.as_bytes()).await?;
         }
     }
 

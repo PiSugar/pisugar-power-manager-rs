@@ -1,5 +1,8 @@
-use std::convert::TryFrom;
 use std::fmt;
+use std::str::FromStr;
+
+use clap::builder::PossibleValue;
+use clap::ValueEnum;
 
 use crate::ip5312::IP5312Battery;
 use crate::pisugar3::{PiSugar3Battery, PiSugar3RTC, I2C_ADDR_P3};
@@ -88,16 +91,31 @@ impl fmt::Display for Model {
     }
 }
 
-impl TryFrom<&str> for Model {
-    type Error = ();
+impl FromStr for Model {
+    type Err = ();
 
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        match value {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
             PISUGAR_2_4LEDS => Ok(Model::PiSugar_2_4LEDs),
             PISUGAR_2_2LEDS => Ok(Model::PiSugar_2_2LEDs),
             PISUGAR_2_PRO => Ok(Model::PiSugar_2_Pro),
             PISUGAR_3 => Ok(Model::PiSugar_3),
             _ => Err(()),
         }
+    }
+}
+
+impl ValueEnum for Model {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Model::PiSugar_2_4LEDs, Model::PiSugar_2_2LEDs, Model::PiSugar_2_Pro, Model::PiSugar_3]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Model::PiSugar_2_4LEDs => PossibleValue::new(PISUGAR_2_4LEDS),
+            Model::PiSugar_2_2LEDs => PossibleValue::new(PISUGAR_2_2LEDS),
+            Model::PiSugar_2_Pro => PossibleValue::new(PISUGAR_2_PRO),
+            Model::PiSugar_3 => PossibleValue::new(PISUGAR_3),
+        })
     }
 }
