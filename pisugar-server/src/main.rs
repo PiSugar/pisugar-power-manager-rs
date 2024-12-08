@@ -96,66 +96,69 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
     let core_cloned = core.clone();
     let mut core = core_cloned.lock().unwrap();
     let r = match &cmd {
-        Cmds::Get(get_cmd) => match get_cmd {
-            cmds::GetCmds::Version => Ok(env!("CARGO_PKG_VERSION").to_string()),
-            cmds::GetCmds::Model => Ok(core.model()),
-            cmds::GetCmds::FirmwareVersion => core.version(),
-            cmds::GetCmds::Battery => core.level().map(|l| l.to_string()),
-            cmds::GetCmds::BatteryI => core.intensity_avg().map(|i| i.to_string()),
-            cmds::GetCmds::BatteryV => core.voltage_avg().map(|v| v.to_string()),
-            cmds::GetCmds::BatteryLedAmount => core.led_amount().map(|n| n.to_string()),
-            cmds::GetCmds::BatteryPowerPlugged => core.power_plugged().map(|p| p.to_string()),
-            cmds::GetCmds::BatteryAllowCharging => core.allow_charging().map(|a| a.to_string()),
-            cmds::GetCmds::BatteryChargingRange => core
-                .charging_range()
-                .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
-            cmds::GetCmds::BatteryCharging => core.charging().map(|c| c.to_string()),
-            cmds::GetCmds::BatteryInputProtectEnabled => core.input_protected().map(|c| c.to_string()),
-            cmds::GetCmds::BatteryOutputEnabled => core.output_enabled().map(|o| o.to_string()),
-            cmds::GetCmds::FullChargeDuration => Ok(core
-                .config()
-                .full_charge_duration
-                .map_or("".to_string(), |d| d.to_string())),
-            cmds::GetCmds::SystemTime => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
-            cmds::GetCmds::RtcTime => core
-                .read_time()
-                .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
-            cmds::GetCmds::RtcTimeList => core.read_raw_time().map(|r| r.to_string()),
-            cmds::GetCmds::RtcAlarmFlag => core.read_alarm_flag().map(|f| f.to_string()),
-            cmds::GetCmds::RtcAlarmTime => {
-                let t = core
-                    .read_alarm_time()
-                    .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())));
-                t.map(|t: DateTime<Utc>| {
-                    t.with_timezone(Local::now().offset())
-                        .to_rfc3339_opts(SecondsFormat::Millis, false)
+        Cmds::Get(get_cmd) => {
+            let r = match get_cmd {
+                cmds::GetCmds::Version => Ok(env!("CARGO_PKG_VERSION").to_string()),
+                cmds::GetCmds::Model => Ok(core.model()),
+                cmds::GetCmds::FirmwareVersion => core.version(),
+                cmds::GetCmds::Battery => core.level().map(|l| l.to_string()),
+                cmds::GetCmds::BatteryI => core.intensity_avg().map(|i| i.to_string()),
+                cmds::GetCmds::BatteryV => core.voltage_avg().map(|v| v.to_string()),
+                cmds::GetCmds::BatteryLedAmount => core.led_amount().map(|n| n.to_string()),
+                cmds::GetCmds::BatteryPowerPlugged => core.power_plugged().map(|p| p.to_string()),
+                cmds::GetCmds::BatteryAllowCharging => core.allow_charging().map(|a| a.to_string()),
+                cmds::GetCmds::BatteryChargingRange => core
+                    .charging_range()
+                    .map(|r| r.map_or("".to_string(), |r| format!("{},{}", r.0, r.1))),
+                cmds::GetCmds::BatteryCharging => core.charging().map(|c| c.to_string()),
+                cmds::GetCmds::BatteryInputProtectEnabled => core.input_protected().map(|c| c.to_string()),
+                cmds::GetCmds::BatteryOutputEnabled => core.output_enabled().map(|o| o.to_string()),
+                cmds::GetCmds::FullChargeDuration => Ok(core
+                    .config()
+                    .full_charge_duration
+                    .map_or("".to_string(), |d| d.to_string())),
+                cmds::GetCmds::SystemTime => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+                cmds::GetCmds::RtcTime => core
+                    .read_time()
+                    .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
+                cmds::GetCmds::RtcTimeList => core.read_raw_time().map(|r| r.to_string()),
+                cmds::GetCmds::RtcAlarmFlag => core.read_alarm_flag().map(|f| f.to_string()),
+                cmds::GetCmds::RtcAlarmTime => {
+                    let t = core
+                        .read_alarm_time()
+                        .and_then(|r| r.try_into().map_err(|_| Error::Other("Invalid".to_string())));
+                    t.map(|t: DateTime<Utc>| {
+                        t.with_timezone(Local::now().offset())
+                            .to_rfc3339_opts(SecondsFormat::Millis, false)
+                    })
+                }
+                cmds::GetCmds::RtcAlarmTimeList => core.read_alarm_time().map(|r| r.to_string()),
+                cmds::GetCmds::RtcAlarmEnabled => core.read_alarm_enabled().map(|e| e.to_string()),
+                cmds::GetCmds::RtcAdjustPpm => Ok(core.config().rtc_adj_ppm.unwrap_or_default().to_string()),
+                cmds::GetCmds::AlarmRepeat => Ok(core.config().auto_wake_repeat.to_string()),
+                cmds::GetCmds::SafeShutdownLevel => Ok(core.config().auto_shutdown_level.unwrap_or(0.0).to_string()),
+                cmds::GetCmds::SafeShutdownDelay => Ok(core.config().auto_shutdown_delay.unwrap_or(0.0).to_string()),
+                cmds::GetCmds::ButtonEnable { mode } => Ok(match mode {
+                    cmds::ButtonMode::Single => core.config().single_tap_enable,
+                    cmds::ButtonMode::Double => core.config().double_tap_enable,
+                    cmds::ButtonMode::Long => core.config().long_tap_enable,
                 })
-            }
-            cmds::GetCmds::RtcAlarmTimeList => core.read_alarm_time().map(|r| r.to_string()),
-            cmds::GetCmds::RtcAlarmEnabled => core.read_alarm_enabled().map(|e| e.to_string()),
-            cmds::GetCmds::RtcAdjustPpm => Ok(core.config().rtc_adj_ppm.unwrap_or_default().to_string()),
-            cmds::GetCmds::AlarmRepeat => Ok(core.config().auto_wake_repeat.to_string()),
-            cmds::GetCmds::SafeShutdownLevel => Ok(core.config().auto_shutdown_level.unwrap_or(0.0).to_string()),
-            cmds::GetCmds::SafeShutdownDelay => Ok(core.config().auto_shutdown_delay.unwrap_or(0.0).to_string()),
-            cmds::GetCmds::ButtonEnable { mode } => Ok(match mode {
-                cmds::ButtonMode::Single => core.config().single_tap_enable,
-                cmds::ButtonMode::Double => core.config().double_tap_enable,
-                cmds::ButtonMode::Long => core.config().long_tap_enable,
-            })
-            .map(|b| b.to_string()),
-            cmds::GetCmds::ButtonShell { mode } => Ok(match mode {
-                cmds::ButtonMode::Single => core.config().single_tap_shell.clone(),
-                cmds::ButtonMode::Double => core.config().double_tap_shell.clone(),
-                cmds::ButtonMode::Long => core.config().long_tap_shell.clone(),
-            }),
-            cmds::GetCmds::AutoPowerOn => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
-            cmds::GetCmds::AuthUsername => Ok(core.config().auth_user.clone().unwrap_or_default()),
-            cmds::GetCmds::AntiMistouch => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
-            cmds::GetCmds::SoftPoweroff => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
-            cmds::GetCmds::SoftPoweroffShell => Ok(core.config().soft_poweroff_shell.clone().unwrap_or_default()),
-            cmds::GetCmds::Temperature => core.get_temperature().map(|x| x.to_string()),
-            cmds::GetCmds::InputProtect => core.input_protected().map(|x| x.to_string()),
-        },
+                .map(|b| format!("{} {}", parts[2], b.to_string())),
+                cmds::GetCmds::ButtonShell { mode } => Ok(match mode {
+                    cmds::ButtonMode::Single => core.config().single_tap_shell.clone(),
+                    cmds::ButtonMode::Double => core.config().double_tap_shell.clone(),
+                    cmds::ButtonMode::Long => core.config().long_tap_shell.clone(),
+                }).map(|x| format!("{} {}", parts[2], x)),
+                cmds::GetCmds::AutoPowerOn => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
+                cmds::GetCmds::AuthUsername => Ok(core.config().auth_user.clone().unwrap_or_default()),
+                cmds::GetCmds::AntiMistouch => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
+                cmds::GetCmds::SoftPoweroff => Ok(core.config().soft_poweroff.unwrap_or(false).to_string()),
+                cmds::GetCmds::SoftPoweroffShell => Ok(core.config().soft_poweroff_shell.clone().unwrap_or_default()),
+                cmds::GetCmds::Temperature => core.get_temperature().map(|x| x.to_string()),
+                cmds::GetCmds::InputProtect => core.input_protected().map(|x| x.to_string()),
+            };
+            r.map(|x| format!("{}: {}", parts[1], x))
+        }
         Cmds::SetBatteryChargingRange { range } => {
             let charging_range = if range.len() == 2 {
                 Some((range[0], range[1]))
