@@ -15,7 +15,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, bail, Result};
 use chrono::prelude::*;
 use clap::{Arg, ArgAction, Command};
-use cmds::{BoolArg, ButtonMode, Cmds};
+use cmds::{ButtonMode, Cmds};
 use digest_auth::{AuthContext, AuthorizationHeader, Charset, Qop, WwwAuthenticateHeader};
 use env_logger::Env;
 use futures::prelude::*;
@@ -168,18 +168,18 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             core.set_charging_range(charging_range)
                 .map(|_| format!("{}: done\n", parts[0]))
         }
-        Cmds::SetBatteryInputProtect(BoolArg { enable }) => core
-            .toggle_input_protected(*enable)
+        Cmds::SetBatteryInputProtect(b) => core
+            .toggle_input_protected(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
-        Cmds::SetBatteryOutput(BoolArg { enable }) => core
-            .toggle_output_enabled(*enable)
+        Cmds::SetBatteryOutput(b) => core
+            .toggle_output_enabled(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
         Cmds::SetFullChargeDuration { seconds } => {
             core.config_mut().full_charge_duration = Some(*seconds);
             core.save_config().map(|_| format!("{}: done\n", parts[0]))
         }
-        Cmds::SetAllowCharging(BoolArg { enable }) => core
-            .toggle_allow_charging(*enable)
+        Cmds::SetAllowCharging(b) => core
+            .toggle_allow_charging(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
         Cmds::RtcClearFlag => core.clear_alarm_flag().map(|_| format!("{}: done\n", parts[0])),
         Cmds::RtcPi2rtc => core.write_time(Local::now()).map(|_| format!("{}: done\n", parts[0])),
@@ -256,9 +256,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             .map(|_| format!("{}: wakeup after 1 min 30 sec\n", parts[0])),
         Cmds::SetButtonEnable { mode, enable } => {
             match *mode {
-                ButtonMode::Single => core.config_mut().single_tap_enable = *enable,
-                ButtonMode::Double => core.config_mut().double_tap_enable = *enable,
-                ButtonMode::Long => core.config_mut().long_tap_enable = *enable,
+                ButtonMode::Single => core.config_mut().single_tap_enable = enable.0,
+                ButtonMode::Double => core.config_mut().double_tap_enable = enable.0,
+                ButtonMode::Long => core.config_mut().long_tap_enable = enable.0,
             }
             if let Err(e) = core.save_config() {
                 log::error!("{}", e);
@@ -277,8 +277,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             }
             Ok(format!("{}: done\n", parts[0]))
         }
-        Cmds::SetAutoPowerOn(BoolArg { enable }) => core
-            .toggle_auto_power_on(*enable)
+        Cmds::SetAutoPowerOn(b) => core
+            .toggle_auto_power_on(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
         Cmds::SetAuth { username, password } => {
             if let (Some(username), Some(password)) = (username, password) {
@@ -291,11 +291,11 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             core.save_config().map(|_| format!("{}: done\n", parts[0]))
         }
         Cmds::ForceShutdown => core.force_shutdown().map(|_| format!("{}: done\n", parts[0])),
-        Cmds::SetAntiMistouch(BoolArg { enable }) => core
-            .toggle_anti_mistouch(*enable)
+        Cmds::SetAntiMistouch(b) => core
+            .toggle_anti_mistouch(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
-        Cmds::SetSoftPoweroff(BoolArg { enable }) => core
-            .toggle_soft_poweroff(*enable)
+        Cmds::SetSoftPoweroff(b) => core
+            .toggle_soft_poweroff(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
         Cmds::SetSoftPoweroffShell { shell } => {
             let script = shell.join(" ");
@@ -306,8 +306,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             };
             core.save_config().map(|_| format!("{}: done\n", parts[0]))
         }
-        Cmds::SetInputProtect(BoolArg { enable }) => core
-            .toggle_input_protected(*enable)
+        Cmds::SetInputProtect(b) => core
+            .toggle_input_protected(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
     };
 
@@ -319,7 +319,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             r
         }
         Err(e) => {
-            log::warn!("{}", e);
+            log::warn!("Request: {}, error: {}", req, e);
             err
         }
     }

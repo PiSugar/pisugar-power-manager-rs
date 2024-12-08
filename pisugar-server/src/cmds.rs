@@ -59,7 +59,7 @@ pub enum Cmds {
 
     SetButtonEnable {
         mode: ButtonMode,
-        enable: bool,
+        enable: BoolValue,
     },
 
     SetButtonShell {
@@ -161,10 +161,38 @@ pub struct BatteryRangeArgs {
     pub max: f32,
 }
 
-#[derive(Debug, Args, PartialEq)]
+#[derive(Debug, Args, PartialEq, Clone)]
 pub struct BoolArg {
     #[arg(action = ArgAction::Set)]
-    pub enable: bool,
+    pub enable: BoolValue,
+}
+
+impl BoolArg {
+    const TRUE: Self = Self {
+        enable: BoolValue(true),
+    };
+    const FALSE: Self = Self {
+        enable: BoolValue(false),
+    };
+
+    pub fn value(&self) -> bool {
+        *self == Self::TRUE
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct BoolValue(pub bool);
+
+impl From<String> for BoolValue {
+    fn from(value: String) -> Self {
+        if let Ok(b) = bool::from_str(&value) {
+            return Self(b);
+        }
+        if let Ok(n) = u32::from_str(&value) {
+            return Self(n != 0);
+        } 
+        return Self(false);
+    }
 }
 
 #[cfg(test)]
@@ -182,8 +210,9 @@ mod tests {
     #[case("get button_enable single", Cmds::Get(GetCmds::ButtonEnable{ mode: ButtonMode::Single }))]
     #[case("get button_shell long", Cmds::Get(GetCmds::ButtonShell { mode: ButtonMode::Long } ))]
     #[case("set_battery_charging_range 30.0,80.0", Cmds::SetBatteryChargingRange{ range: vec![30.0, 80.0]})]
-    #[case("set_battery_output true", Cmds::SetBatteryOutput(BoolArg{ enable: true }))]
-    #[case("set_battery_output false", Cmds::SetBatteryOutput(BoolArg { enable: false }))]
+    #[case("set_battery_output true", Cmds::SetBatteryOutput(BoolArg::TRUE))]
+    #[case("set_battery_output false", Cmds::SetBatteryOutput(BoolArg::FALSE))]
+    #[case("set_button_enable single 1", Cmds::SetButtonEnable { mode: ButtonMode::Single, enable: BoolValue(true) })]
     #[case("set_button_shell single echo hello", Cmds::SetButtonShell { mode: ButtonMode::Single, shell: vec!["echo".to_string(), "hello".to_string()] })]
     #[case("set_soft_poweroff_shell shutdown -a", Cmds::SetSoftPoweroffShell { shell: vec!["shutdown".to_string(), "-a".to_string()] })]
     #[case("set_soft_poweroff_shell bash \"shutdown -a\"", Cmds::SetSoftPoweroffShell { shell: vec!["bash".to_string(), "shutdown -a".to_string()] })]
