@@ -13,17 +13,14 @@ jobs:
 
       # Nodejs
       - name: Setup Nodejs
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: "12.x"
-
-      - name: NPM or Yarn install with caching
-        uses: bahmutov/npm-install@v1.6.0
-        with:
-          working-directory: pisugar-webui
+          node-version: 20
 
       # Nodejs build web
-      - run: npm run build:web
+      - run: |
+          npm install
+          npm run build
         working-directory: pisugar-webui
 
       # Upload artifact
@@ -32,5 +29,5 @@ jobs:
         with:
           name: pisugar-web
           path: |
-            electron/dist
+            pisugar-webui/dist
           if-no-files-found: warn
