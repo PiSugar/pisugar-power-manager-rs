@@ -20,11 +20,11 @@ jobs:
       - name: NPM or Yarn install with caching
         uses: bahmutov/npm-install@v1.6.0
         with:
-          working-directory: electron
+          working-directory: pisugar-webui
 
       # Nodejs build web
       - run: npm run build:web
-        working-directory: electron
+        working-directory: pisugar-webui
 
       # Upload artifact
       - name: Upload artifacts
