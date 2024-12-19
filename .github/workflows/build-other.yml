@@ -23,8 +23,8 @@ jobs:
       - name: Move files
         run: |
           set -x
-          mkdir -p electron/dist
-          mv -f download/pisugar-web/* electron/dist/
+          mkdir -p pisugar-webui/dist
+          mv -f download/pisugar-web/* pisugar-webui/dist/
           rm -rf download/pisugar-web
           mkdir -p target
           for i in $(ls download); do

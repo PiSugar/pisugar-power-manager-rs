@@ -27,7 +27,7 @@ jobs:
         with:
           name: pisugar-web
           path: |
-            electron/dist
+            pisugar-webui/dist
 
       # Rust cache
       - uses: Swatinem/rust-cache@v1

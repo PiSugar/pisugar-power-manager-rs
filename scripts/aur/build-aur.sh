@@ -68,7 +68,7 @@ for i in arm armhf aarch64 x86_64; do
     cp -r "$ROOT_DIR/pisugar-server/.rpm/config.json" $i/
     cp -r "$ROOT_DIR/pisugar-server/.rpm/pisugar-server.default" $i/
     cp -r "$ROOT_DIR/pisugar-server/.rpm/pisugar-server.service" $i/
-    cp -r "$ROOT_DIR/electron/dist/web" $i/
+    cp -r "$ROOT_DIR/pisugar-webui/dist/" $i/web/
     cp -r "$ROOT_DIR/pisugar-poweroff/.rpm/pisugar-poweroff.default" $i/
     cp -r "$ROOT_DIR/pisugar-poweroff/.rpm/pisugar-poweroff.service" $i/
 done
