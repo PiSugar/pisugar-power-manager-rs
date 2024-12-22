@@ -79,8 +79,13 @@ assets = [
     "644",
   ],
   [
-    "../pisugar-webui/dist/**/*",
+    "../pisugar-webui/dist/*",
     "usr/share/pisugar-server/web/",
+    "644",
+  ],
+  [
+    "../pisugar-webui/dist/static/**/*",
+    "usr/share/pisugar-server/web/static/",
     "644",
   ],
 ]
