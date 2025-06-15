@@ -462,6 +462,14 @@ impl PiSugarCore {
         self.save_config()
     }
 
+    pub fn read_rtc_addr(&self) -> Result<u8> {
+        call_rtc!(&self.rtc, read_addr)
+    }
+
+    pub fn set_rtc_addr(&self, addr: u8) -> Result<()> {
+        call_rtc!(&self.rtc, set_addr, addr)
+    }
+
     pub fn read_time(&self) -> Result<DateTime<Local>> {
         call_rtc!(&self.rtc, read_time)
             .and_then(|t| t.try_into().map_err(|_| Error::Other("Invalid datetime".to_string())))

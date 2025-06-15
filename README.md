@@ -160,6 +160,7 @@ To get the full command list, please send a `help xx` request.
 | get battery_charging    | charging status (for new model please use battery_power_plugged and battery_allow_charging to get charging status)  | battery_charging: [true\|false] |
 | get battery_input_protect_enabled  | BAT input protect enabled | battery_input_protect_enable: [true\|false] |
 | get model               | pisugar model | model: PiSugar 2 |
+| get battery_keep_input  | Keep power input when reading voltage | battery_keep_input: [true\|false] |
 | get battery_led_amount  | charging led amount (2 is for new model) | battery_led_amount: [2\|4] |
 | get battery_power_plugged  | charging usb plugged (new model only) | battery_power_plugged: [true\|false] |
 | get battery_charging_range | charging range restart_point% stop_point% (new model only)  | battery_charging_range: [number, number]|
@@ -186,6 +187,7 @@ To get the full command list, please send a `help xx` request.
 | rtc_alarm_set | set rtc wakeup alarm | rtc_alarm_set [ISO8601 time string] [repeat] |
 | rtc_alarm_disable | disable rtc wakeup alarm | rtc_alarm_disable |
 | rtc_adjust_ppm | (pisugar3) adjust rtc ppm, -500.0 to 500.0 | rtc_adjust_ppm [number] |
+| set_battery_keep_input | Set keep power input when reading voltage | set_battery_keep_input [true\|false] |
 | set_button_enable | auto shutdown level % | set_button_enable [single\|double\|long] [0\|1] |
 | set_button_shell | auto shutdown level | safe_shutdown_level [single\|double\|long] [shell] |
 | set_battery_input_protect | set BAT input protect | set_battery_input_protect [true\|false] |

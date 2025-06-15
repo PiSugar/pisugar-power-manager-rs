@@ -80,6 +80,9 @@ const IIC_CMD_ALM_MN: u8 = 0x46;
 /// Alarm second
 const IIC_CMD_ALM_SS: u8 = 0x47;
 
+// RTC I2C address
+const IIC_CMD_RTC_ADDR: u8 = 0x51;
+
 /// Firmware version
 const IIC_CMD_APPVER: u8 = 0xE2;
 const APP_VER_LEN: usize = 15;
@@ -397,6 +400,17 @@ impl PiSugar3 {
         self.i2c_write_byte(IIC_CMD_ALM_SS, dec_to_bcd(ss))
     }
 
+    fn read_rtc_addr(&self) -> Result<u8> {
+        self.i2c_read_byte(IIC_CMD_RTC_ADDR)
+    }
+
+    fn set_rtc_addr(&self, addr: u8) -> Result<()> {
+        if addr < 0x03 || addr > 0x77 {
+            return Err(Error::Other("Invalid RTC I2C address".to_string()));
+        }
+        self.i2c_write_byte(IIC_CMD_RTC_ADDR, addr)
+    }
+
     pub fn read_app_version(&self) -> Result<String> {
         let mut buf = [0; APP_VER_LEN + 1];
         let mut last = APP_VER_LEN - 1;
@@ -697,6 +711,17 @@ impl RTC for PiSugar3RTC {
             self.pisugar3.write_rtc_adj_diff(adj_diff)?;
         }
         Ok(())
+    }
+
+    fn read_addr(&self) -> Result<u8> {
+        self.pisugar3.read_rtc_addr()
+    }
+
+    fn set_addr(&self, addr: u8) -> Result<()> {
+        if addr < 0x03 || addr > 0x77 {
+            return Err(Error::Other("Invalid RTC I2C address".to_string()));
+        }
+        self.pisugar3.set_rtc_addr(addr)
     }
 
     fn read_time(&self) -> Result<RTCRawTime> {

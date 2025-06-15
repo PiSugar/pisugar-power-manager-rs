@@ -30,6 +30,10 @@ pub enum Cmds {
 
     SetAllowCharging(BoolArg),
 
+    SetRtcAddr{
+        addr: u8,
+    },
+
     RtcClearFlag,
 
     RtcPi2rtc,
@@ -120,6 +124,7 @@ pub enum GetCmds {
     BatteryOutputEnabled,
     FullChargeDuration,
     SystemTime,
+    RtcAddr,
     RtcTime,
     RtcTimeList,
     RtcAlarmFlag,

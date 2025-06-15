@@ -119,6 +119,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     .full_charge_duration
                     .map_or("".to_string(), |d| d.to_string())),
                 cmds::GetCmds::SystemTime => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+                cmds::GetCmds::RtcAddr => core
+                    .read_rtc_addr()
+                    .map(|a| format!("0x{:02x}", a)),
                 cmds::GetCmds::RtcTime => core
                     .read_time()
                     .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
@@ -184,6 +187,12 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
         Cmds::SetAllowCharging(b) => core
             .toggle_allow_charging(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetRtcAddr { addr } => {
+            if let Err(e) = core.set_rtc_addr(*addr) {
+                log::warn!("Set RTC addr error: {}", e);
+            }
+            Ok(format!("{}: done\n", parts[0]))
+        }
         Cmds::RtcClearFlag => core.clear_alarm_flag().map(|_| format!("{}: done\n", parts[0])),
         Cmds::RtcPi2rtc => core.write_time(Local::now()).map(|_| format!("{}: done\n", parts[0])),
         Cmds::RtcRtc2pi => core.read_time().map(|t| {

@@ -1,3 +1,4 @@
+use crate::Error;
 use rppal::i2c::I2c;
 
 use crate::{
@@ -10,6 +11,7 @@ use crate::{PiSugarConfig, Result};
 pub struct SD3078 {
     i2c: I2c,
     cfg: PiSugarConfig,
+    model: Model,
 }
 
 impl SD3078 {
@@ -17,7 +19,7 @@ impl SD3078 {
     pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
         let mut i2c = I2c::with_bus(cfg.i2c_bus)?;
         i2c.set_slave_address(model.default_rtc_i2c_addr())?;
-        Ok(Self { i2c, cfg })
+        Ok(Self { i2c, cfg, model })
     }
 
     /// Disable write protect
@@ -162,6 +164,16 @@ impl RTC for SD3078 {
         }
 
         Ok(())
+    }
+
+    /// Read RTC address, pisugar 3 only
+    fn read_addr(&self) -> Result<u8> {
+        Ok(self.model.default_rtc_i2c_addr() as u8)
+    }
+
+    /// Write RTC address, pisugar 3 only
+    fn set_addr(&self, _addr: u8) -> Result<()> {
+        Err(Error::Other("SD3078 does not support changing I2C address".to_string()))
     }
 
     /// Read time
