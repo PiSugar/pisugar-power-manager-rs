@@ -485,7 +485,6 @@ impl Battery for PiSugar3Battery {
 
     fn set_keep_input(&self, enable: bool) -> Result<()> {
         let mut v = self.pisugar3.read_bat_ctr2()?;
-        v.set_bit(7, enable);
         if enable {
             v |= 1 << 7;
         } else {
