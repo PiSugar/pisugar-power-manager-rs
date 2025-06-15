@@ -23,6 +23,12 @@ pub trait Battery {
     /// Firmware version
     fn version(&self) -> Result<String>;
 
+    /// Keep input, do not disable input when getting battery status
+    fn keep_input(&self) -> Result<bool>;
+
+    /// Set keep input, do not disable input when getting battery status
+    fn set_keep_input(&self, enable: bool) -> Result<()>;
+
     /// Battery voltage (V)
     fn voltage(&self) -> Result<f32>;
 

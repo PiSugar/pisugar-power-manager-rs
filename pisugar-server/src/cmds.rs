@@ -13,6 +13,8 @@ pub enum Cmds {
     #[command(subcommand)]
     Get(GetCmds),
 
+    SetBatteryKeepInput(BoolArg),
+
     SetBatteryChargingRange {
         #[arg(value_delimiter = ',')]
         range: Vec<f32>,
@@ -108,6 +110,7 @@ pub enum GetCmds {
     Battery,
     BatteryI,
     BatteryV,
+    BatteryKeepInput,
     BatteryLedAmount,
     BatteryPowerPlugged,
     BatteryAllowCharging,
@@ -190,7 +193,7 @@ impl From<String> for BoolValue {
         }
         if let Ok(n) = u32::from_str(&value) {
             return Self(n != 0);
-        } 
+        }
         return Self(false);
     }
 }

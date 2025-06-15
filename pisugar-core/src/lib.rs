@@ -386,6 +386,14 @@ impl PiSugarCore {
         call_battery!(&self.battery, version)
     }
 
+    pub fn keep_input(&self) -> Result<bool> {
+        call_battery!(&self.battery, keep_input)
+    }
+
+    pub fn set_keep_input(&mut self, enable: bool) -> Result<()> {
+        call_battery!(&mut self.battery, set_keep_input, enable)
+    }
+
     pub fn voltage(&self) -> Result<f32> {
         call_battery!(&self.battery, voltage)
     }

@@ -308,6 +308,14 @@ impl Battery for IP5209Battery {
         Ok("".to_string())
     }
 
+    fn keep_input(&self) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn set_keep_input(&self, _enable: bool) -> Result<()> {
+        Ok(())
+    }
+
     fn voltage(&self) -> Result<f32> {
         self.ip5209.read_voltage().map(|v| v as f32)
     }

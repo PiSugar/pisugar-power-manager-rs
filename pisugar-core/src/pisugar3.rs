@@ -34,6 +34,7 @@ const IIC_CMD_WRITE_ENABLE: u8 = 0x0B;
 
 /// Battery ctrl
 const IIC_CMD_BAT_CTR: u8 = 0x20;
+const IIC_CMD_BAT_CTR2: u8 = 0x21;
 
 /// Voltage high byte
 const IIC_CMD_VH: u8 = 0x22;
@@ -217,6 +218,16 @@ impl PiSugar3 {
 
     pub fn write_bat_ctr(&self, ctr: u8) -> Result<()> {
         self.i2c_write_byte(IIC_CMD_BAT_CTR, ctr)?;
+        Ok(())
+    }
+
+    pub fn read_bat_ctr2(&self) -> Result<u8> {
+        let ctr = self.i2c_read_byte(IIC_CMD_BAT_CTR2)?;
+        Ok(ctr)
+    }
+
+    pub fn write_bat_ctr2(&self, ctr: u8) -> Result<()> {
+        self.i2c_write_byte(IIC_CMD_BAT_CTR2, ctr)?;
         Ok(())
     }
 
@@ -465,6 +476,23 @@ impl Battery for PiSugar3Battery {
 
     fn version(&self) -> Result<String> {
         Ok(self.version.clone())
+    }
+
+    fn keep_input(&self) -> Result<bool> {
+        let v = self.pisugar3.read_bat_ctr2()?;
+        Ok((v & 1 << 7) != 0)
+    }
+
+    fn set_keep_input(&self, enable: bool) -> Result<()> {
+        let mut v = self.pisugar3.read_bat_ctr2()?;
+        v.set_bit(7, enable);
+        if enable {
+            v |= 1 << 7;
+        } else {
+            v &= !(1 << 7);
+        }
+        self.pisugar3.write_bat_ctr2(v)?;
+        Ok(())
     }
 
     fn voltage(&self) -> crate::Result<f32> {
