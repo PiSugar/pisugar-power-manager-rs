@@ -104,6 +104,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                 cmds::GetCmds::Battery => core.level().map(|l| l.to_string()),
                 cmds::GetCmds::BatteryI => core.intensity_avg().map(|i| i.to_string()),
                 cmds::GetCmds::BatteryV => core.voltage_avg().map(|v| v.to_string()),
+                cmds::GetCmds::BatteryKeepInput => core.keep_input().map(|k| k.to_string()),
                 cmds::GetCmds::BatteryLedAmount => core.led_amount().map(|n| n.to_string()),
                 cmds::GetCmds::BatteryPowerPlugged => core.power_plugged().map(|p| p.to_string()),
                 cmds::GetCmds::BatteryAllowCharging => core.allow_charging().map(|a| a.to_string()),
@@ -118,6 +119,9 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     .full_charge_duration
                     .map_or("".to_string(), |d| d.to_string())),
                 cmds::GetCmds::SystemTime => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+                cmds::GetCmds::RtcAddr => core
+                    .read_rtc_addr()
+                    .map(|a| format!("0x{:02x}", a)),
                 cmds::GetCmds::RtcTime => core
                     .read_time()
                     .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
@@ -148,7 +152,8 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     cmds::ButtonMode::Single => core.config().single_tap_shell.clone(),
                     cmds::ButtonMode::Double => core.config().double_tap_shell.clone(),
                     cmds::ButtonMode::Long => core.config().long_tap_shell.clone(),
-                }).map(|x| format!("{} {}", parts[2], x)),
+                })
+                .map(|x| format!("{} {}", parts[2], x)),
                 cmds::GetCmds::AutoPowerOn => Ok(core.config().auto_power_on.unwrap_or(false).to_string()),
                 cmds::GetCmds::AuthUsername => Ok(core.config().auth_user.clone().unwrap_or_default()),
                 cmds::GetCmds::AntiMistouch => Ok(core.config().anti_mistouch.unwrap_or(true).to_string()),
@@ -159,6 +164,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
             };
             r.map(|x| format!("{}: {}", parts[1], x))
         }
+        Cmds::SetBatteryKeepInput(b) => core.set_keep_input(b.value()).map(|_| format!("{}: done\n", parts[0])),
         Cmds::SetBatteryChargingRange { range } => {
             let charging_range = if range.len() == 2 {
                 Some((range[0], range[1]))
@@ -181,6 +187,12 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
         Cmds::SetAllowCharging(b) => core
             .toggle_allow_charging(b.value())
             .map(|_| format!("{}: done\n", parts[0])),
+        Cmds::SetRtcAddr { addr } => {
+            if let Err(e) = core.set_rtc_addr(*addr) {
+                log::warn!("Set RTC addr error: {}", e);
+            }
+            Ok(format!("{}: done\n", parts[0]))
+        }
         Cmds::RtcClearFlag => core.clear_alarm_flag().map(|_| format!("{}: done\n", parts[0])),
         Cmds::RtcPi2rtc => core.write_time(Local::now()).map(|_| format!("{}: done\n", parts[0])),
         Cmds::RtcRtc2pi => core.read_time().map(|t| {

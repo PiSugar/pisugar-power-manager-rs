@@ -386,6 +386,14 @@ impl PiSugarCore {
         call_battery!(&self.battery, version)
     }
 
+    pub fn keep_input(&self) -> Result<bool> {
+        call_battery!(&self.battery, keep_input)
+    }
+
+    pub fn set_keep_input(&mut self, enable: bool) -> Result<()> {
+        call_battery!(&mut self.battery, set_keep_input, enable)
+    }
+
     pub fn voltage(&self) -> Result<f32> {
         call_battery!(&self.battery, voltage)
     }
@@ -452,6 +460,14 @@ impl PiSugarCore {
         }
         self.config.auto_charging_range = range;
         self.save_config()
+    }
+
+    pub fn read_rtc_addr(&self) -> Result<u8> {
+        call_rtc!(&self.rtc, read_addr)
+    }
+
+    pub fn set_rtc_addr(&self, addr: u8) -> Result<()> {
+        call_rtc!(&self.rtc, set_addr, addr)
     }
 
     pub fn read_time(&self) -> Result<DateTime<Local>> {

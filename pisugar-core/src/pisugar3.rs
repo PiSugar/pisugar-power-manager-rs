@@ -34,6 +34,7 @@ const IIC_CMD_WRITE_ENABLE: u8 = 0x0B;
 
 /// Battery ctrl
 const IIC_CMD_BAT_CTR: u8 = 0x20;
+const IIC_CMD_BAT_CTR2: u8 = 0x21;
 
 /// Voltage high byte
 const IIC_CMD_VH: u8 = 0x22;
@@ -78,6 +79,9 @@ const IIC_CMD_ALM_HH: u8 = 0x45;
 const IIC_CMD_ALM_MN: u8 = 0x46;
 /// Alarm second
 const IIC_CMD_ALM_SS: u8 = 0x47;
+
+// RTC I2C address
+const IIC_CMD_RTC_ADDR: u8 = 0x51;
 
 /// Firmware version
 const IIC_CMD_APPVER: u8 = 0xE2;
@@ -217,6 +221,16 @@ impl PiSugar3 {
 
     pub fn write_bat_ctr(&self, ctr: u8) -> Result<()> {
         self.i2c_write_byte(IIC_CMD_BAT_CTR, ctr)?;
+        Ok(())
+    }
+
+    pub fn read_bat_ctr2(&self) -> Result<u8> {
+        let ctr = self.i2c_read_byte(IIC_CMD_BAT_CTR2)?;
+        Ok(ctr)
+    }
+
+    pub fn write_bat_ctr2(&self, ctr: u8) -> Result<()> {
+        self.i2c_write_byte(IIC_CMD_BAT_CTR2, ctr)?;
         Ok(())
     }
 
@@ -386,6 +400,22 @@ impl PiSugar3 {
         self.i2c_write_byte(IIC_CMD_ALM_SS, dec_to_bcd(ss))
     }
 
+    fn read_rtc_addr(&self) -> Result<u8> {
+        self.i2c_read_byte(IIC_CMD_RTC_ADDR)
+    }
+
+    fn set_rtc_addr(&self, addr: u8) -> Result<()> {
+        if addr < 0x03 || addr > 0x77 {
+            return Err(Error::Other("Invalid RTC I2C address".to_string()));
+        }
+        let addr = if addr.count_ones() % 2 == 0 {
+            addr
+        } else {
+            addr | (1 << 7)
+        };
+        self.i2c_write_byte(IIC_CMD_RTC_ADDR, addr)
+    }
+
     pub fn read_app_version(&self) -> Result<String> {
         let mut buf = [0; APP_VER_LEN + 1];
         let mut last = APP_VER_LEN - 1;
@@ -465,6 +495,22 @@ impl Battery for PiSugar3Battery {
 
     fn version(&self) -> Result<String> {
         Ok(self.version.clone())
+    }
+
+    fn keep_input(&self) -> Result<bool> {
+        let v = self.pisugar3.read_bat_ctr2()?;
+        Ok((v & 1 << 7) != 0)
+    }
+
+    fn set_keep_input(&self, enable: bool) -> Result<()> {
+        let mut v = self.pisugar3.read_bat_ctr2()?;
+        if enable {
+            v |= 1 << 7;
+        } else {
+            v &= !(1 << 7);
+        }
+        self.pisugar3.write_bat_ctr2(v)?;
+        Ok(())
     }
 
     fn voltage(&self) -> crate::Result<f32> {
@@ -670,6 +716,17 @@ impl RTC for PiSugar3RTC {
             self.pisugar3.write_rtc_adj_diff(adj_diff)?;
         }
         Ok(())
+    }
+
+    fn read_addr(&self) -> Result<u8> {
+        self.pisugar3.read_rtc_addr()
+    }
+
+    fn set_addr(&self, addr: u8) -> Result<()> {
+        if addr < 0x03 || addr > 0x77 {
+            return Err(Error::Other("Invalid RTC I2C address".to_string()));
+        }
+        self.pisugar3.set_rtc_addr(addr)
     }
 
     fn read_time(&self) -> Result<RTCRawTime> {

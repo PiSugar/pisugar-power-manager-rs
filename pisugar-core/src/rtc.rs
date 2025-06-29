@@ -166,6 +166,12 @@ pub trait RTC {
     /// Init
     fn init(&mut self, config: &PiSugarConfig) -> Result<()>;
 
+    /// Read RTC address, pisugar 3 only
+    fn read_addr(&self) -> Result<u8>;
+
+    /// Write RTC address, pisugar 3 only
+    fn set_addr(&self, addr: u8) -> Result<()>;
+
     /// Read RTC time
     fn read_time(&self) -> Result<RTCRawTime>;
 
