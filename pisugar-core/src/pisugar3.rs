@@ -408,6 +408,11 @@ impl PiSugar3 {
         if addr < 0x03 || addr > 0x77 {
             return Err(Error::Other("Invalid RTC I2C address".to_string()));
         }
+        let addr = if addr.count_ones() % 2 == 0 {
+            addr
+        } else {
+            addr | (1 << 7)
+        };
         self.i2c_write_byte(IIC_CMD_RTC_ADDR, addr)
     }
 
