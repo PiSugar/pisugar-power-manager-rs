@@ -34,14 +34,14 @@ jobs:
     steps:
       # Checkout
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Fix cargo config
         run: sed -e "s/.*replace-with.*//g" -i .cargo/config.toml
 
       # Download web
       - name: Download web
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pisugar-web
           path: |
@@ -112,7 +112,7 @@ jobs:
 
       # Upload artifact
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gnu-${{ matrix.target }}
           path: |
