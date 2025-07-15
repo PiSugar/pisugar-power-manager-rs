@@ -157,7 +157,7 @@ impl PiSugarConfig {
 
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
         let mut options = OpenOptions::new();
-        options.write(true).create(true);
+        options.write(true).create(true).truncate(true);
         let mut f = options.open(path)?;
         let s = serde_json::to_string_pretty(self)?;
         log::info!("Dump config:\n{}", s);
