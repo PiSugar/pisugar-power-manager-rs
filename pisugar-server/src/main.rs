@@ -119,9 +119,7 @@ fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
                     .full_charge_duration
                     .map_or("".to_string(), |d| d.to_string())),
                 cmds::GetCmds::SystemTime => Ok(Local::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
-                cmds::GetCmds::RtcAddr => core
-                    .read_rtc_addr()
-                    .map(|a| format!("0x{:02x}", a)),
+                cmds::GetCmds::RtcAddr => core.read_rtc_addr().map(|a| format!("0x{:02x}", a)),
                 cmds::GetCmds::RtcTime => core
                     .read_time()
                     .map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, false)),
@@ -366,8 +364,8 @@ where
     });
 
     // button event
-    // tokio::spawn(event_rx.map(|event| Ok(Some(event))).forward(tx));
     tokio::spawn(async move {
+        let _ = event_rx.borrow_and_update();
         while event_rx.changed().await.is_ok() {
             let s = event_rx.borrow().clone();
             tx.send(Some(s)).await.expect("Channel failed");
