@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::env;
 use std::fs::remove_file;
 use std::io;
 use std::net::SocketAddr;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::exit;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Instant, SystemTime};
-
-use std::str::FromStr;
+use std::{env, fs};
 
 use anyhow::{anyhow, bail, Result};
 use chrono::prelude::*;
@@ -843,6 +843,12 @@ async fn main() -> std::io::Result<()> {
                 .help("Unix domain socket file, e.g. /tmp/pisugar-server.sock"),
         )
         .arg(
+            Arg::new("uds-mode")
+                .long("uds-mode")
+                .default_value("666")
+                .help("Unix domain socket file mode, e.g. 666"),
+        )
+        .arg(
             Arg::new("ws")
                 .short('w')
                 .long("ws")
@@ -985,11 +991,19 @@ async fn main() -> std::io::Result<()> {
     if let Some(uds_addr) = matches.get_one::<String>("uds").cloned() {
         let core_cloned = core.clone();
         let event_rx_cloned = event_rx.clone();
+        let uds_mode = matches
+            .get_one::<String>("uds-mode")
+            .and_then(|s| u32::from_str_radix(s, 8).ok())
+            .unwrap_or(0o666);
         tokio::spawn(async move {
             loop {
                 match tokio::net::UnixListener::bind(&uds_addr) {
                     Ok(uds_listener) => {
                         log::info!("UDS listening...");
+                        let perm = fs::Permissions::from_mode(uds_mode);
+                        if let Err(e) = fs::set_permissions(&uds_addr, perm) {
+                            log::warn!("Set uds file permission {} error: {}", uds_mode, e);
+                        }
                         while let Ok((stream, addr)) = uds_listener.accept().await {
                             log::info!("UDS from {:?}", addr);
                             let core = core_cloned.clone();
