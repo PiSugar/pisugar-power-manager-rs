@@ -67,7 +67,7 @@ impl Model {
 
     pub fn rtc(&self, cfg: PiSugarConfig) -> Result<Box<dyn RTC + Send>> {
         log::info!(
-            "Bindig rtc i2c bus={} addr={}",
+            "Binding rtc i2c bus={} addr={}",
             cfg.i2c_bus,
             self.default_rtc_i2c_addr()
         );

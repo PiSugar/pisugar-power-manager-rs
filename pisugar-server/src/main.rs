@@ -65,7 +65,8 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &EventTx) {
             let _ = tx.send(format!("{}\n", tap_type));
         }
         Err(e) => {
-            log::debug!("Poll error: {}", e);
+            log::warn!("Poll error: {}, retry after 1s", e);
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
         _ => {}
     }
