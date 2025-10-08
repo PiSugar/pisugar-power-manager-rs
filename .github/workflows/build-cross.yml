@@ -14,13 +14,10 @@ jobs:
         target:
           - arm-unknown-linux-musleabihf
           - armv7-unknown-linux-musleabihf
-          - aarch64-unknown-linux-musl
-          - mips-unknown-linux-musl
-          - mips64-unknown-linux-muslabi64
-          - riscv64gc-unknown-linux-musl
-          - i586-unknown-linux-musl
-          - x86_64-unknown-linux-musl
-
+          # - aarch64-unknown-linux-musl
+          # - riscv64gc-unknown-linux-musl
+          # - i586-unknown-linux-musl
+          # - x86_64-unknown-linux-musl
     steps:
       # Checkout
       - name: Checkout
@@ -53,23 +50,9 @@ jobs:
         run: |
           cross build --target ${{ matrix.target }} --release
           for app in server poweroff programmer; do
-            cargo deb --no-build --no-strip --target $target -p pisugar-${app}
-            cargo generate-rpm --target $target -p pisugar-${app}
+            cargo deb --no-build --no-strip --target ${{matrix.target}} -p pisugar-${app}
+            cargo generate-rpm --target ${{matrix.target}} -p pisugar-${app}
           done
-
-      # Collect conf files
-      - name: Collect conf files
-        run: |
-          mkdir -p target/${{ matrix.target }}/pisugar-server-conf
-          cp pisugar-server/debian/pisugar-server.default target/${{ matrix.target }}/pisugar-server-conf/
-          cp pisugar-server/debian/pisugar-server.service target/${{ matrix.target }}/pisugar-server-conf/
-          cp pisugar-server/debian/config.json target/${{ matrix.target }}/pisugar-server-conf/
-
-          cp -R pisugar-webui/dist target/${{ matrix.target }}/web-ui
-
-          mkdir -p target/${{ matrix.target }}/pisugar-poweroff-conf
-          cp pisugar-poweroff/debian/pisugar-poweroff.default target/${{ matrix.target }}/pisugar-poweroff-conf/
-          cp pisugar-poweroff/debian/pisugar-poweroff.service target/${{ matrix.target }}/pisugar-poweroff-conf/
 
       # Make bin package
       - name: Make bin package
