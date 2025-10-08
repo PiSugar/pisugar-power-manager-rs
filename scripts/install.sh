@@ -20,7 +20,9 @@ function install_pisugar_server() {
     sudo install -D -m 644 pisugar-server-conf/config.json /etc/pisugar-server/config.json
     sudo install -D -m 644 pisugar-server-conf/pisugar-server.service /lib/systemd/system/pisugar-server.service
     sudo install -D -m 644 pisugar-server-conf/pisugar-server.default /etc/default/pisugar-server
-    find web-ui -type f -exec sudo install -D -m 644 {} /usr/share/pisugar-server/web/ \;
+    for i in $(find web-ui -type f); do
+        sudo install -D -m 644 $i /usr/share/pisugar-server/web/${i#web-ui/}
+    done
     sudo systemctl daemon-reload
     echo "PiSugar Server installed, please update the settings and run systemctl enable pisugar-server.service and systemctl start pisugar-server.service."
 }
@@ -77,7 +79,7 @@ fi
 
 UNINSTALL=0
 APP="all"
-ARGS=$(getopt -q -o hu -- "$@")
+ARGS=$(getopt -q -o hu --name "$0" -- "$@")
 if [ $? != 0 ]; then
     print_usage && exit 1
 fi
@@ -90,7 +92,7 @@ do
             print_usage && exit 0
             ;;
         -u)
-            shift && UNINSTALL=1
+            UNINSTALL=1
             ;;
         --)
             shift && APP=$1 && break
@@ -102,40 +104,34 @@ do
     shift
 done
 
-case "$APP" in
-    all)
-        if [ $UNINSTALL -eq 1 ]; then
-            uninstall_pisugar_server
-            uninstall_pisugar_poweroff
+if [ $UNINSTALL -eq 1 ]; then
+    echo "Uninstalling $APP..."
+    case "$APP" in
+        all)
+            uninstall_pisugar_server && \
+            uninstall_pisugar_poweroff && \
             uninstall_pisugar_programmer
-        else
-            install_pisugar_server
-            install_pisugar_poweroff
+            ;;
+        server|poweroff|programmer)
+            uninstall_pisugar_$APP
+            ;;
+        *)
+            print_usage && exit 1
+            ;;
+    esac
+else
+    echo "Installing $APP..."
+    case "$APP" in
+        all)
+            install_pisugar_server && \
+            install_pisugar_poweroff && \
             install_pisugar_programmer
-        fi
-        ;;
-    server)
-        if [ $UNINSTALL -eq 1 ]; then
-            uninstall_pisugar_server
-        else
-            install_pisugar_server
-        fi
-        ;;
-    poweroff)
-        if [ $UNINSTALL -eq 1 ]; then
-            uninstall_pisugar_poweroff
-        else
-            install_pisugar_poweroff
-        fi
-        ;;
-    programmer)
-        if [ $UNINSTALL -eq 1 ]; then
-            uninstall_pisugar_programmer
-        else
-            install_pisugar_programmer
-        fi
-        ;;
-    *)
-        print_usage && exit 1
-        ;;
-esac
+            ;;
+        server|poweroff|programmer)
+            install_pisugar_$APP
+            ;;
+        *)
+            print_usage && exit 1
+            ;;
+    esac
+fi
