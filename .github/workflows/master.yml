@@ -23,10 +23,10 @@ jobs:
   build-cross:
     needs: build-web
     uses: ./.github/workflows/build-cross.yml
-  
+
   build-other:
     needs:
-      - build-cross
+      - build-web
     uses: ./.github/workflows/build-other.yml
 
   dev-release:
@@ -54,8 +54,9 @@ jobs:
           cp scripts/aur/*.tar.gz archives/
           tar -czf archives.tar.gz archives
 
-      # Development Release
+      # Development Release, push master branch
       - uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.event_name == 'push' && github.ref_name == 'master'
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
@@ -70,8 +71,23 @@ jobs:
             !scripts/update-version.sh
             !scripts/install.sh
 
+      # Draft Release, push tag v*
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.event_name == 'push' && startsWith(github.ref_name, 'v')
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          draft: true
+          files: |
+            scripts/*.sh
+            scripts/aur/*.tar.gz
+            !scripts/update-version.sh
+            !scripts/install.sh
+            downloads/**/*
+
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"
+        if: github.event_name == 'push' && (github.ref_name == 'master' || startsWith(github.ref_name, 'v'))
         env:
           QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
           QINIU_AK: ${{ secrets.QINIU_AK }}
