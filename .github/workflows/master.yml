@@ -98,11 +98,11 @@ jobs:
           sudo apt-get install -y unzip
 
           if [ $(uname -m) == 'x86_64' ]; then
-            wget https://github.com/qiniu/qshell/releases/download/v2.9.0/qshell-v2.9.0-linux-amd64.tar.gz
-            tar -xvf qshell-v2.9.0-linux-amd64.tar.gz
+            wget https://github.com/qiniu/qshell/releases/download/v2.16.1/qshell-v2.16.1-linux-amd64.tar.gz
+            tar -xvf qshell-v2.16.1-linux-amd64.tar.gz
           else
-            wget https://github.com/qiniu/qshell/releases/download/v2.9.0/qshell-v2.9.0-linux-386.tar.gz
-            tar -xvf qshell-v2.9.0-linux-386.tar.gz
+            wget https://github.com/qiniu/qshell/releases/download/v2.16.1/qshell-v2.16.1-linux-386.tar.gz
+            tar -xvf qshell-v2.16.1-linux-386.tar.gz
           fi
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
