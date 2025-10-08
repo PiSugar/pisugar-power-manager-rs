@@ -53,7 +53,6 @@ jobs:
           mkdir -p archives
           cp -R downloads/* archives/
           cp scripts/*.sh archives/
-          cp scripts/aur/*.tar.gz archives/
           tar -czf archives.tar.gz archives
 
       # Development Release, push master branch
