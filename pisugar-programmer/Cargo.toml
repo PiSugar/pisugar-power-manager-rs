@@ -37,3 +37,8 @@ buildflags = ["--release"]
 
 [package.metadata.rpm.targets]
 pisugar-programmer = { path = "/usr/bin/pisugar-programmer" }
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/pisugar-programmer", dest = "/usr/bin/pisugar-programmer", mode = "755" },
+]

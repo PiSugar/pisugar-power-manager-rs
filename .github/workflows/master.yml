@@ -3,6 +3,10 @@ name: Master
 on:
   push:
     branches: [master]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [master]
 
 jobs:
   cancel-previous:
@@ -12,29 +16,25 @@ jobs:
         uses: styfle/cancel-workflow-action@0.10.0
         with:
           access_token: ${{ github.token }}
+
   build-web:
     uses: ./.github/workflows/build-web.yml
-  download-musl-cc:
-    uses: ./.github/workflows/download-musl-cc.yml
-  build-musl:
-    needs:
-      - build-web
-      - download-musl-cc
-    uses: ./.github/workflows/build-musl.yml
-  build-gnu:
-    needs:
-      - build-web
-    uses: ./.github/workflows/build-gnu.yml
+
+  build-cross:
+    needs: build-web
+    uses: ./.github/workflows/build-cross.yml
+
   build-other:
     needs:
-      - build-musl
-      - build-gnu
+      - build-web
     uses: ./.github/workflows/build-other.yml
 
   dev-release:
     runs-on: ubuntu-latest
     needs:
+      - build-web
       - build-other
+      - build-cross
     steps:
       # Checkout
       - name: Checkout
@@ -46,18 +46,18 @@ jobs:
       - name: Download all
         uses: actions/download-artifact@v4
         with:
-          name: pisugar-all
+          path: downloads
 
       - name: Create archives
         run: |
           mkdir -p archives
-          cp -R target/* archives/
+          cp -R downloads/* archives/
           cp scripts/*.sh archives/
-          cp scripts/aur/*.tar.gz archives/
           tar -czf archives.tar.gz archives
 
-      # Development Release
+      # Development Release, push master branch
       - uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.event_name == 'push' && github.ref_name == 'master'
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
@@ -66,15 +66,29 @@ jobs:
           draft: false
           files: |
             archives.tar.gz
-            target/**/*.deb
-            target/**/*.rpm
+            downloads/**/*
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
-            pisugar-module.tar.gz
+            !scripts/install.sh
+
+      # Draft Release, push tag v*
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.event_name == 'push' && startsWith(github.ref_name, 'v')
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          draft: true
+          files: |
+            scripts/*.sh
+            scripts/aur/*.tar.gz
+            !scripts/update-version.sh
+            !scripts/install.sh
+            downloads/**/*
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"
+        if: github.event_name == 'push' && (github.ref_name == 'master' || startsWith(github.ref_name, 'v'))
         env:
           QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
           QINIU_AK: ${{ secrets.QINIU_AK }}
@@ -93,7 +107,7 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm') $(find scripts -name '*.tar.gz'); do
+          for f in $(find downloads -type f) $(find scripts -name '*.tar.gz'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}

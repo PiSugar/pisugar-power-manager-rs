@@ -101,3 +101,17 @@ pisugar-server = { path = "/usr/bin/pisugar-server" }
 "config.json" = { path = "/etc/pisugar-server/config.json" }
 "_ws.json" = { path = "/usr/share/pisugar-server/web/_ws.json" }
 "../../pisugar-webui/dist/" = { path = "/usr/share/pisugar-server/web" }
+
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/pisugar-server", dest = "/usr/bin/pisugar-server", mode = "755" },
+  { source = ".rpm/pisugar-server.service", dest = "/lib/systemd/system/pisugar-server.service" },
+  { source = ".rpm/pisugar-server.default", dest = "/etc/default/pisugar-server" },
+  { source = ".rpm/config.json", dest = "/etc/pisugar-server/config.json" },
+  { source = ".rpm/_ws.json", dest = "/usr/share/pisugar-server/web/_ws.json" },
+  { source = "../pisugar-webui/dist/*", dest = "/usr/share/pisugar-server/web" },
+]
+post_install_script = "systemctl daemon-reload"
+pre_uninstall_script = "systemctl stop pisugar-server.service || true"
+post_uninstall_script = "systemctl daemon-reload"

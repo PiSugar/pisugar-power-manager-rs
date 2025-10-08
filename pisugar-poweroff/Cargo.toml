@@ -60,3 +60,12 @@ pisugar-poweroff = { path = "/usr/bin/pisugar-poweroff" }
 [package.metadata.rpm.files]
 "pisugar-poweroff.service" = { path = "/lib/systemd/system/pisugar-poweroff.service" }
 "pisugar-poweroff.default" = { path = "/etc/default/pisugar-poweroff" }
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/pisugar-poweroff", dest = "/usr/bin/pisugar-poweroff", mode = "755" },
+  { source = ".rpm/pisugar-poweroff.service", dest = "/lib/systemd/system/pisugar-poweroff.service" },
+  { source = ".rpm/pisugar-poweroff.default", dest = "/etc/default/pisugar-poweroff" },
+]
+post_install_script = "systemctl daemon-reload"
+post_uninstall_script = "systemctl daemon-reload"
