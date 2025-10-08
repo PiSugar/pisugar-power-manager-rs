@@ -8,21 +8,11 @@ on:
 jobs:
   build-web:
     uses: ./.github/workflows/build-web.yml
-  download-musl-cc:
-    uses: ./.github/workflows/download-musl-cc.yml
-  build-musl:
+  build-cross:
     needs:
       - build-web
-      - download-musl-cc
-    uses: ./.github/workflows/build-musl.yml
-  build-gnu:
-    needs:
-      - build-web
-    uses: ./.github/workflows/build-gnu.yml
+    uses: ./.github/workflows/build-cross.yml
   build-other:
-    needs:
-      - build-musl
-      - build-gnu
     uses: ./.github/workflows/build-other.yml
 
   pre-release:
@@ -41,7 +31,7 @@ jobs:
       - name: Download all
         uses: actions/download-artifact@v4
         with:
-          name: pisugar-all
+          path: downloads
 
       - name: Create archives
         run: |
@@ -58,12 +48,11 @@ jobs:
           name: pisugar-artifacts
           path: |
             archives.tar.gz
-            target/**/*.deb
-            target/**/*.rpm
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
-            pisugar-module.tar.gz
+            !scripts/install.sh
+            downloads/**/*
           if-no-files-found: warn
 
       # Draft Release
@@ -73,12 +62,11 @@ jobs:
           prerelease: false
           draft: true
           files: |
-            target/**/*.deb
-            target/**/*.rpm
             scripts/*.sh
             scripts/aur/*.tar.gz
             !scripts/update-version.sh
-            pisugar-module.tar.gz
+            !scripts/install.sh
+            downloads/**/*
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"
@@ -99,7 +87,7 @@ jobs:
           fi
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
-          for f in $(find target -type f -name '*.deb') $(find target -type f -name '*.rpm') $(find scripts -name '*.tar.gz'); do
+          for f in $(find downloads -type f) $(find scripts -name '*.tar.gz'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}

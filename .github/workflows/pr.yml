@@ -7,16 +7,9 @@ on:
 jobs:
   build-web:
     uses: ./.github/workflows/build-web.yml
-  build-musl:
+  build-cross:
     needs:
       - build-web
-    uses: ./.github/workflows/build-musl.yml
-  build-gnu:
-    needs:
-      - build-web
-    uses: ./.github/workflows/build-gnu.yml
+    uses: ./.github/workflows/build-cross.yml
   build-other:
-    needs:
-      - build-musl
-      - build-gnu
     uses: ./.github/workflows/build-other.yml
