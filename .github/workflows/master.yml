@@ -32,7 +32,9 @@ jobs:
   dev-release:
     runs-on: ubuntu-latest
     needs:
+      - build-web
       - build-other
+      - build-cross
     steps:
       # Checkout
       - name: Checkout
@@ -49,7 +51,7 @@ jobs:
       - name: Create archives
         run: |
           mkdir -p archives
-          cp -R target/* archives/
+          cp -R downloads/* archives/
           cp scripts/*.sh archives/
           cp scripts/aur/*.tar.gz archives/
           tar -czf archives.tar.gz archives
