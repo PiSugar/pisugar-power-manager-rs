@@ -46,36 +46,9 @@ jobs:
           cargo install cargo-generate-rpm
 
       # Cross build
-      - name: Cross build
+      - name: Cross build and make bin package
         run: |
-          cross build --target ${{ matrix.target }} --release
-          for app in server poweroff programmer; do
-            cargo deb --no-build --no-strip --target ${{matrix.target}} -p pisugar-${app}
-            cargo generate-rpm --target ${{matrix.target}} -p pisugar-${app}
-          done
-
-      # Make bin package
-      - name: Make bin package
-        run: |
-          mkdir -p ${{matrix.target}}
-          cp target/${{ matrix.target }}/release/pisugar-server ${{ matrix.target }}
-          cp target/${{ matrix.target }}/release/pisugar-poweroff ${{ matrix.target }}
-          cp target/${{ matrix.target }}/release/pisugar-programmer ${{ matrix.target }}
-
-          cp scripts/install.sh ${{ matrix.target }}
-
-          mkdir -p ${{ matrix.target }}/pisugar-server-conf
-          cp pisugar-server/debian/pisugar-server.default ${{ matrix.target }}/pisugar-server-conf/
-          cp pisugar-server/debian/pisugar-server.service ${{ matrix.target }}/pisugar-server-conf/
-          cp pisugar-server/debian/config.json ${{ matrix.target }}/pisugar-server-conf/
-
-          cp -R pisugar-webui/dist ${{ matrix.target }}/web-ui
-
-          mkdir -p ${{ matrix.target }}/pisugar-poweroff-conf
-          cp pisugar-poweroff/debian/pisugar-poweroff.default ${{ matrix.target }}/pisugar-poweroff-conf/
-          cp pisugar-poweroff/debian/pisugar-poweroff.service ${{ matrix.target }}/pisugar-poweroff-conf/
-
-          tar -czvf pisugar_${{ matrix.target }}.tar.gz ${{ matrix.target }} 
+          bash -x cross-build.sh ${{ matrix.target }}
 
       # Upload artifact
       - name: Upload artifacts

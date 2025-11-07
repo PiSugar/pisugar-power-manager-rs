@@ -5,9 +5,11 @@ set -o pipefail
 
 
 function print_usage() {
-    echo "Usage: $0 <-u> [all|server|poweroff|programmer]"
+    echo "Usage: $0 <-u> <-m> [all|server|poweroff|programmer]"
     echo "Options:"
     echo "  -u         Uninstall the specified component(s) instead of installing"
+    echo "  -m MODEL   Specify the PiSugar model (default: PiSugar 3)"
+    echo "             Available models: PiSugar 3, PiSugar 2 (2-LEDs), PiSugar 2 Pro, PiSugar 2 (4-LEDs)"
     echo "  all        Install all components"
     echo "  server     Install PiSugar Server"
     echo "  poweroff   Install PiSugar Poweroff"
@@ -23,6 +25,8 @@ function install_pisugar_server() {
     for i in $(find web-ui -type f); do
         sudo install -D -m 644 $i /usr/share/pisugar-server/web/${i#web-ui/}
     done
+    model=$1
+    sudo sed -e "s|'PiSugar 2 (2-LEDs)'|'${model}'|g" -i /etc/default/pisugar-server
     sudo systemctl daemon-reload
     echo "PiSugar Server installed, please update the settings and run systemctl enable pisugar-server.service and systemctl start pisugar-server.service."
 }
@@ -45,6 +49,8 @@ function install_pisugar_poweroff() {
     sudo install -D -m 755 pisugar-poweroff /usr/bin/pisugar-poweroff
     sudo install -D -m 644 pisugar-poweroff-conf/pisugar-poweroff.service /lib/systemd/system/pisugar-poweroff.service
     sudo install -D -m 644 pisugar-poweroff-conf/pisugar-poweroff.default /etc/default/pisugar-poweroff
+    model=$1
+    sudo sed -e "s|'PiSugar 3'|'${model}'|g" -i /etc/default/pisugar-poweroff
     sudo systemctl daemon-reload
     echo "PiSugar Poweroff installed, please update the settings and run systemctl enable pisugar-poweroff.service."
 }
@@ -79,7 +85,8 @@ fi
 
 UNINSTALL=0
 APP="all"
-ARGS=$(getopt -q -o hu --name "$0" -- "$@")
+MODEL="PiSugar 3"
+ARGS=$(getopt -q -o hum: --name "$0" -- "$@")
 if [ $? != 0 ]; then
     print_usage && exit 1
 fi
@@ -94,6 +101,9 @@ do
         -u)
             UNINSTALL=1
             ;;
+        -m)
+            shift && MODEL=$1
+            ;;
         --)
             shift && APP=$1 && break
             ;;
@@ -103,6 +113,12 @@ do
     esac
     shift
 done
+
+# Verify MODEL
+if [[ "$MODEL" != "PiSugar 3" && "$MODEL" != "PiSugar 2 (2-LEDs)" && "$MODEL" != "PiSugar 2 Pro" && "$MODEL" != "PiSugar 2 (4-LEDs)" ]]; then
+    echo "Error: Unsupported model '$MODEL'."
+    print_usage && exit 1
+fi
 
 if [ $UNINSTALL -eq 1 ]; then
     echo "Uninstalling $APP..."
@@ -120,15 +136,15 @@ if [ $UNINSTALL -eq 1 ]; then
             ;;
     esac
 else
-    echo "Installing $APP..."
+    echo "Installing $APP, model ${MODEL}..."
     case "$APP" in
         all)
-            install_pisugar_server && \
-            install_pisugar_poweroff && \
-            install_pisugar_programmer
+            install_pisugar_server "$MODEL" && \
+            install_pisugar_poweroff "$MODEL" && \
+            install_pisugar_programmer "$MODEL"
             ;;
         server|poweroff|programmer)
-            install_pisugar_$APP
+            install_pisugar_$APP "$MODEL"
             ;;
         *)
             print_usage && exit 1
