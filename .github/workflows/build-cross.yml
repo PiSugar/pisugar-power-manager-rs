@@ -48,7 +48,7 @@ jobs:
       # Cross build
       - name: Cross build and make bin package
         run: |
-          bash -x cross-build.sh ${{ matrix.target }}
+          bash -x cross-build.sh -t ${{ matrix.target }}
 
       # Upload artifact
       - name: Upload artifacts
