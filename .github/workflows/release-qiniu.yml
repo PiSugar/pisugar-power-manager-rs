@@ -9,6 +9,9 @@ jobs:
     name: "Upload to QiNiu"
     runs-on: "ubuntu-latest"
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: "Upload to QiNiu"
         env:
           QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
@@ -17,6 +20,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y unzip
+
+          mkdir release
+          cd release
 
           if [ $(uname -m) == 'x86_64' ]; then
             wget https://github.com/qiniu/qshell/releases/download/v2.16.1/qshell-v2.16.1-linux-amd64.tar.gz
@@ -41,5 +47,8 @@ jobs:
             fi
             ./qshell rput --overwrite --mimetype ${mimetype} ${QINIU_BUCKET} release/${filename} ${filename} &
           done
+
+          ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} release/pisugar-power-manager.sh ../scripts/pisugar-power-manager.sh &
+
           wait
           echo "All uploaded to qiniu"

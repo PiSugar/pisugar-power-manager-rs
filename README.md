@@ -66,12 +66,12 @@ Http authentication config in `/etc/pisugar/config.json` (replace `<username>` a
         ...
     }
 
-## Install (ArchLinux only, unstable)
+## Install on other linux
 
-Download latest `pisugar-archlinux_<version>_all.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
+Download latest `pisugar_<your_os_arch>.tar.gz` from https://github.com/PiSugar/pisugar-power-manager-rs/releases
 
-    tar -xvf pisugar-archlinux_<version>_all.tar.gz
-    (cd pisugar-archlinux; sh install.sh)
+    tar -xvf pisugar_<your_os_arch>.tar.gz
+    (cd <your_os_arch>; bash install.sh -m <pisugar_model> all)
 
 ## Linux kernel power supply driver
 

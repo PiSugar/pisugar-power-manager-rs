@@ -48,12 +48,11 @@ jobs:
         with:
           path: downloads
 
-      - name: Create archives
+      - name: Scripts
         run: |
-          mkdir -p archives
-          cp -R downloads/* archives/
-          cp scripts/*.sh archives/
-          tar -czf archives.tar.gz archives
+          rm scripts/install.sh || true
+          rm scripts/update-version.sh || true
+          tar -czvf scripts.tar.gz scripts
 
       # Development Release, push master branch
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -65,13 +64,10 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            archives.tar.gz
-            downloads/**/*
-            !downloads/pisugar-webui/*
-            scripts/*.sh
-            scripts/aur/*.tar.gz
-            !scripts/update-version.sh
-            !scripts/install.sh
+            downloads/**/*.tar.gz
+            downloads/**/*.deb
+            downloads/**/*.rpm
+            scripts.tar.gz
 
       # Draft Release, push tag v*
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -81,12 +77,10 @@ jobs:
           prerelease: false
           draft: true
           files: |
-            scripts/*.sh
-            scripts/aur/*.tar.gz
-            !scripts/update-version.sh
-            !scripts/install.sh
-            downloads/**/*
-            !downloads/pisugar-webui/*
+            downloads/**/*.tar.gz
+            downloads/**/*.deb
+            downloads/**/*.rpm
+            scripts.tar.gz
 
       # Upload QiNiu nightly
       - name: "Upload to QiNiu"
@@ -112,12 +106,10 @@ jobs:
           for f in $(find downloads -type f '*.tar.gz') $(find downloads -type f '*.deb') $(find downloads -type f '*.rpm') $(find scripts -name '*.tar.gz'); do
             filename=${f##*/}
             key=nightly/${filename}
-            ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f}
+            ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f} &
           done
-          for f in $(find scripts -name '*.sh' ); do
-            filename=${f##*/}
-            key=nightly/${filename}
-            ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} ${key} ${f} &
-          done
+
+          ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} nightly/scripts.tar.gz scripts.tar.gz &
+
           wait
           echo "All uploaded to qiniu"
