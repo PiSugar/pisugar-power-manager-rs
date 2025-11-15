@@ -11,7 +11,7 @@ import { messages, localeOptions } from './locale'
 
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 let webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
-// const devWsHost = 'ws://192.168.100.112:8421/ws'
+// const devWsHost = 'ws://192.168.100.5:8421/ws'
 // webSocketHost = devWsHost
 
 Vue.config.productionTip = false
@@ -19,7 +19,8 @@ Vue.use(VueI18n)
 Vue.use(ElementUI, { locale })
 Vue.use(VueNativeSock, webSocketHost, {
   reconnection: true,
-  reconnectionDelay: 3000
+  reconnectionDelay: 3000,
+  connectManually: true
 })
 
 let userLocale = navigator.language
@@ -36,9 +37,11 @@ const i18n = new VueI18n({
 })
 
 /* eslint-disable no-new */
-new Vue({
+const vm = new Vue({
   el: '#app',
   i18n,
   components: { App },
   template: '<App/>'
 })
+
+window.vm = vm

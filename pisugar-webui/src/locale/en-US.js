@@ -84,5 +84,7 @@ module.exports = {
   passwordNotConsistent: 'Two input password must be consistent',
   usernameWithSpace: 'Username cannot contain spaces',
   passwordWithSpace: 'Password cannot contain spaces',
-  changePasswordSuccess: 'The modification is complete.'
+  changePasswordSuccess: 'The modification is complete.',
+  loginDialog: 'Login',
+  login: 'Login'
 }
