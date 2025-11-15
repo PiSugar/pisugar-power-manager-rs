@@ -21,36 +21,51 @@ struct AppState {
     event_rx: Receiver<String>,
 }
 
+#[derive(serde::Deserialize)]
+struct LoginParams {
+    username: Option<String>,
+    password: Option<String>,
+}
+
 /// Login to get a JWT token
 #[post("/login")]
 async fn login(
-    username: web::Query<Option<String>>,
-    password: web::Query<Option<String>>,
+    params: web::Query<LoginParams>,
     app_state: web::Data<AppState>,
 ) -> impl Responder {
     let core = app_state.core.lock().await;
     let cfg = core.config();
-    if cfg.need_auth() && username.is_some() && password.is_some() {
+    let mut auth_ok = !cfg.need_auth();
+    if cfg.need_auth() && params.username.is_some() && params.password.is_some() {
         let auth_user = cfg.auth_user.as_ref();
         let auth_pass = cfg.auth_password.as_ref();
-        if username.as_ref() == auth_user && password.as_ref() == auth_pass {
-            if let Ok(token) = jwt::generate_jwt(
-                username.as_ref().unwrap(),
+        if params.username.as_ref() == auth_user && params.password.as_ref() == auth_pass {
+            auth_ok = true;
+        }
+    }
+    let username = params.username.clone().unwrap_or_default();
+    if auth_ok {
+        if let Ok(token) = jwt::generate_jwt(
+                &username,
                 &app_state.jwt_secret,
-                60 * 60 * 24 * 360 * 99,
+                cfg.session_timeout as u64,
             ) {
                 return HttpResponse::Ok().body(token);
             }
-        }
     }
-
     HttpResponse::Unauthorized().finish()
+}
+
+
+#[derive(serde::Deserialize)]
+struct WSParams {
+    token: Option<String>,
 }
 
 /// WebSocket endpoint
 #[get("/ws")]
 pub async fn ws(
-    token: web::Query<Option<String>>,
+    params: web::Query<WSParams>,
     req: HttpRequest,
     stream: web::Payload,
     app_state: web::Data<AppState>,
@@ -58,7 +73,7 @@ pub async fn ws(
     let core = app_state.core.lock().await;
     // Verify JWT
     if core.config().need_auth() {
-        let token = token.into_inner();
+        let token = params.into_inner().token;
         if token.is_none() || jwt::verify_jwt(&token.unwrap(), &app_state.jwt_secret).is_err() {
             return Ok(HttpResponse::Unauthorized().finish());
         }
@@ -154,13 +169,13 @@ async fn build_run_server(
     let server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
+            .service(login)
+            .service(ws)
             .service(
                 fs::Files::new("/", web_dir.clone())
                     .index_file("index.html")
                     .show_files_listing(),
             )
-            .service(login)
-            .service(ws)
     })
     .bind(http_addr)?;
     server.run().await?;
