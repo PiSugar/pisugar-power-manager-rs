@@ -84,5 +84,7 @@ module.exports = {
   passwordNotConsistent: 'Введенный дважды пароль должен совпадать',
   usernameWithSpace: 'Имя пользователя не может содержать пробелов',
   passwordWithSpace: 'Пароль не может содержать пробелов',
-  changePasswordSuccess: 'Модификация завершена.'
+  changePasswordSuccess: 'Модификация завершена.',
+  loginDialog: 'Вход',
+  login: 'Войти'
 }
