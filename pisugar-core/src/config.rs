@@ -164,6 +164,13 @@ impl PiSugarConfig {
         f.set_len(0)?;
         f.write_all(s.as_bytes())
     }
+
+    pub fn need_auth(&self) -> bool {
+        self.auth_user.is_some()
+            && self.auth_password.is_some()
+            && !self.auth_user.as_ref().unwrap().is_empty()
+            && !self.auth_password.as_ref().unwrap().is_empty()
+    }
 }
 
 impl Default for PiSugarConfig {

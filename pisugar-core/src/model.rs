@@ -107,7 +107,12 @@ impl FromStr for Model {
 
 impl ValueEnum for Model {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Model::PiSugar_2_4LEDs, Model::PiSugar_2_2LEDs, Model::PiSugar_2_Pro, Model::PiSugar_3]
+        &[
+            Model::PiSugar_2_4LEDs,
+            Model::PiSugar_2_2LEDs,
+            Model::PiSugar_2_Pro,
+            Model::PiSugar_3,
+        ]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
