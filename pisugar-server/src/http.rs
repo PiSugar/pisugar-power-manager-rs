@@ -170,6 +170,7 @@ async fn build_run_server(
                     .show_files_listing(),
             )
     })
+    .shutdown_timeout(1)
     .bind(http_addr)?;
     server.run().await?;
     Ok(())
