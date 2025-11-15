@@ -1,4 +1,5 @@
 use actix_files as fs;
+use actix_web::http::header::ContentType;
 use actix_web::Result;
 use actix_web::{get, post, rt, web, HttpRequest, HttpResponse, Responder};
 use actix_web::{App, HttpServer};
@@ -29,10 +30,7 @@ struct LoginParams {
 
 /// Login to get a JWT token
 #[post("/login")]
-async fn login(
-    params: web::Query<LoginParams>,
-    app_state: web::Data<AppState>,
-) -> impl Responder {
+async fn login(params: web::Query<LoginParams>, app_state: web::Data<AppState>) -> impl Responder {
     let core = app_state.core.lock().await;
     let cfg = core.config();
     let mut auth_ok = !cfg.need_auth();
@@ -45,17 +43,12 @@ async fn login(
     }
     let username = params.username.clone().unwrap_or_default();
     if auth_ok {
-        if let Ok(token) = jwt::generate_jwt(
-                &username,
-                &app_state.jwt_secret,
-                cfg.session_timeout as u64,
-            ) {
-                return HttpResponse::Ok().body(token);
-            }
+        if let Ok(token) = jwt::generate_jwt(&username, &app_state.jwt_secret, cfg.session_timeout as u64) {
+            return HttpResponse::Ok().content_type(ContentType::plaintext()).body(token);
+        }
     }
     HttpResponse::Unauthorized().finish()
 }
-
 
 #[derive(serde::Deserialize)]
 struct WSParams {
