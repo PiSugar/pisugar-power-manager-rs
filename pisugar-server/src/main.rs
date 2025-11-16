@@ -185,7 +185,15 @@ async fn main() -> anyhow::Result<()> {
     // http web/ws
     if let Some(http_addr) = args.http.clone() {
         let jwt_secret = jwt::read_or_create_jwt_secret("/var/run/pisugar_jwt_secret")?;
-        http::start_http_server(core.clone(), event_rx.clone(), http_addr, args.web.clone(), jwt_secret).await;
+        http::start_http_server(
+            core.clone(),
+            event_rx.clone(),
+            http_addr,
+            args.web.clone(),
+            jwt_secret,
+            args.debug,
+        )
+        .await;
     }
 
     // polling

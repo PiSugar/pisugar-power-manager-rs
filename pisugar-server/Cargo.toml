@@ -13,8 +13,8 @@ anyhow = "1"
 log = "0.4.8"
 env_logger = "0.9"
 syslog = "6"
-rand = "0.8"
-base64 = "0.13"
+rand = "0.9.2"
+base64 = "0.22.1"
 libc = "0.2"
 clap = { version = "4", features = ["derive"] }
 bytes = "1"
@@ -24,7 +24,7 @@ serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.8", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec"] }
-tokio-tungstenite = "0.17"
+tokio-tungstenite = "0.28.0"
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures-channel = "0.3.5"
@@ -40,12 +40,13 @@ jsonwebtoken = { version = "10.2.0", features = ["rust_crypto"] }
 actix-web = "4.11.0"
 actix-ws = "0.3.0"
 actix-files = "0.6.8"
+actix-cors = "0.7.1"
 
 [[bin]]
 name = "pisugar-server"
 
 [dev-dependencies]
-rstest = "0.23.0"
+rstest = "0.26.1"
 
 [package.metadata.deb]
 license-file = ["../LICENSE", "0"]

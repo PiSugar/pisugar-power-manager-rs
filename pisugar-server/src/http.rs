@@ -1,3 +1,4 @@
+use actix_cors::Cors;
 use actix_files as fs;
 use actix_web::http::header::ContentType;
 use actix_web::Result;
@@ -127,6 +128,7 @@ pub async fn start_http_server(
     http_addr: String,
     web_dir: String,
     jwt_secret: String,
+    debug: bool,
 ) {
     tokio::spawn(async move {
         loop {
@@ -136,6 +138,7 @@ pub async fn start_http_server(
                 http_addr.clone(),
                 web_dir.clone(),
                 jwt_secret.clone(),
+                debug,
             )
             .await
             {
@@ -152,6 +155,7 @@ async fn build_run_server(
     http_addr: String,
     web_dir: String,
     jwt_secret: String,
+    debug: bool,
 ) -> AnyResult<()> {
     let app_state = AppState {
         core,
@@ -160,15 +164,13 @@ async fn build_run_server(
     };
 
     let server = HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(app_state.clone()))
-            .service(login)
-            .service(ws)
-            .service(
-                fs::Files::new("/", web_dir.clone())
-                    .index_file("index.html")
-                    .show_files_listing(),
-            )
+        let app = App::new().app_data(web::Data::new(app_state.clone()));
+        let cors = if debug { Cors::permissive() } else { Cors::default() };
+        app.wrap(cors).service(login).service(ws).service(
+            fs::Files::new("/", web_dir.clone())
+                .index_file("index.html")
+                .show_files_listing(),
+        )
     })
     .shutdown_timeout(1)
     .bind(http_addr)?;
