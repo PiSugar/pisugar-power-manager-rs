@@ -125,7 +125,7 @@
           <el-form
             ref="buttonFuncFormSingle"
             :model="buttonFuncForm.single"
-            label-width="90px"
+            label-width="125px"
           >
             <el-form-item :label="$t('singleTapLabel')">
               <el-select
@@ -160,7 +160,7 @@
           <el-form
             ref="buttonFuncFormDouble"
             :model="buttonFuncForm.double"
-            label-width="90px"
+            label-width="125px"
           >
             <el-form-item :label="$t('doubleTapLabel')">
               <el-select
@@ -195,7 +195,7 @@
           <el-form
             ref="buttonFuncFormLong"
             :model="buttonFuncForm.long"
-            label-width="90px"
+            label-width="125px"
           >
             <el-form-item :label="$t('longTapLabel')">
               <el-select
@@ -1621,7 +1621,7 @@ body {
     margin-left: 10px;
     .label {
       display: inline-block;
-      width: 67px;
+      width: 90px;
     }
   }
 }
@@ -1630,7 +1630,7 @@ body {
     margin-left: 15px;
     .label {
       display: inline-block;
-      width: 67px;
+      width: 110px;
     }
   }
 }
