@@ -611,8 +611,9 @@ import { onSocketMessage, initCommands, cycleCommands } from './socket'
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 let webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
 let loginApi = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/login`
-// const devWsHost = 'ws://192.168.100.5:8421/ws'
-// const devLoginApi = 'http://192.168.100.5:8421/login'
+// const devIp = '192.168.1.33'
+// const devWsHost = `ws://${devIp}:8421/ws`
+// const devLoginApi = `http://${devIp}:8421/login`
 // webSocketHost = devWsHost
 // loginApi = devLoginApi
 
@@ -985,8 +986,6 @@ export default {
           return false
         }
         if (res.status !== 200) {
-          // TODO handle other errors
-          // this.loginDialog = true
           if (res.status) {
             this.$message({
               message: `[Authentication] Response code ${res.status}`,
@@ -995,9 +994,10 @@ export default {
           }
           return false
         }
-        if (res.body) {
-          localStorage.setItem('token', res.body || '')
-        }
+        res.text().then((bodyText) => {
+          console.log('Authentication response body:', bodyText)
+          localStorage.setItem('token', bodyText)
+        })
         return true
       })
       return response
