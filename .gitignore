@@ -6,3 +6,4 @@
 /arm-linux-musleabihf-cross
 /*.tar.gz
 /armv7-unknown-linux-musleabihf/
+/aarch64-unknown-linux-musl/
