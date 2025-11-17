@@ -30,7 +30,7 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &tokio::sync::watch::Se
     let now = Instant::now();
     match core.poll(now).await {
         Ok(Some(tap_type)) => {
-            let _ = tx.send(format!("{}\n", tap_type));
+            let _ = tx.send(format!("{}", tap_type));
         }
         Err(e) => {
             log::warn!("Poll error: {}, retry after 1s", e);
@@ -123,6 +123,10 @@ struct Args {
     /// PiSugar Model
     #[arg(long)]
     model: Model,
+
+    /// Strict stream handling with '\n' as the flag
+    #[arg(long, action = ArgAction::SetTrue)]
+    strict: bool,
 }
 
 #[tokio::main]
@@ -168,7 +172,7 @@ async fn main() -> anyhow::Result<()> {
 
     // tcp
     if let Some(tcp_addr) = args.tcp.clone() {
-        tcp::start_tcp_server(core.clone(), event_rx.clone(), tcp_addr).await;
+        tcp::start_tcp_server(core.clone(), event_rx.clone(), tcp_addr, args.strict).await;
     }
 
     // ws
@@ -179,7 +183,7 @@ async fn main() -> anyhow::Result<()> {
     // uds
     if let Some(uds_addr) = args.uds.clone() {
         let uds_mode = u32::from_str_radix(&args.uds_mode, 8).unwrap_or(0o666);
-        uds::start_uds_server(uds_addr, core.clone(), event_rx.clone(), uds_mode).await;
+        uds::start_uds_server(uds_addr, core.clone(), event_rx.clone(), uds_mode, args.strict).await;
     }
 
     // http web/ws

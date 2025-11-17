@@ -45,7 +45,10 @@ async fn handle_ws_connection(
     let sink_cloned = sink.clone();
     tokio::spawn(async move {
         while event_rx.changed().await.is_ok() {
-            let s = event_rx.borrow().clone();
+            let mut s = event_rx.borrow().clone();
+            if !s.ends_with("\n") {
+                s.push('\n');
+            }
             if let Err(e) = sink_cloned.lock().await.send(s.into()).await {
                 log::warn!("WS send error: {}", e);
                 break;

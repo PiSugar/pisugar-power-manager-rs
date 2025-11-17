@@ -109,8 +109,11 @@ pub async fn ws(
     let session_cloned = session.clone();
     rt::spawn(async move {
         while event_rx.changed().await.is_ok() {
-            let s = event_rx.borrow().clone();
+            let mut s = event_rx.borrow().clone();
             log::debug!("WS Sending event: {}", s);
+            if !s.ends_with('\n') {
+                s.push('\n');
+            }
             if let Err(e) = session_cloned.lock().await.text(s).await {
                 log::error!("Failed to send event via WS: {}", e);
                 break;

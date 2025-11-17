@@ -1,7 +1,7 @@
 use anyhow::Result;
+use base64::Engine;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use jsonwebtoken::{encode, EncodingKey, Header};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -20,8 +20,9 @@ pub fn read_or_create_jwt_secret(path: &str) -> Result<String> {
         Ok(secret)
     } else {
         let mut secret_bytes = [0; 32];
-        rand::thread_rng().fill(&mut secret_bytes);
-        let secret = base64::encode(secret_bytes);
+        let base64_engine = base64::engine::general_purpose::STANDARD;
+        rand::fill(&mut secret_bytes);
+        let secret = base64_engine.encode(secret_bytes);
         fs::write(p, &secret)?;
         Ok(secret)
     }
