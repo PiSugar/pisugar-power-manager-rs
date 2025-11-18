@@ -29,13 +29,14 @@ async fn handle_ws_connection(
     tokio::spawn(async move {
         while let Some(Ok(msg)) = stream.next().await {
             if let Ok(msg) = msg.to_text() {
-                let req = msg.replace('\n', "");
-                log::debug!("Req: {}", req);
-                let resp = cmds::handle_request(core.clone(), req.as_str()).await;
-                log::debug!("Resp: {}", resp);
-                if let Err(e) = sink_cloned.lock().await.send(resp.into()).await {
-                    log::warn!("WS send error: {}", e);
-                    break;
+                for req in msg.lines() {
+                    if req.is_empty() {
+                        continue;
+                    }
+                    log::debug!("Req: {}", req);
+                    let resp = cmds::handle_request(core.clone(), req).await;
+                    log::debug!("Resp: {}", resp);
+                    sink_cloned.lock().await.send(resp.into()).await.expect("WS send error");
                 }
             }
         }
@@ -45,14 +46,8 @@ async fn handle_ws_connection(
     let sink_cloned = sink.clone();
     tokio::spawn(async move {
         while event_rx.changed().await.is_ok() {
-            let mut s = event_rx.borrow().clone();
-            if !s.ends_with("\n") {
-                s.push('\n');
-            }
-            if let Err(e) = sink_cloned.lock().await.send(s.into()).await {
-                log::warn!("WS send error: {}", e);
-                break;
-            }
+            let s = event_rx.borrow().clone();
+            sink_cloned.lock().await.send(s.into()).await.expect("WS send error");
         }
     });
 

@@ -12,7 +12,11 @@ use pisugar_core::PiSugarCore;
 use crate::cmds;
 
 /// Handle a stream with '\n' as the flag
-pub async fn handle_stream_strict<T>(core: Arc<Mutex<PiSugarCore>>, stream: T, mut event_rx: Receiver<String>) -> Result<()>
+pub async fn handle_stream_strict<T>(
+    core: Arc<Mutex<PiSugarCore>>,
+    stream: T,
+    mut event_rx: Receiver<String>,
+) -> Result<()>
 where
     T: 'static + AsyncRead + AsyncWrite + Send,
 {
@@ -65,16 +69,21 @@ where
         while let Ok(n) = reader.read(&mut buf[..]).await {
             let reqs = String::from_utf8_lossy(&buf[..n]).to_string();
             for req in reqs.lines() {
+                if req.is_empty() {
+                    continue;
+                }
                 log::debug!("Req: {}", req);
                 let mut resp = cmds::handle_request(core.clone(), &req).await;
                 log::debug!("Resp: {}", resp);
                 if !resp.ends_with("\n") {
                     resp.push('\n');
                 }
-                if let Err(e) = (writer_cloned.lock().await).write_all(resp.as_bytes()).await {
-                    log::warn!("Stream send error: {}", e);
-                    return;
-                }
+                writer_cloned
+                    .lock()
+                    .await
+                    .write_all(resp.as_bytes())
+                    .await
+                    .expect("Stream send error");
             }
         }
     });
@@ -88,10 +97,12 @@ where
             if !s.ends_with("\n") {
                 s.push('\n');
             }
-            if let Err(e) = (writer_cloned.lock().await).write_all(s.as_bytes()).await {
-                log::warn!("Stream send error: {}", e);
-                break;
-            }
+            writer_cloned
+                .lock()
+                .await
+                .write_all(s.as_bytes())
+                .await
+                .expect("Stream send error");
         }
     });
 

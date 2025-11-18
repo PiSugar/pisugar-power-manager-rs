@@ -85,19 +85,26 @@ pub async fn ws(
             match msg {
                 Ok(AggregatedMessage::Text(text)) => {
                     for line in text.split("\n") {
+                        if line.is_empty() {
+                            continue;
+                        }
                         log::debug!("WS Received text: {}", line);
-                        let mut resp = cmds::handle_request(core.clone(), line).await;
-                        if !resp.ends_with('\n') {
-                            resp.push('\n');
-                        }
-                        if let Err(e) = session_cloned.lock().await.text(resp).await {
-                            log::error!("Failed to send response via WS: {}", e);
-                            return;
-                        }
+                        let resp = cmds::handle_request(core.clone(), line).await;
+                        session_cloned
+                            .lock()
+                            .await
+                            .text(resp)
+                            .await
+                            .expect("Failed to send response");
                     }
                 }
                 Ok(AggregatedMessage::Ping(msg)) => {
-                    session_cloned.lock().await.pong(&msg).await.expect("");
+                    session_cloned
+                        .lock()
+                        .await
+                        .pong(&msg)
+                        .await
+                        .expect("Http ws pong failed");
                 }
                 _ => {}
             };
@@ -109,15 +116,14 @@ pub async fn ws(
     let session_cloned = session.clone();
     rt::spawn(async move {
         while event_rx.changed().await.is_ok() {
-            let mut s = event_rx.borrow().clone();
+            let s = event_rx.borrow().clone();
             log::debug!("WS Sending event: {}", s);
-            if !s.ends_with('\n') {
-                s.push('\n');
-            }
-            if let Err(e) = session_cloned.lock().await.text(s).await {
-                log::error!("Failed to send event via WS: {}", e);
-                break;
-            }
+            session_cloned
+                .lock()
+                .await
+                .text(s)
+                .await
+                .expect("Failed to send event via WS");
         }
     });
 
