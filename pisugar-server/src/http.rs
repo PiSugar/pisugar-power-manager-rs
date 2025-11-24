@@ -1,12 +1,18 @@
 use actix_cors::Cors;
 use actix_files as fs;
+use actix_web::body::MessageBody;
+use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::ContentType;
+use actix_web::middleware::{self, Next};
+use actix_web::web::Query;
 use actix_web::Result;
+use actix_web::{error, Error};
 use actix_web::{get, post, rt, web, HttpRequest, HttpResponse, Responder};
 use actix_web::{App, HttpServer};
 use actix_ws::AggregatedMessage;
 use anyhow::Result as AnyResult;
 use futures::StreamExt;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::watch::Receiver;
 use tokio::sync::Mutex;
@@ -21,6 +27,33 @@ struct AppState {
     jwt_secret: String,
     core: Arc<Mutex<PiSugarCore>>,
     event_rx: Receiver<String>,
+}
+
+async fn token_auth_middleware(
+    query: Query<HashMap<String, String>>,
+    req: ServiceRequest,
+    next: Next<impl MessageBody>,
+) -> Result<ServiceResponse<impl MessageBody>, Error> {
+    // Need to authenticate if not login path
+    // How to get token:
+    // * From header "x-pisugar-token: <token>"
+    // * From query parameter: ?token=<token>
+    if req.path() != "/login" {
+        let app_state = req.app_data::<web::Data<AppState>>().unwrap();
+        let core = app_state.core.lock().await;
+        if core.config().need_auth() {
+            // ?token=<token>
+            let token = query.get("token").map(|s| s.as_str());
+            // x-pisugar-token: <token>
+            let token = token.or_else(|| req.headers().get("x-pisugar-token").and_then(|v| v.to_str().ok()));
+            // Verify JWT
+            if token.is_none() || jwt::verify_jwt(token.unwrap(), &app_state.jwt_secret).unwrap_or(false) {
+                return Err(error::ErrorUnauthorized("Unauthorized"));
+            }
+        }
+    }
+
+    next.call(req).await
 }
 
 #[derive(serde::Deserialize)]
@@ -49,6 +82,24 @@ async fn login(params: web::Query<LoginParams>, app_state: web::Data<AppState>) 
         }
     }
     HttpResponse::Unauthorized().finish()
+}
+
+#[derive(serde::Deserialize)]
+struct ExecParams {
+    cmd: String,
+}
+
+#[post("/exec")]
+async fn exec(params: web::Query<ExecParams>, app_state: web::Data<AppState>) -> impl Responder {
+    let cmd = params.cmd.trim();
+    let resp = cmds::handle_request(app_state.core.clone(), cmd).await;
+    match resp.result {
+        Ok(None) => HttpResponse::Ok().finish(),
+        Ok(Some(r)) => HttpResponse::Ok().body(r),
+        Err(e) => HttpResponse::NotAcceptable()
+            .content_type(ContentType::plaintext())
+            .body(format!("{e}")),
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -93,7 +144,7 @@ pub async fn ws(
                         session_cloned
                             .lock()
                             .await
-                            .text(resp)
+                            .text(format!("{resp}"))
                             .await
                             .expect("Failed to send response");
                     }
@@ -175,11 +226,16 @@ async fn build_run_server(
     let server = HttpServer::new(move || {
         let app = App::new().app_data(web::Data::new(app_state.clone()));
         let cors = if debug { Cors::permissive() } else { Cors::default() };
-        app.wrap(cors).service(login).service(ws).service(
-            fs::Files::new("/", web_dir.clone())
-                .index_file("index.html")
-                .show_files_listing(),
-        )
+        app.wrap(cors)
+            .wrap(middleware::from_fn(token_auth_middleware))
+            .service(login)
+            .service(ws)
+            .service(exec)
+            .service(
+                fs::Files::new("/", web_dir.clone())
+                    .index_file("index.html")
+                    .show_files_listing(),
+            )
     })
     .shutdown_timeout(1)
     .bind(http_addr)?;

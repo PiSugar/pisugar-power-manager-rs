@@ -31,7 +31,7 @@ where
             log::debug!("Req: {}", req);
             let resp = cmds::handle_request(core.clone(), &req).await;
             log::debug!("Resp: {}", resp);
-            if let Err(e) = (writer_cloned.lock().await).send(resp).await {
+            if let Err(e) = (writer_cloned.lock().await).send(resp.to_string()).await {
                 log::warn!("Stream send error: {}", e);
                 return;
             }
@@ -73,7 +73,7 @@ where
                     continue;
                 }
                 log::debug!("Req: {}", req);
-                let mut resp = cmds::handle_request(core.clone(), &req).await;
+                let mut resp = cmds::handle_request(core.clone(), req).await.to_string();
                 log::debug!("Resp: {}", resp);
                 if !resp.ends_with("\n") {
                     resp.push('\n');

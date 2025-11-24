@@ -12,7 +12,12 @@ use tokio::sync::watch::Receiver;
 use crate::stream::{handle_stream, handle_stream_strict};
 
 /// Handle tcp stream
-async fn handle_tcp_stream(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, event_rx: Receiver<String>, strict: bool) -> Result<()> {
+async fn handle_tcp_stream(
+    core: Arc<Mutex<PiSugarCore>>,
+    stream: TcpStream,
+    event_rx: Receiver<String>,
+    strict: bool,
+) -> Result<()> {
     log::info!("Incoming tcp connection from: {}", stream.peer_addr()?);
     if strict {
         handle_stream_strict(core, stream, event_rx).await
@@ -22,7 +27,12 @@ async fn handle_tcp_stream(core: Arc<Mutex<PiSugarCore>>, stream: TcpStream, eve
 }
 
 /// Start TCP server with a new async task
-pub async fn start_tcp_server(core: Arc<Mutex<PiSugarCore>>, event_rx: Receiver<String>, tcp_addr: String, strict: bool) {
+pub async fn start_tcp_server(
+    core: Arc<Mutex<PiSugarCore>>,
+    event_rx: Receiver<String>,
+    tcp_addr: String,
+    strict: bool,
+) {
     tokio::spawn(async move {
         loop {
             match TcpListener::bind(&tcp_addr).await {

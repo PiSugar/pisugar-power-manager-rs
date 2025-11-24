@@ -36,7 +36,12 @@ async fn handle_ws_connection(
                     log::debug!("Req: {}", req);
                     let resp = cmds::handle_request(core.clone(), req).await;
                     log::debug!("Resp: {}", resp);
-                    sink_cloned.lock().await.send(resp.into()).await.expect("WS send error");
+                    sink_cloned
+                        .lock()
+                        .await
+                        .send(resp.to_string().into())
+                        .await
+                        .expect("WS send error");
                 }
             }
         }

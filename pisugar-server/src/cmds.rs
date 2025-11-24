@@ -1,9 +1,11 @@
 use std::convert::TryInto;
+use std::fmt::Display;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Error as AnyError;
+use anyhow::Result;
 use chrono::Local;
 use chrono::SecondsFormat;
 use chrono::Utc;
@@ -215,8 +217,26 @@ impl From<String> for BoolValue {
     }
 }
 
+pub struct Response {
+    pub cmd: Option<String>,
+    pub result: Result<Option<String>>,
+}
+
+impl Display for Response {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (&self.cmd, &self.result) {
+            (Some(cmd), Ok(Some(res))) => write!(f, "{}: {}", cmd, res),
+            (Some(cmd), Ok(None)) => write!(f, "{}: done", cmd),
+            (Some(cmd), Err(e)) => write!(f, "{}: {}", cmd, e),
+            (None, Ok(Some(res))) => write!(f, "{}", res),
+            (None, Ok(None)) => write!(f, "done"),
+            (None, Err(e)) => write!(f, "{}", e),
+        }
+    }
+}
+
 /// Handle request of cmd
-pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String {
+pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> Response {
     let parts: Vec<String> = req.split(' ').map(|s| s.to_string()).collect();
     let err = "Invalid request.".to_string();
 
@@ -226,20 +246,27 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
 
     if req.starts_with("help") {
         let help = Cmds::from_str(req).expect_err("");
-        return help.to_string();
+        return Response {
+            cmd: None,
+            result: Ok(Some(format!("{}", help))),
+        };
     }
 
     let cmd = match Cmds::from_str(req) {
         Ok(cmd) => cmd,
         Err(e) => {
             log::warn!("Invalid cmd: {}", e);
-            return err;
+            return Response {
+                cmd: None,
+                result: Err(anyhow!(err)),
+            };
         }
     };
 
     let core_cloned = core.clone();
     let mut core = core.lock().await;
     let r = match &cmd {
+        // Get commands
         Cmds::Get(get_cmd) => {
             let r = match get_cmd {
                 GetCmds::Version => Ok(env!("CARGO_PKG_VERSION").to_string()),
@@ -304,43 +331,43 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
                 GetCmds::Temperature => core.get_temperature().map(|x| x.to_string()),
                 GetCmds::InputProtect => core.input_protected().map(|x| x.to_string()),
             };
-            r.map(|x| format!("{}: {}", parts[1], x))
+            return Response {
+                cmd: Some(parts[1].to_string()),
+                result: r.map(Some).map_err(|e| anyhow!(e)),
+            };
         }
-        Cmds::SetBatteryKeepInput(b) => core.set_keep_input(b.value()).map(|_| format!("{}: done", parts[0])),
+        // Other set commands
+        Cmds::SetBatteryKeepInput(b) => core.set_keep_input(b.value()).map(|_| None),
         Cmds::SetBatteryChargingRange { range } => {
             let charging_range = if range.len() == 2 {
                 Some((range[0], range[1]))
             } else {
                 None
             };
-            core.set_charging_range(charging_range)
-                .map(|_| format!("{}: done", parts[0]))
+            core.set_charging_range(charging_range).map(|_| None)
         }
-        Cmds::SetBatteryInputProtect(b) => core
-            .toggle_input_protected(b.value())
-            .map(|_| format!("{}: done", parts[0])),
-        Cmds::SetBatteryOutput(b) => core
-            .toggle_output_enabled(b.value())
-            .map(|_| format!("{}: done", parts[0])),
+        Cmds::SetBatteryInputProtect(b) => core.toggle_input_protected(b.value()).map(|_| None),
+        Cmds::SetBatteryOutput(b) => core.toggle_output_enabled(b.value()).map(|_| None),
         Cmds::SetFullChargeDuration { seconds } => {
             core.config_mut().full_charge_duration = Some(*seconds);
-            core.save_config().map(|_| format!("{}: done", parts[0]))
+            core.save_config().map(|_| None)
         }
-        Cmds::SetAllowCharging(b) => core
-            .toggle_allow_charging(b.value())
-            .map(|_| format!("{}: done", parts[0])),
+        Cmds::SetAllowCharging(b) => core.toggle_allow_charging(b.value()).map(|_| None),
         Cmds::SetRtcAddr { addr } => {
             if let Err(e) = core.set_rtc_addr(*addr) {
                 log::warn!("Set RTC addr error: {}", e);
             }
-            Ok(format!("{}: done", parts[0]))
+            Ok(None)
         }
-        Cmds::RtcClearFlag => core.clear_alarm_flag().map(|_| format!("{}: done", parts[0])),
-        Cmds::RtcPi2rtc => core.write_time(Local::now()).map(|_| format!("{}: done", parts[0])),
-        Cmds::RtcRtc2pi => core.read_time().map(|t| {
-            sys_write_time(t);
-            format!("{}: done", parts[0])
-        }),
+        Cmds::RtcClearFlag => core.clear_alarm_flag().map(|_| None),
+        Cmds::RtcPi2rtc => core.write_time(Local::now()).map(|_| None),
+        Cmds::RtcRtc2pi => core
+            .read_time()
+            .map(|t| {
+                sys_write_time(t);
+                Ok(None)
+            })
+            .flatten(),
         Cmds::RtcWeb => {
             tokio::spawn(async move {
                 match get_ntp_datetime().await {
@@ -354,7 +381,7 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
                     Err(e) => log::warn!("Sync NTP time error: {}", e),
                 }
             });
-            Ok(format!("{}: done", parts[0]))
+            Ok(None)
         }
         Cmds::RtcAlarmSet { datetime, weekdays } => {
             let datetime: DateTime<Local> = (*datetime).into();
@@ -365,16 +392,20 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
                 if let Err(e) = core.save_config() {
                     log::warn!("{}", e);
                 }
-                format!("{}: done", parts[0])
+                Ok(None)
             })
         }
-        Cmds::RtcAlarmDisable => core.disable_alarm().map(|_| {
-            core.config_mut().auto_wake_time = None;
-            if let Err(e) = core.save_config() {
-                log::warn!("{}", e);
-            }
-            format!("{}: done", parts[0])
-        }),
+        .flatten(),
+        Cmds::RtcAlarmDisable => core
+            .disable_alarm()
+            .map(|_| {
+                core.config_mut().auto_wake_time = None;
+                if let Err(e) = core.save_config() {
+                    log::warn!("{}", e);
+                }
+                Ok(None)
+            })
+            .flatten(),
         Cmds::RtcAdjustPpm { ppm } => {
             let ppm = if *ppm > 500.0 { 500.0 } else { *ppm };
             let ppm = if ppm < -500.0 { -500.0 } else { ppm };
@@ -383,9 +414,10 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
                 if let Err(e) = core.save_config() {
                     log::warn!("{}", e);
                 }
-                format!("{}: done", parts[0])
+                Ok(None)
             })
         }
+        .flatten(),
         Cmds::SetSafeShutdownLevel { level } => {
             // level between <30，level < 0 means do not shutdown
             let level = if *level > 30.0 { 30.0 } else { *level };
@@ -393,7 +425,7 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
             if let Err(e) = core.save_config() {
                 log::error!("{}", e);
             }
-            Ok(format!("{}: done", parts[0]))
+            Ok(None)
         }
         Cmds::SetSafeShutdownDelay { delay } => {
             // delay between 0-30
@@ -403,11 +435,11 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
             if let Err(e) = core.save_config() {
                 log::error!("{}", e);
             }
-            Ok(format!("{}: done", parts[0]))
+            Ok(None)
         }
         Cmds::RtcTestWake => core
             .test_wake()
-            .map(|_| format!("{}: wakeup after 1 min 30 sec", parts[0])),
+            .map(|_| Some(format!("{}: wakeup after 1 min 30 sec", parts[0]))),
         Cmds::SetButtonEnable { mode, enable } => {
             match *mode {
                 ButtonMode::Single => core.config_mut().single_tap_enable = enable.0,
@@ -417,7 +449,7 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
             if let Err(e) = core.save_config() {
                 log::error!("{}", e);
             }
-            Ok(format!("{}: done", parts[0]))
+            Ok(None)
         }
         Cmds::SetButtonShell { mode, shell } => {
             let cmd = shell.join(" ");
@@ -429,11 +461,9 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
             if let Err(e) = core.save_config() {
                 log::error!("{}", e);
             }
-            Ok(format!("{}: done", parts[0]))
+            Ok(None)
         }
-        Cmds::SetAutoPowerOn(b) => core
-            .toggle_auto_power_on(b.value())
-            .map(|_| format!("{}: done", parts[0])),
+        Cmds::SetAutoPowerOn(b) => core.toggle_auto_power_on(b.value()).map(|_| None),
         Cmds::SetAuth { username, password } => {
             if let (Some(username), Some(password)) = (username, password) {
                 core.config_mut().auth_user = Some(username.to_string());
@@ -442,15 +472,11 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
                 core.config_mut().auth_user = None;
                 core.config_mut().auth_password = None;
             }
-            core.save_config().map(|_| format!("{}: done", parts[0]))
+            core.save_config().map(|_| None)
         }
-        Cmds::ForceShutdown => core.force_shutdown().map(|_| format!("{}: done", parts[0])),
-        Cmds::SetAntiMistouch(b) => core
-            .toggle_anti_mistouch(b.value())
-            .map(|_| format!("{}: done", parts[0])),
-        Cmds::SetSoftPoweroff(b) => core
-            .toggle_soft_poweroff(b.value())
-            .map(|_| format!("{}: done", parts[0])),
+        Cmds::ForceShutdown => core.force_shutdown().map(|_| None),
+        Cmds::SetAntiMistouch(b) => core.toggle_anti_mistouch(b.value()).map(|_| None),
+        Cmds::SetSoftPoweroff(b) => core.toggle_soft_poweroff(b.value()).map(|_| None),
         Cmds::SetSoftPoweroffShell { shell } => {
             let script = shell.join(" ");
             core.config_mut().soft_poweroff_shell = if !script.is_empty() {
@@ -458,18 +484,22 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> String 
             } else {
                 None
             };
-            core.save_config().map(|_| format!("{}: done", parts[0]))
+            core.save_config().map(|_| None)
         }
-        Cmds::SetInputProtect(b) => core
-            .toggle_input_protected(b.value())
-            .map(|_| format!("{}: done", parts[0])),
+        Cmds::SetInputProtect(b) => core.toggle_input_protected(b.value()).map(|_| None),
     };
 
     match r {
-        Ok(r) => r,
+        Ok(r) => Response {
+            cmd: Some(parts[0].to_string()),
+            result: Ok(r),
+        },
         Err(e) => {
             log::warn!("Request: {}, error: {}", req, e);
-            err
+            Response {
+                cmd: Some(parts[0].to_string()),
+                result: Err(anyhow!(err)),
+            }
         }
     }
 }
