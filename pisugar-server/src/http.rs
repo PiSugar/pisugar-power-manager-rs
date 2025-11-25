@@ -47,7 +47,7 @@ async fn token_auth_middleware(
             // x-pisugar-token: <token>
             let token = token.or_else(|| req.headers().get("x-pisugar-token").and_then(|v| v.to_str().ok()));
             // Verify JWT
-            if token.is_none() || jwt::verify_jwt(token.unwrap(), &app_state.jwt_secret).unwrap_or(false) {
+            if token.is_none() || !jwt::verify_jwt(token.unwrap(), &app_state.jwt_secret).unwrap_or(false) {
                 return Err(error::ErrorUnauthorized("Unauthorized"));
             }
         }
