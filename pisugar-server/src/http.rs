@@ -40,8 +40,8 @@ async fn token_auth_middleware(
     // * From query parameter: ?token=<token>
     if req.path() != "/login" {
         let app_state = req.app_data::<web::Data<AppState>>().unwrap();
-        let core = app_state.core.lock().await;
-        if core.config().need_auth() {
+        let need_auth = app_state.core.lock().await.need_auth();
+        if need_auth {
             // ?token=<token>
             let token = query.get("token").map(|s| s.as_str());
             // x-pisugar-token: <token>
@@ -86,19 +86,25 @@ async fn login(params: web::Query<LoginParams>, app_state: web::Data<AppState>) 
 
 #[derive(serde::Deserialize)]
 struct ExecParams {
-    cmd: String,
+    cmd: Option<String>,
 }
 
+/// Execute a command, from query parameter or raw request body
 #[post("/exec")]
-async fn exec(params: web::Query<ExecParams>, app_state: web::Data<AppState>) -> impl Responder {
-    let cmd = params.cmd.trim();
-    let resp = cmds::handle_request(app_state.core.clone(), cmd).await;
-    match resp.result {
-        Ok(None) => HttpResponse::Ok().finish(),
-        Ok(Some(r)) => HttpResponse::Ok().body(r),
-        Err(e) => HttpResponse::NotAcceptable()
+async fn exec(params: web::Query<ExecParams>, body: web::Bytes, app_state: web::Data<AppState>) -> impl Responder {
+    let cmd: String = params
+        .cmd
+        .or_else(|| Some(String::from_utf8_lossy(&body).to_string()))
+        .unwrap_or_default();
+    let resp = cmds::handle_request(app_state.core.clone(), &cmd).await;
+    if resp.is_ok() {
+        HttpResponse::Ok()
             .content_type(ContentType::plaintext())
-            .body(format!("{e}")),
+            .body(format!("{resp}"))
+    } else {
+        HttpResponse::BadRequest()
+            .content_type(ContentType::plaintext())
+            .body(format!("{resp}"))
     }
 }
 
