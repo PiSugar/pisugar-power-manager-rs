@@ -40,8 +40,9 @@ async fn token_auth_middleware(
     // * From query parameter: ?token=<token>
     if req.path() != "/login" {
         let app_state = req.app_data::<web::Data<AppState>>().unwrap();
-        let need_auth = app_state.core.lock().await.need_auth();
+        let need_auth = app_state.core.lock().await.config().need_auth();
         if need_auth {
+            log::info!("Authenticating request to {}", req.path());
             // ?token=<token>
             let token = query.get("token").map(|s| s.as_str());
             // x-pisugar-token: <token>
@@ -94,6 +95,7 @@ struct ExecParams {
 async fn exec(params: web::Query<ExecParams>, body: web::Bytes, app_state: web::Data<AppState>) -> impl Responder {
     let cmd: String = params
         .cmd
+        .clone()
         .or_else(|| Some(String::from_utf8_lossy(&body).to_string()))
         .unwrap_or_default();
     let resp = cmds::handle_request(app_state.core.clone(), &cmd).await;
@@ -197,21 +199,19 @@ pub async fn start_http_server(
     debug: bool,
 ) {
     tokio::spawn(async move {
-        loop {
-            if let Err(e) = build_run_server(
-                core.clone(),
-                event_rx.clone(),
-                http_addr.clone(),
-                web_dir.clone(),
-                jwt_secret.clone(),
-                debug,
-            )
-            .await
-            {
-                log::warn!("HTTP server error: {}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-            }
+        if let Err(e) = build_run_server(
+            core.clone(),
+            event_rx.clone(),
+            http_addr.clone(),
+            web_dir.clone(),
+            jwt_secret.clone(),
+            debug,
+        )
+        .await
+        {
+            log::warn!("HTTP server error: {}", e);
         }
+        log::info!("HTTP server on {} exited", http_addr);
     });
 }
 

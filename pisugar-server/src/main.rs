@@ -3,7 +3,7 @@ use std::fs::remove_file;
 use std::path::Path;
 use std::process::exit;
 use std::sync::Arc;
-use std::thread::sleep;
+use std::sync::Mutex as StdMutex;
 use std::time::Instant;
 
 use clap::ArgAction;
@@ -15,6 +15,7 @@ use tokio::sync::Mutex;
 use tokio::time::Duration;
 
 use pisugar_core::{execute_shell, notify_shutdown_soon, Model, PiSugarConfig, PiSugarCore, I2C_READ_INTERVAL};
+use tokio::time::sleep;
 
 mod cmds;
 mod http;
@@ -23,6 +24,10 @@ mod stream;
 mod tcp;
 mod uds;
 mod ws;
+
+lazy_static::lazy_static! {
+    static ref UDS: StdMutex<Option<String>> = StdMutex::new(None);
+}
 
 /// Poll pisugar status
 async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &tokio::sync::watch::Sender<String>) {
@@ -41,8 +46,9 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &tokio::sync::watch::Se
 }
 
 /// Clean up before exit
-fn clean_up(uds: Option<String>) {
-    if let Some(uds) = uds {
+#[ctor::dtor]
+fn clean_up() {
+    if let Some(uds) = UDS.lock().unwrap().clone() {
         let p: &Path = Path::new(uds.as_str());
         if p.exists() {
             match remove_file(p) {
@@ -157,7 +163,7 @@ async fn main() -> anyhow::Result<()> {
             }
             Err(e) => log::error!("PiSugar init failed: {}", e),
         }
-        sleep(Duration::from_secs(3));
+        sleep(Duration::from_secs(3)).await;
     }
 
     // event watch
@@ -165,10 +171,10 @@ async fn main() -> anyhow::Result<()> {
 
     // CTRL+C signal handling
     let uds = args.uds.clone();
-    ctrlc::set_handler(move || {
-        clean_up(uds.clone());
-    })
-    .expect("Failed to setup ctrl+c");
+    {
+        let mut uds_lock = UDS.lock().unwrap();
+        *uds_lock = uds.clone();
+    }
 
     // tcp
     if let Some(tcp_addr) = args.tcp.clone() {
