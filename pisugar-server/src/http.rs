@@ -102,11 +102,11 @@ async fn exec(params: web::Query<ExecParams>, body: web::Bytes, app_state: web::
     if resp.is_ok() {
         HttpResponse::Ok()
             .content_type(ContentType::plaintext())
-            .body(format!("{resp}"))
+            .body(format!("{}", resp.result_string()))
     } else {
         HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
-            .body(format!("{resp}"))
+            .body(format!("{}", resp.result_string()))
     }
 }
 
@@ -245,6 +245,6 @@ async fn build_run_server(
     })
     .shutdown_timeout(1)
     .bind(http_addr)?;
-    server.run().await?;
+    server.disable_signals().run().await?;
     Ok(())
 }

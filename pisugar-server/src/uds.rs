@@ -38,28 +38,25 @@ pub async fn start_uds_server(
     let core_cloned = core.clone();
     let event_rx_cloned = event_rx.clone();
     tokio::spawn(async move {
-        loop {
-            match tokio::net::UnixListener::bind(&uds_addr) {
-                Ok(uds_listener) => {
-                    log::info!("UDS listening...");
-                    let perm = fs::Permissions::from_mode(uds_mode);
-                    if let Err(e) = fs::set_permissions(&uds_addr, perm) {
-                        log::warn!("Set uds file permission {} error: {}", uds_mode, e);
-                    }
-                    while let Ok((stream, addr)) = uds_listener.accept().await {
-                        log::info!("UDS from {:?}", addr);
-                        let core = core_cloned.clone();
-                        if let Err(e) = handle_uds_stream(core, stream, event_rx_cloned.clone(), strict).await {
-                            log::error!("Handle uds error: {}", e);
-                        }
-                    }
-                    log::info!("UDS stopped");
+        match tokio::net::UnixListener::bind(&uds_addr) {
+            Ok(uds_listener) => {
+                log::info!("UDS listening...");
+                let perm = fs::Permissions::from_mode(uds_mode);
+                if let Err(e) = fs::set_permissions(&uds_addr, perm) {
+                    log::warn!("Set uds file permission {} error: {}", uds_mode, e);
                 }
-                Err(e) => {
-                    log::warn!("UDS bind error: {}", e);
+                while let Ok((stream, addr)) = uds_listener.accept().await {
+                    log::info!("UDS from {:?}", addr);
+                    let core = core_cloned.clone();
+                    if let Err(e) = handle_uds_stream(core, stream, event_rx_cloned.clone(), strict).await {
+                        log::error!("Handle uds error: {}", e);
+                    }
                 }
+                log::info!("UDS stopped");
             }
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            Err(e) => {
+                log::warn!("UDS bind error: {}", e);
+            }
         }
     });
 }

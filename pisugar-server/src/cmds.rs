@@ -226,6 +226,14 @@ impl Response {
     pub fn is_ok(&self) -> bool {
         self.result.is_ok()
     }
+
+    pub fn result_string(&self) -> String {
+        match &self.result {
+            Ok(Some(res)) => res.clone(),
+            Ok(None) => "done".to_string(),
+            Err(e) => format!("{}", e),
+        }
+    }
 }
 
 impl Display for Response {

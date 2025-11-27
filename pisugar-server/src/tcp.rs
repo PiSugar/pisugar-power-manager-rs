@@ -34,23 +34,20 @@ pub async fn start_tcp_server(
     strict: bool,
 ) {
     tokio::spawn(async move {
-        loop {
-            match TcpListener::bind(&tcp_addr).await {
-                Ok(tcp_listener) => {
-                    log::info!("TCP listening...");
-                    while let Ok((stream, addr)) = tcp_listener.accept().await {
-                        log::info!("TCP from {}", addr);
-                        if let Err(e) = handle_tcp_stream(core.clone(), stream, event_rx.clone(), strict).await {
-                            log::error!("Handle tcp error: {}", e);
-                        }
+        match TcpListener::bind(&tcp_addr).await {
+            Ok(tcp_listener) => {
+                log::info!("TCP listening...");
+                while let Ok((stream, addr)) = tcp_listener.accept().await {
+                    log::info!("TCP from {}", addr);
+                    if let Err(e) = handle_tcp_stream(core.clone(), stream, event_rx.clone(), strict).await {
+                        log::error!("Handle tcp error: {}", e);
                     }
-                    log::info!("TCP stopped");
                 }
-                Err(e) => {
-                    log::warn!("TCP bind error: {}", e);
-                }
+                log::info!("TCP stopped");
             }
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            Err(e) => {
+                log::warn!("TCP bind error: {}", e);
+            }
         }
     });
 }

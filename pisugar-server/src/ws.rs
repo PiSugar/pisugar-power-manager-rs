@@ -61,24 +61,21 @@ async fn handle_ws_connection(
 
 pub async fn start_ws_server(core: Arc<Mutex<PiSugarCore>>, event_rx: Receiver<String>, ws_addr: String) {
     tokio::spawn(async move {
-        loop {
-            match tokio::net::TcpListener::bind(&ws_addr).await {
-                Ok(ws_listener) => {
-                    log::info!("WS listening...");
-                    while let Ok((stream, addr)) = ws_listener.accept().await {
-                        log::info!("WS from {}", addr);
-                        let core = core.clone();
-                        if let Err(e) = handle_ws_connection(core, stream, event_rx.clone()).await {
-                            log::warn!("Handle ws error: {}", e);
-                        }
+        match tokio::net::TcpListener::bind(&ws_addr).await {
+            Ok(ws_listener) => {
+                log::info!("WS listening...");
+                while let Ok((stream, addr)) = ws_listener.accept().await {
+                    log::info!("WS from {}", addr);
+                    let core = core.clone();
+                    if let Err(e) = handle_ws_connection(core, stream, event_rx.clone()).await {
+                        log::warn!("Handle ws error: {}", e);
                     }
-                    log::info!("WS stopped");
                 }
-                Err(e) => {
-                    log::warn!("WS bind error: {}", e);
-                }
+                log::info!("WS stopped");
             }
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            Err(e) => {
+                log::warn!("WS bind error: {}", e);
+            }
         }
     });
 }
