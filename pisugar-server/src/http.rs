@@ -3,7 +3,7 @@ use actix_files as fs;
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::ContentType;
-use actix_web::middleware::{self, Next};
+use actix_web::middleware::{from_fn, Next};
 use actix_web::web::Query;
 use actix_web::Result;
 use actix_web::{error, Error};
@@ -29,28 +29,28 @@ struct AppState {
     event_rx: Receiver<String>,
 }
 
+/// Need to authenticate if not login path
+///
+/// How to get token:
+/// * From header `x-pisugar-token: <token>`
+/// * From query parameter: `?token=<token>`
 async fn token_auth_middleware(
     query: Query<HashMap<String, String>>,
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    // Need to authenticate if not login path
-    // How to get token:
-    // * From header "x-pisugar-token: <token>"
-    // * From query parameter: ?token=<token>
-    if req.path() != "/login" {
-        let app_state = req.app_data::<web::Data<AppState>>().unwrap();
-        let need_auth = app_state.core.lock().await.config().need_auth();
-        if need_auth {
-            log::info!("Authenticating request to {}", req.path());
-            // ?token=<token>
-            let token = query.get("token").map(|s| s.as_str());
-            // x-pisugar-token: <token>
-            let token = token.or_else(|| req.headers().get("x-pisugar-token").and_then(|v| v.to_str().ok()));
-            // Verify JWT
-            if token.is_none() || !jwt::verify_jwt(token.unwrap(), &app_state.jwt_secret).unwrap_or(false) {
-                return Err(error::ErrorUnauthorized("Unauthorized"));
-            }
+    let app_state = req.app_data::<web::Data<AppState>>().unwrap();
+    let need_auth = app_state.core.lock().await.config().need_auth();
+
+    if need_auth {
+        log::info!("Authenticating request to {}", req.path());
+        // ?token=<token>
+        let token = query.get("token").map(|s| s.as_str());
+        // x-pisugar-token: <token>
+        let token = token.or_else(|| req.headers().get("x-pisugar-token").and_then(|v| v.to_str().ok()));
+        // Verify JWT
+        if token.is_none() || !jwt::verify_jwt(token.unwrap(), &app_state.jwt_secret).unwrap_or(false) {
+            return Err(error::ErrorUnauthorized("Unauthorized"));
         }
     }
 
@@ -91,7 +91,7 @@ struct ExecParams {
 }
 
 /// Execute a command, from query parameter or raw request body
-#[post("/exec")]
+#[post("")]
 async fn exec(params: web::Query<ExecParams>, body: web::Bytes, app_state: web::Data<AppState>) -> impl Responder {
     let cmd: String = params
         .cmd
@@ -110,28 +110,9 @@ async fn exec(params: web::Query<ExecParams>, body: web::Bytes, app_state: web::
     }
 }
 
-#[derive(serde::Deserialize)]
-struct WSParams {
-    token: Option<String>,
-}
-
 /// WebSocket endpoint
-#[get("/ws")]
-pub async fn ws(
-    params: web::Query<WSParams>,
-    req: HttpRequest,
-    stream: web::Payload,
-    app_state: web::Data<AppState>,
-) -> Result<impl Responder> {
-    let core = app_state.core.lock().await;
-    // Verify JWT
-    if core.config().need_auth() {
-        let token = params.into_inner().token;
-        if token.is_none() || jwt::verify_jwt(&token.unwrap(), &app_state.jwt_secret).is_err() {
-            return Ok(HttpResponse::Unauthorized().finish());
-        }
-    }
-
+#[get("")]
+pub async fn ws(req: HttpRequest, stream: web::Payload, app_state: web::Data<AppState>) -> Result<impl Responder> {
     let (res, session, stream) = actix_ws::handle(&req, stream)?;
     let mut stream = stream.aggregate_continuations().max_continuation_size(1024 * 1024);
     let session = Arc::new(Mutex::new(session));
@@ -233,10 +214,9 @@ async fn build_run_server(
         let app = App::new().app_data(web::Data::new(app_state.clone()));
         let cors = if debug { Cors::permissive() } else { Cors::default() };
         app.wrap(cors)
-            .wrap(middleware::from_fn(token_auth_middleware))
             .service(login)
-            .service(ws)
-            .service(exec)
+            .service(web::scope("/ws").wrap(from_fn(token_auth_middleware)).service(ws))
+            .service(web::scope("/exec").wrap(from_fn(token_auth_middleware)).service(exec))
             .service(
                 fs::Files::new("/", web_dir.clone())
                     .index_file("index.html")

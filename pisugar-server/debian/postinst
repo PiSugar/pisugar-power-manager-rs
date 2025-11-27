@@ -29,6 +29,8 @@ if [ -e /usr/share/debconf/confmodule ]; then
   echo "OPTS=$OPTS" >/etc/default/pisugar-server
 
   if which jq > /dev/null; then
+    echo "Configuring authentication settings"
+
     db_input high pisugar-server/auth-username || true
     db_input high pisugar-server/auth-password || true
     db_go
@@ -40,10 +42,12 @@ if [ -e /usr/share/debconf/confmodule ]; then
     db_set pisugar-server/auth-password ""
 
     config=$(cat /etc/pisugar-server/config.json)
-    if test "x$username" != "x" || test "x$password" != "x"; then
+    if test "x$username" != "x" && test "x$password" != "x"; then
       echo "$config" |\
         jq ".auth_user=\"$username\"" |\
         jq ".auth_password=\"$password\"" > /etc/pisugar-server/config.json
+    else
+      echo "Skipping authentication setup as username or password is empty"
     fi
 
     db_input high pisugar-server/auth-note
@@ -57,6 +61,7 @@ fi
 
 # Enable i2c
 if which raspi-config > /dev/null 2>&1; then
+  echo "Found raspi-config, enabling I2C interface"
   raspi-config nonint do_i2c 0 || true
 fi
 

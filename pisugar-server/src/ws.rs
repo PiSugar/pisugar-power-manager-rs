@@ -1,7 +1,6 @@
 use futures::{SinkExt, StreamExt};
 use pisugar_core::PiSugarCore;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::watch::Receiver;
 use tokio::sync::Mutex;
