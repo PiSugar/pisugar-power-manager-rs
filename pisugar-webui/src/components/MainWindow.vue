@@ -611,7 +611,7 @@ import { onSocketMessage, initCommands, cycleCommands } from './socket'
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 let webSocketHost = `${wsProtocol}//${window.location.hostname}:${window.location.port}/ws`
 let loginApi = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/login`
-// const devIp = '192.168.1.33'
+// const devIp = '192.168.100.176'
 // const devWsHost = `ws://${devIp}:8421/ws`
 // const devLoginApi = `http://${devIp}:8421/login`
 // webSocketHost = devWsHost
@@ -742,6 +742,7 @@ export default {
         username: localStorage.getItem('username') || '',
         password: localStorage.getItem('password') || ''
       },
+      loginToken: '',
       passwordRules: {
         username: [
           {
@@ -799,12 +800,13 @@ export default {
     }, 1000)
     this.locale = this.$i18n.locale
     console.log(this.$i18n.locale)
-    this.checkAuth().then((auth) => {
-      console.log('Auth result:', auth)
-      if (auth) {
-        this.createWebSocketClient()
-      }
-    })
+    this.checkAuth()
+      .then((auth) => {
+        console.log('Auth result:', auth)
+        if (auth) {
+          this.createWebSocketClient()
+        }
+      })
   },
 
   computed: {
@@ -997,6 +999,7 @@ export default {
         res.text().then((bodyText) => {
           console.log('Authentication response body:', bodyText)
           localStorage.setItem('token', bodyText)
+          this.loginToken = bodyText
         })
         return true
       })
@@ -1010,7 +1013,9 @@ export default {
       this.checkAuth().then((auth) => {
         console.log('Auth result:', auth)
         if (auth) {
-          this.createWebSocketClient()
+          setTimeout(() => {
+            this.createWebSocketClient()
+          }, 800)
         }
       })
     },
@@ -1025,7 +1030,10 @@ export default {
       }
     },
     createWebSocketClient () {
-      this.$connect(`${webSocketHost}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`)
+      const token = this.loginToken || localStorage.getItem('token') || ''
+      const url = `${webSocketHost}?token=${encodeURIComponent(token)}`
+      console.log(`[Websocket CLIENT] connecting to ${url}`)
+      this.$connect(url)
       this.$socket.onopen = () => {
         console.log(`[Websocket CLIENT] open()`)
         this.getBatteryInfo(true)
