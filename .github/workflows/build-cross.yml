@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         target:
-          - arm-unknown-linux-musleabihf
+          - arm-unknown-linux-musleabi
           - armv7-unknown-linux-musleabihf
           - aarch64-unknown-linux-musl
           # - riscv64gc-unknown-linux-musl
