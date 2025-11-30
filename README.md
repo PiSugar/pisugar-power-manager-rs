@@ -271,10 +271,10 @@ curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
     -d 'get battery'
 ```
 
-2. As a custom header `X-PiSugar-Token`:
+2. As a custom header `x-pisugar-token`:
 ```bash
 curl -X POST "http://x.x.x.x:8421/exec" \
-    -H "X-PiSugar-Token: <token>" \
+    -H "x-pisugar-token: <token>" \
     -H "Content-Type: text/plain" \
     -d 'get battery'
 ```
