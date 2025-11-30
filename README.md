@@ -218,6 +218,86 @@ Or
 
     echo "get battery" | nc -q 0 127.0.0.1 8423
 
+## Http API
+
+`pisugar-server` supports http API from version `v2.3.0`
+
+### Authentication
+
+HTTP API requires authentication. First, obtain a token by sending a POST request:
+
+```bash
+curl -X POST "http://x.x.x.x:8421/login?username=xxx&password=xxx"
+```
+
+The response is a plain text `token` that should be used for subsequent API requests.
+
+### Execute Commands
+
+Send commands using POST request:
+
+```bash
+# get
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+# return body:
+# 95
+
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get button_shell long'
+# return body:
+# sudo shutdown now
+
+# set
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'rtc_web'
+# return body:
+# done
+```
+
+The response contains the command result in plain text.
+
+### Token Usage
+
+The token can be passed in two ways:
+
+1. As a URL query parameter:
+```bash
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+```
+
+2. As a custom header `X-PiSugar-Token`:
+```bash
+curl -X POST "http://x.x.x.x:8421/exec" \
+    -H "X-PiSugar-Token: <token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+```
+
+### Command Input Methods
+
+Commands can be passed in two ways:
+
+1. In the request body (as shown in examples above):
+```bash
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+```
+
+2. As a URL query parameter `cmd` (value must be URL-encoded):
+```bash
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>&cmd=get%20battery"
+
+# Example with rtc_web command
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>&cmd=rtc_web"
+```
+
 ## Release
 
 See https://github.com/PiSugar/pisugar-power-manager-rs/releases

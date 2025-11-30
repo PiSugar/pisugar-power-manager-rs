@@ -250,6 +250,86 @@ vscode RLS 配置 `.vscode/settings.json`
 
     echo "get battery" | nc -q 0 127.0.0.1 8423
 
+## Http API
+
+`pisugar-server` 从 `v2.3.0` 版本开始支持 http API
+
+### 身份验证
+
+HTTP API 需要身份验证。首先，通过发送 POST 请求获取 token：
+
+```bash
+curl -X POST "http://x.x.x.x:8421/login?username=xxx&password=xxx"
+```
+
+响应是纯文本格式的 `token`，应在后续的 API 请求中使用。
+
+### 执行命令
+
+使用 POST 请求发送命令：
+
+```bash
+# 获取信息
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+# 返回结果：
+# 95
+
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get button_shell long'
+# 返回结果：
+# sudo shutdown now
+
+# 设置
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'rtc_web'
+# 返回结果：
+# done
+```
+
+响应包含纯文本格式的命令结果。
+
+### Token 使用方式
+
+token 可以通过两种方式传递：
+
+1. 作为 URL 查询参数：
+```bash
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+```
+
+2. 作为自定义请求头 `X-PiSugar-Token`：
+```bash
+curl -X POST "http://x.x.x.x:8421/exec" \
+    -H "X-PiSugar-Token: <token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+```
+
+### 命令输入方式
+
+命令可以通过两种方式传递：
+
+1. 在请求体中（如上面示例所示）：
+```bash
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>" \
+    -H "Content-Type: text/plain" \
+    -d 'get battery'
+```
+
+2. 作为 URL 查询参数 `cmd`（值必须进行 URL 编码）：
+```bash
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>&cmd=get%20battery"
+
+# rtc_web 命令示例
+curl -X POST "http://x.x.x.x:8421/exec?token=<token>&cmd=rtc_web"
+```
+
 ## 版本发布
 
 查看 https://github.com/PiSugar/pisugar-power-manager-rs/releases
