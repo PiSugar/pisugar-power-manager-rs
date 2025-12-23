@@ -45,23 +45,6 @@ async fn poll_pisugar_status(core: &mut PiSugarCore, tx: &tokio::sync::watch::Se
     }
 }
 
-/// Clean up before exit
-#[ctor::dtor]
-fn clean_up() {
-    if let Some(uds) = UDS.lock().unwrap().clone() {
-        let p: &Path = Path::new(uds.as_str());
-        if p.exists() {
-            match remove_file(p) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::warn!("Failed to remove uds file: {}", e);
-                }
-            }
-        }
-    }
-    exit(0)
-}
-
 /// Init logging
 fn init_logging(debug: bool, syslog: bool) {
     if syslog {
