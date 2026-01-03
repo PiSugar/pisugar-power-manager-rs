@@ -14,8 +14,9 @@ use anyhow::Result as AnyResult;
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::select;
 use tokio::sync::watch::Receiver;
-use tokio::sync::Mutex;
+use tokio::sync::{oneshot, Mutex};
 
 use pisugar_core::PiSugarCore;
 
@@ -116,54 +117,70 @@ pub async fn ws(req: HttpRequest, stream: web::Payload, app_state: web::Data<App
     let (res, session, stream) = actix_ws::handle(&req, stream)?;
     let mut stream = stream.aggregate_continuations().max_continuation_size(1024 * 1024);
     let session = Arc::new(Mutex::new(session));
+    let (stop_tx, mut stop_rx) = oneshot::channel::<()>();
 
     // Read request
     let session_cloned = session.clone();
     let core = app_state.core.clone();
     rt::spawn(async move {
-        while let Some(msg) = stream.next().await {
-            match msg {
-                Ok(AggregatedMessage::Text(text)) => {
-                    for line in text.split("\n") {
-                        if line.is_empty() {
-                            continue;
+        'session_loop: loop {
+            if let Some(msg) = stream.next().await {
+                match msg {
+                    Ok(AggregatedMessage::Text(text)) => {
+                        for line in text.split("\n") {
+                            if line.is_empty() {
+                                continue;
+                            }
+                            log::debug!("WS Received text: {}", line);
+                            let resp = cmds::handle_request(core.clone(), line).await;
+                            if let Err(e) = session_cloned.lock().await.text(format!("{resp}")).await {
+                                log::debug!("WS send error: {}", e);
+                                break 'session_loop;
+                            }
                         }
-                        log::debug!("WS Received text: {}", line);
-                        let resp = cmds::handle_request(core.clone(), line).await;
-                        session_cloned
-                            .lock()
-                            .await
-                            .text(format!("{resp}"))
-                            .await
-                            .expect("Failed to send response");
                     }
-                }
-                Ok(AggregatedMessage::Ping(msg)) => {
-                    session_cloned
-                        .lock()
-                        .await
-                        .pong(&msg)
-                        .await
-                        .expect("Http ws pong failed");
-                }
-                _ => {}
-            };
+                    Ok(AggregatedMessage::Ping(msg)) => {
+                        if let Err(e) = session_cloned.lock().await.pong(&msg).await {
+                            log::debug!("WS pong error: {}", e);
+                            break;
+                        }
+                    }
+                    _ => break,
+                };
+            }
         }
+        let _ = stop_tx.send(());
     });
 
     // Write events
     let mut event_rx = app_state.event_rx.clone();
     let session_cloned = session.clone();
     rt::spawn(async move {
-        while event_rx.changed().await.is_ok() {
-            let s = event_rx.borrow().clone();
-            log::debug!("WS Sending event: {}", s);
-            session_cloned
-                .lock()
-                .await
-                .text(s)
-                .await
-                .expect("Failed to send event via WS");
+        loop {
+            select! {
+                _ = &mut stop_rx => {
+                    log::info!("WS session stopped");
+                    return;
+                }
+                event = event_rx.changed() => {
+                    match event {
+                        Ok(()) => {
+                            let s = event_rx.borrow().clone();
+                            log::debug!("WS Sending event: {}", s);
+                            session_cloned
+                                .lock()
+                                .await
+                                .text(s)
+                                .await
+                                .expect("Failed to send event via WS");
+                        },
+                        Err(_) => {
+                            log::info!("WS event channel closed");
+                            return;
+                        }
+                    }
+                }
+            }
         }
     });
 

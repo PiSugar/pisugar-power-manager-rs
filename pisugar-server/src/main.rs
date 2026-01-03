@@ -1,7 +1,4 @@
 use std::env;
-use std::fs::remove_file;
-use std::path::Path;
-use std::process::exit;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use std::time::Instant;

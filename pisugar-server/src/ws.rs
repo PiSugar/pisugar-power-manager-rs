@@ -2,6 +2,7 @@ use futures::{SinkExt, StreamExt};
 use pisugar_core::PiSugarCore;
 use std::sync::Arc;
 use tokio::net::TcpStream;
+use tokio::select;
 use tokio::sync::watch::Receiver;
 use tokio::sync::Mutex;
 
@@ -22,36 +23,54 @@ async fn handle_ws_connection(
 
     let (sink, mut stream) = ws_stream.split();
     let sink = Arc::new(Mutex::new(sink));
+    let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
 
     // handle request
     let sink_cloned = sink.clone();
     tokio::spawn(async move {
-        while let Some(Ok(msg)) = stream.next().await {
-            if let Ok(msg) = msg.to_text() {
-                for req in msg.lines() {
-                    if req.is_empty() {
-                        continue;
+        'session_loop: loop {
+            if let Some(Ok(msg)) = stream.next().await {
+                if let Ok(msg) = msg.to_text() {
+                    for req in msg.lines() {
+                        if req.is_empty() {
+                            continue;
+                        }
+                        log::debug!("Req: {}", req);
+                        let resp = cmds::handle_request(core.clone(), req).await;
+                        log::debug!("Resp: {}", resp);
+                        if let Err(e) = sink_cloned.lock().await.send(resp.to_string().into()).await {
+                            log::debug!("WS send error: {}", e);
+                            break 'session_loop;
+                        }
                     }
-                    log::debug!("Req: {}", req);
-                    let resp = cmds::handle_request(core.clone(), req).await;
-                    log::debug!("Resp: {}", resp);
-                    sink_cloned
-                        .lock()
-                        .await
-                        .send(resp.to_string().into())
-                        .await
-                        .expect("WS send error");
+                } else {
+                    break;
                 }
             }
         }
+        let _ = stop_tx.send(());
     });
 
     // button event
     let sink_cloned = sink.clone();
     tokio::spawn(async move {
-        while event_rx.changed().await.is_ok() {
-            let s = event_rx.borrow().clone();
-            sink_cloned.lock().await.send(s.into()).await.expect("WS send error");
+        select! {
+            _ = &mut stop_rx => {
+                log::info!("WS session stopped");
+                return;
+            }
+            event = event_rx.changed() => {
+                match event {
+                    Ok(()) => {
+                        let s = event_rx.borrow().clone();
+                        sink_cloned.lock().await.send(s.into()).await.expect("WS send error");
+                    },
+                    Err(_) => {
+                        log::info!("WS event channel closed");
+                        return;
+                    }
+                }
+            }
         }
     });
 
