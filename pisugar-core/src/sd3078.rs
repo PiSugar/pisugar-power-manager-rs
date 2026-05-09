@@ -173,7 +173,7 @@ impl RTC for SD3078 {
 
     /// Write RTC address, pisugar 3 only
     fn set_addr(&self, _addr: u8) -> Result<()> {
-        Err(Error::Other("SD3078 does not support changing I2C address".to_string()))
+        Err(Error::Other("SD3078 does not support changing I2C address, this is only available on PiSugar 3".to_string()))
     }
 
     /// Read time

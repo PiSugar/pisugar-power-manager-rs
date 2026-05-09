@@ -360,7 +360,7 @@ impl Battery for IP5312Battery {
     }
 
     fn toggle_power_restore(&self, _enable: bool) -> Result<()> {
-        Err(Error::Other("Not supported".to_string()))
+        Err(Error::Other(format!("power_restore is not supported on {}", self.model)))
     }
 
     fn is_allow_charging(&self) -> Result<bool> {
@@ -375,7 +375,7 @@ impl Battery for IP5312Battery {
         if self.model.led_amount() == 2 {
             self.ip5312.toggle_allow_charging_2led(enable)
         } else {
-            Err(I2cError::FeatureNotSupported.into())
+            Err(Error::Other(format!("allow_charging is not supported on {}", self.model)))
         }
     }
 
@@ -389,11 +389,11 @@ impl Battery for IP5312Battery {
     }
 
     fn is_input_protected(&self) -> Result<bool> {
-        Err(Error::Other("Not available".to_string()))
+        Err(Error::Other(format!("input_protect is not available on {}", self.model)))
     }
 
     fn toggle_input_protected(&self, _enable: bool) -> Result<()> {
-        Err(Error::Other("Not available".to_string()))
+        Err(Error::Other(format!("input_protect is not available on {}", self.model)))
     }
 
     fn output_enabled(&self) -> Result<bool> {
@@ -404,7 +404,7 @@ impl Battery for IP5312Battery {
         if !enable {
             return self.ip5312.force_shutdown();
         }
-        Err(Error::Other("Not available".to_string()))
+        Err(Error::Other(format!("output_enable is not available on {}", self.model)))
     }
 
     fn poll(&mut self, now: Instant, _config: &PiSugarConfig) -> Result<Vec<BatteryEvent>> {

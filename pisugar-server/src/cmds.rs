@@ -262,7 +262,6 @@ impl Display for Response {
 /// Handle request of cmd
 pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> Response {
     let parts: Vec<String> = req.split(' ').map(|s| s.to_string()).collect();
-    let err = "Invalid request.".to_string();
 
     if !req.contains("set_auth") {
         log::debug!("Request: {}", req);
@@ -280,11 +279,18 @@ pub async fn handle_request(core: Arc<Mutex<PiSugarCore>>, req: &str) -> Respons
     let cmd = match Cmds::from_str(req) {
         Ok(cmd) => cmd,
         Err(e) => {
-            log::warn!("Invalid cmd: {}", e);
+            let clap_msg = e.to_string();
+            log::warn!("Invalid cmd: {}", clap_msg);
+            let cmd_name = parts.get(0).cloned().unwrap_or_default();
+            let hint = if clap_msg.contains("unrecognized subcommand") {
+                format!("{clap_msg}\nHint: use 'help' to see all available commands")
+            } else {
+                format!("{clap_msg}\nHint: use 'help {cmd_name}' for usage")
+            };
             return Response {
                 cmd: None,
                 extras: vec![],
-                result: Err(anyhow!(err)),
+                result: Err(anyhow!(hint)),
             };
         }
     };
