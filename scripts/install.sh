@@ -68,7 +68,7 @@ function uninstall_pisugar_poweroff() {
 
 function install_pisugar_programmer() {
     echo "Installing PiSugar Programmer..."
-    sudo install -D -m 755 target/release/pisugar-programmer /usr/bin/pisugar-programmer
+    sudo install -D -m 755 pisugar-programmer /usr/bin/pisugar-programmer
     echo "PiSugar Programmer installed."
 }
 
