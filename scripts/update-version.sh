@@ -5,6 +5,14 @@ set -e
 CUR_DIR=$(cd $(dirname "$0"); pwd)
 ROOT_DIR=$(cd "$CUR_DIR/.."; pwd)
 
+# Check if gsed is available (for macOS users), otherwise use sed
+if uname -s | grep -q "Darwin"; then
+  if ! which gsed > /dev/null 2>&1; then
+    echo "Please install gsed (GNU sed) for macOS: brew install gnu-sed"
+    exit 1
+  fi
+fi
+
 if which gsed > /dev/null 2>&1; then
   # gsed on macos, to install: brew install gnu-sed
   SED=gsed
