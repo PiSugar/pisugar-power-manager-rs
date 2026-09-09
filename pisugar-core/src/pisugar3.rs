@@ -694,7 +694,7 @@ pub struct PiSugar3RTC {
 
 impl PiSugar3RTC {
     pub fn new(cfg: PiSugarConfig, model: Model) -> Result<Self> {
-        let pisugar3 = PiSugar3::new(cfg.i2c_bus, model.default_rtc_i2c_addr())?;
+        let pisugar3 = PiSugar3::new(cfg.i2c_bus, model.rtc_i2c_addr(&cfg))?;
         Ok(Self { pisugar3, cfg })
     }
 }

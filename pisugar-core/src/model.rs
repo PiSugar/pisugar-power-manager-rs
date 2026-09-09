@@ -50,6 +50,13 @@ impl Model {
         }
     }
 
+    pub fn rtc_i2c_addr(&self, cfg: &PiSugarConfig) -> u16 {
+        match *self {
+            Model::PiSugar_3 => cfg.i2c_addr.unwrap_or(self.default_rtc_i2c_addr()),
+            _ => self.default_rtc_i2c_addr(),
+        }
+    }
+
     pub fn bind(&self, cfg: PiSugarConfig) -> Result<Box<dyn Battery + Send>> {
         log::info!(
             "Binding battery i2c bus={} addr={}",
@@ -69,13 +76,53 @@ impl Model {
         log::info!(
             "Binding rtc i2c bus={} addr={}",
             cfg.i2c_bus,
-            self.default_rtc_i2c_addr()
+            self.rtc_i2c_addr(&cfg)
         );
         let r: Box<dyn RTC + Send> = match *self {
             Model::PiSugar_3 => Box::new(PiSugar3RTC::new(cfg, *self)?),
             _ => Box::new(SD3078::new(cfg, *self)?),
         };
         Ok(r)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Model;
+    use crate::pisugar3::I2C_ADDR_P3;
+    use crate::{PiSugarConfig, I2C_ADDR_RTC};
+
+    #[test]
+    fn pisugar3_rtc_uses_default_i2c_address() {
+        let cfg = PiSugarConfig::default();
+
+        assert_eq!(Model::PiSugar_3.rtc_i2c_addr(&cfg), I2C_ADDR_P3);
+    }
+
+    #[test]
+    fn pisugar3_rtc_uses_configured_i2c_address() {
+        let cfg = PiSugarConfig {
+            i2c_addr: Some(0x58),
+            ..PiSugarConfig::default()
+        };
+
+        assert_eq!(Model::PiSugar_3.rtc_i2c_addr(&cfg), 0x58);
+    }
+
+    #[test]
+    fn pisugar2_rtc_ignores_battery_i2c_address_override() {
+        let cfg = PiSugarConfig {
+            i2c_addr: Some(0x58),
+            ..PiSugarConfig::default()
+        };
+
+        for model in [
+            Model::PiSugar_2_4LEDs,
+            Model::PiSugar_2_2LEDs,
+            Model::PiSugar_2_Pro,
+        ] {
+            assert_eq!(model.rtc_i2c_addr(&cfg), I2C_ADDR_RTC);
+        }
     }
 }
 
