@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 TMP=$(i2cget -y 1 0x57 0x06)
 #echo $TMP
 #看门狗开启WatchdogOn
