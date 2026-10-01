@@ -29,23 +29,30 @@ async fn handle_ws_connection(
     let sink_cloned = sink.clone();
     tokio::spawn(async move {
         'session_loop: loop {
-            if let Some(Ok(msg)) = stream.next().await {
-                if let Ok(msg) = msg.to_text() {
-                    for req in msg.lines() {
-                        if req.is_empty() {
-                            continue;
+            match stream.next().await {
+                Some(Ok(msg)) => {
+                    if let Ok(msg) = msg.to_text() {
+                        for req in msg.lines() {
+                            if req.is_empty() {
+                                continue;
+                            }
+                            log::debug!("Req: {}", req);
+                            let resp = cmds::handle_request(core.clone(), req).await;
+                            log::debug!("Resp: {}", resp);
+                            if let Err(e) = sink_cloned.lock().await.send(resp.to_string().into()).await {
+                                log::debug!("WS send error: {}", e);
+                                break 'session_loop;
+                            }
                         }
-                        log::debug!("Req: {}", req);
-                        let resp = cmds::handle_request(core.clone(), req).await;
-                        log::debug!("Resp: {}", resp);
-                        if let Err(e) = sink_cloned.lock().await.send(resp.to_string().into()).await {
-                            log::debug!("WS send error: {}", e);
-                            break 'session_loop;
-                        }
+                    } else {
+                        break;
                     }
-                } else {
+                }
+                Some(Err(e)) => {
+                    log::debug!("WS read error: {}", e);
                     break;
                 }
+                None => break,
             }
         }
         let _ = stop_tx.send(());

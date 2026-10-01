@@ -124,29 +124,32 @@ pub async fn ws(req: HttpRequest, stream: web::Payload, app_state: web::Data<App
     let core = app_state.core.clone();
     rt::spawn(async move {
         'session_loop: loop {
-            if let Some(msg) = stream.next().await {
-                match msg {
-                    Ok(AggregatedMessage::Text(text)) => {
-                        for line in text.split("\n") {
-                            if line.is_empty() {
-                                continue;
-                            }
-                            log::debug!("WS Received text: {}", line);
-                            let resp = cmds::handle_request(core.clone(), line).await;
-                            if let Err(e) = session_cloned.lock().await.text(format!("{resp}")).await {
-                                log::debug!("WS send error: {}", e);
-                                break 'session_loop;
-                            }
+            match stream.next().await {
+                Some(Ok(AggregatedMessage::Text(text))) => {
+                    for line in text.split("\n") {
+                        if line.is_empty() {
+                            continue;
+                        }
+                        log::debug!("WS Received text: {}", line);
+                        let resp = cmds::handle_request(core.clone(), line).await;
+                        if let Err(e) = session_cloned.lock().await.text(format!("{resp}")).await {
+                            log::debug!("WS send error: {}", e);
+                            break 'session_loop;
                         }
                     }
-                    Ok(AggregatedMessage::Ping(msg)) => {
-                        if let Err(e) = session_cloned.lock().await.pong(&msg).await {
-                            log::debug!("WS pong error: {}", e);
-                            break;
-                        }
+                }
+                Some(Ok(AggregatedMessage::Ping(msg))) => {
+                    if let Err(e) = session_cloned.lock().await.pong(&msg).await {
+                        log::debug!("WS pong error: {}", e);
+                        break;
                     }
-                    _ => break,
-                };
+                }
+                Some(Ok(_)) => break,
+                Some(Err(e)) => {
+                    log::debug!("WS read error: {}", e);
+                    break;
+                }
+                None => break,
             }
         }
         let _ = stop_tx.send(());
