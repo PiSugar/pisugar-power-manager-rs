@@ -5,7 +5,7 @@ set -o pipefail
 
 
 function print_usage() {
-    echo "Usage: $0 <-u> <-m> [all|server|poweroff|programmer|module]"
+    echo "Usage: $0 <-u> <-m> [all|server|poweroff|programmer]"
     echo "Options:"
     echo "  -u         Uninstall the specified component(s) instead of installing"
     echo "  -m MODEL   Specify the PiSugar model (default: PiSugar 3)"
@@ -14,7 +14,6 @@ function print_usage() {
     echo "  server     Install PiSugar Server"
     echo "  poweroff   Install PiSugar Poweroff"
     echo "  programmer Install PiSugar Programmer"
-    echo "  module     Install the prebuilt desktop battery kernel module"
 }
 
 function install_pisugar_server() {
@@ -79,58 +78,6 @@ function uninstall_pisugar_programmer() {
     echo "PiSugar Programmer uninstalled."
 }
 
-function module_architecture() {
-    case "$(uname -m)" in
-        aarch64|arm64) echo arm64 ;;
-        armv6l|armv7l|armhf) echo armhf ;;
-        *) return 1 ;;
-    esac
-}
-
-function is_raspberry_pi_system() {
-    if [ -r /proc/device-tree/model ] && tr -d '\0' < /proc/device-tree/model | grep -q 'Raspberry Pi'; then
-        return 0
-    fi
-    case "$(uname -r)" in
-        *+rpt-rpi-*) return 0 ;;
-    esac
-    return 1
-}
-
-function install_pisugar_module() {
-    local kernel_release module_arch package base_url temp_dir
-    if ! is_raspberry_pi_system; then
-        echo "Skip PiSugar desktop battery module: this is not a Raspberry Pi system"
-        return 0
-    fi
-    kernel_release=$(uname -r)
-    if ! module_arch=$(module_architecture); then
-        echo "Skip PiSugar desktop battery module: unsupported architecture $(uname -m)"
-        return 0
-    fi
-    package="pisugar-module_${kernel_release}_${module_arch}.tar.gz"
-    base_url=${PISUGAR_MODULE_BASE_URL:-https://cdn.pisugar.com/release}
-    temp_dir=$(mktemp -d /tmp/pisugar-module.XXXXXX)
-    if ! curl -fL "$base_url/$package" -o "$temp_dir/$package"; then
-        echo "No prebuilt module for kernel ${kernel_release} (${module_arch})." >&2
-        echo "Update Raspberry Pi OS to a supported kernel and try again." >&2
-        rm -rf "$temp_dir"
-        return 0
-    fi
-    tar -xzf "$temp_dir/$package" -C "$temp_dir"
-    bash "$temp_dir/install.sh" "$temp_dir/pisugar_battery.ko"
-    rm -rf "$temp_dir"
-}
-
-function uninstall_pisugar_module() {
-    sudo modprobe -r pisugar_battery 2>/dev/null || true
-    sudo rm -f "/lib/modules/$(uname -r)/kernel/drivers/power/supply/pisugar_battery.ko"
-    sudo rm -f /etc/modules-load.d/pisugar-battery.conf
-    sudo rm -f /etc/modprobe.d/pisugar-battery.conf
-    sudo depmod -a
-    echo "PiSugar desktop battery module uninstalled."
-}
-
 if [ $# -lt 1 ]; then
     print_usage
     exit 1
@@ -179,10 +126,9 @@ if [ $UNINSTALL -eq 1 ]; then
         all)
             uninstall_pisugar_server && \
             uninstall_pisugar_poweroff && \
-            uninstall_pisugar_programmer && \
-            uninstall_pisugar_module
+            uninstall_pisugar_programmer
             ;;
-        server|poweroff|programmer|module)
+        server|poweroff|programmer)
             uninstall_pisugar_$APP
             ;;
         *)
@@ -195,10 +141,9 @@ else
         all)
             install_pisugar_server "$MODEL" && \
             install_pisugar_poweroff "$MODEL" && \
-            install_pisugar_programmer "$MODEL" && \
-            install_pisugar_module
+            install_pisugar_programmer "$MODEL"
             ;;
-        server|poweroff|programmer|module)
+        server|poweroff|programmer)
             install_pisugar_$APP "$MODEL"
             ;;
         *)

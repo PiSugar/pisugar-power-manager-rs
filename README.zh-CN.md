@@ -43,9 +43,13 @@
 
 `Interfacing Options -> I2C -> Yes`
 
-安装脚本会同时安装与当前树莓派内核精确匹配的预编译电池驱动。驱动会自动
-识别 PiSugar 3 或 PiSugar 2，并通过 Linux `power_supply` 接口提供 `BAT0`
-和 `AC0`，从而让树莓派桌面显示电池图标。用户无需安装编译器或内核头文件。
+树莓派桌面电池驱动需要单独安装：
+
+    curl -fsSL https://raw.githubusercontent.com/PiSugar/pisugar-power-manager-rs/master/scripts/install-pisugar-module.sh | bash
+
+该可选驱动会下载与当前内核精确匹配的预编译模块，自动识别 PiSugar 3 或
+PiSugar 2，并通过 Linux `power_supply` 接口提供 `BAT0` 和 `AC0`。用户无需
+安装编译器或内核头文件。
 
 已知冲突和问题：
 

@@ -74,12 +74,13 @@ Download latest `pisugar_<your_os_arch>.tar.gz` from https://github.com/PiSugar/
 
 ## Linux kernel power supply driver
 
-The normal installer also installs a precompiled, auto-detecting PiSugar 2/3
-kernel driver for the exact running Raspberry Pi kernel. It exposes `BAT0` and
-`AC0` to Linux so Raspberry Pi Desktop can display its battery icon. No compiler
-or kernel headers are needed on the Raspberry Pi. The installer skips this
-kernel module on non-Raspberry-Pi systems. See
-[pisugar-module/pisugar-battery/README.md](pisugar-module/pisugar-battery/README.md).
+Install the optional desktop battery module separately on Raspberry Pi OS:
+
+    curl -fsSL https://raw.githubusercontent.com/PiSugar/pisugar-power-manager-rs/master/scripts/install-pisugar-module.sh | bash
+
+It downloads a precompiled module matching the exact running kernel and exposes
+`BAT0` and `AC0` to Raspberry Pi Desktop. No compiler or kernel headers are
+needed. See [pisugar-module/pisugar-battery/README.md](pisugar-module/pisugar-battery/README.md).
 
 ## Prerequisites
 
