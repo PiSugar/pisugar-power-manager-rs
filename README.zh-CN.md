@@ -1,7 +1,7 @@
 # pisugar-power-manager-rs
 
-![Latest master](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/Nightly%20build%20on%20master/badge.svg?branch=master)
-![Latest PR](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/PR%20build%20on%20master/badge.svg)
+[![Latest master](https://github.com/PiSugar/pisugar-power-manager-rs/actions/workflows/master.yml/badge.svg?branch=master&event=push)](https://github.com/PiSugar/pisugar-power-manager-rs/actions/workflows/master.yml)
+[![Latest PR](https://github.com/PiSugar/pisugar-power-manager-rs/actions/workflows/master.yml/badge.svg?event=pull_request)](https://github.com/PiSugar/pisugar-power-manager-rs/actions/workflows/master.yml)
 
 <p align="center">
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">

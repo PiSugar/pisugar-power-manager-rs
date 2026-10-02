@@ -1,7 +1,6 @@
 # pisugar-power-manager-rs
 
-![Master](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/Master/badge.svg)
-![Nightly](https://github.com/PiSugar/pisugar-power-manager-rs/workflows/Nightly%20build%20on%20master/badge.svg)
+[![Nightly build](https://github.com/PiSugar/pisugar-power-manager-rs/actions/workflows/master.yml/badge.svg?branch=master&event=push)](https://github.com/PiSugar/pisugar-power-manager-rs/actions/workflows/master.yml)
 
 <p align="center">
   <img width="320" src="https://raw.githubusercontent.com/JdaieLin/PiSugar/master/logo.jpg">
