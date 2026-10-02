@@ -40,19 +40,30 @@ case "$(uname -m)" in
 esac
 
 kernel_release=$(uname -r)
+kernel_version=${kernel_release%%+*}
 package="pisugar-module_${kernel_release}_${module_arch}.tar.gz"
 if [[ -z "$base_url" ]]; then
-    base_url="https://cdn.pisugar.com/${channel}"
+    base_url="https://github.com/PiSugar/pisugar-kernel-module/releases/download/kernel-${kernel_version}"
 fi
 
 temp_dir=$(mktemp -d /tmp/pisugar-module.XXXXXX)
 trap 'rm -rf "$temp_dir"' EXIT
 
-if ! curl -fL "$base_url/$package" -o "$temp_dir/$package"; then
-    echo "No prebuilt PiSugar module for ${kernel_release} (${module_arch})." >&2
-    echo "Update Raspberry Pi OS to a supported kernel and run this installer again." >&2
-    exit 1
+if curl -fL "$base_url/$package" -o "$temp_dir/$package"; then
+    tar -xzf "$temp_dir/$package" -C "$temp_dir"
+    bash "$temp_dir/install.sh" "$temp_dir/pisugar_battery.ko"
+    exit 0
 fi
 
-tar -xzf "$temp_dir/$package" -C "$temp_dir"
-bash "$temp_dir/install.sh" "$temp_dir/pisugar_battery.ko"
+echo "No prebuilt PiSugar module for ${kernel_release} (${module_arch}); building locally." >&2
+if [[ ! -d "/lib/modules/${kernel_release}/build" ]]; then
+    echo "Kernel headers are required for the local build: /lib/modules/${kernel_release}/build is missing." >&2
+    exit 1
+fi
+command -v git >/dev/null || { echo "git is required for the local build." >&2; exit 1; }
+command -v make >/dev/null || { echo "make is required for the local build." >&2; exit 1; }
+
+git clone --depth 1 https://github.com/PiSugar/pisugar-power-manager-rs.git "$temp_dir/source"
+make -C "$temp_dir/source/pisugar-module/pisugar-battery" KERNEL_DIR="/lib/modules/${kernel_release}/build"
+bash "$temp_dir/source/pisugar-module/install-prebuilt.sh" \
+    "$temp_dir/source/pisugar-module/pisugar-battery/pisugar_battery.ko"
