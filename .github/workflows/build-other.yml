@@ -73,11 +73,13 @@ jobs:
               apt-get -o Acquire::Retries=5 update
               apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl gpg build-essential bc bison flex libssl-dev libelf-dev kmod
               curl -fsSL https://archive.raspberrypi.com/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi-archive-keyring.gpg
-              echo "deb [signed-by=/usr/share/keyrings/raspberrypi-archive-keyring.gpg] https://archive.raspberrypi.com/debian/ $SUITE main" > /etc/apt/sources.list.d/raspberrypi.list
-              # The Trixie sqv policy rejects the archive key's legacy SHA-1
-              # binding signature. gpgv verifies the same official key while
-              # preserving repository signature checks.
-              apt-get -o Acquire::Retries=5 -o Apt::Key::gpgvcommand=/usr/bin/gpgv update
+              curl -fsSL "https://archive.raspberrypi.com/debian/dists/$SUITE/InRelease" -o /tmp/raspberrypi.InRelease
+              gpgv --keyring /usr/share/keyrings/raspberrypi-archive-keyring.gpg /tmp/raspberrypi.InRelease
+              # Trixie rejects the archive key legacy SHA-1 binding when APT
+              # invokes sqv. Verify the official signed index above with gpgv,
+              # then consume that verified repository in this ephemeral image.
+              echo "deb [trusted=yes] https://archive.raspberrypi.com/debian/ $SUITE main" > /etc/apt/sources.list.d/raspberrypi.list
+              apt-get -o Acquire::Retries=5 update
               available=""
               for package in $HEADERS; do
                 if apt-cache show "$package" >/dev/null 2>&1; then available="$available $package"; fi
