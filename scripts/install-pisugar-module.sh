@@ -46,7 +46,7 @@ case "$kernel_release" in
 esac
 package="pisugar-module_${kernel_release}_${module_arch}.tar.gz"
 if [[ -z "$base_url" ]]; then
-    base_url="https://github.com/PiSugar/pisugar-kernel-module/releases/download/kernel-${kernel_version}"
+    base_url="https://repo.pisugar.uk/PiSugar/pisugar-kernel-module/releases/download/kernel-${kernel_version}"
 fi
 
 temp_dir=$(mktemp -d /tmp/pisugar-module.XXXXXX)
