@@ -71,7 +71,7 @@ jobs:
             -e SUITE -e HEADERS -e MODULE_ARCH \
             -v "$PWD:/work" -w /work "$IMAGE" bash -euxo pipefail -c '
               apt-get -o Acquire::Retries=5 update
-              apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl gpg build-essential bc bison flex libssl-dev libelf-dev kmod
+              apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl gpg gpgv build-essential bc bison flex libssl-dev libelf-dev kmod
               curl -fsSL https://archive.raspberrypi.com/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi-archive-keyring.gpg
               curl -fsSL "https://archive.raspberrypi.com/debian/dists/$SUITE/InRelease" -o /tmp/raspberrypi.InRelease
               gpgv --keyring /usr/share/keyrings/raspberrypi-archive-keyring.gpg /tmp/raspberrypi.InRelease
