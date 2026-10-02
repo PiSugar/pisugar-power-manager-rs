@@ -24,16 +24,10 @@ jobs:
     needs: build-web
     uses: ./.github/workflows/build-cross.yml
 
-  build-other:
-    needs:
-      - build-web
-    uses: ./.github/workflows/build-other.yml
-
   dev-release:
     runs-on: ubuntu-latest
     needs:
       - build-web
-      - build-other
       - build-cross
     steps:
       # Checkout
