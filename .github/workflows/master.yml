@@ -103,7 +103,7 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          for f in $(find downloads -type f '*.tar.gz') $(find downloads -type f '*.deb') $(find downloads -type f '*.rpm') $(find scripts -name '*.tar.gz'); do
+          for f in $(find downloads -type f -name '*.tar.gz') $(find downloads -type f -name '*.deb') $(find downloads -type f -name '*.rpm') $(find scripts -type f -name '*.tar.gz'); do
             filename=${f##*/}
             key=nightly/${filename}
             ./qshell rput --overwrite ${QINIU_BUCKET} ${key} ${f} &

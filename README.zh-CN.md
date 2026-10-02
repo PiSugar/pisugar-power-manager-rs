@@ -43,6 +43,10 @@
 
 `Interfacing Options -> I2C -> Yes`
 
+安装脚本会同时安装与当前树莓派内核精确匹配的预编译电池驱动。驱动会自动
+识别 PiSugar 3 或 PiSugar 2，并通过 Linux `power_supply` 接口提供 `BAT0`
+和 `AC0`，从而让树莓派桌面显示电池图标。用户无需安装编译器或内核头文件。
+
 已知冲突和问题：
 
     HyperPixel: HyperPixel 会禁用 I2C 接口

@@ -2,7 +2,7 @@
 set -e
 
 # version
-version=2.3.5
+version=2.4.0
 
 # channel: nightly or release
 channel=release
@@ -157,6 +157,45 @@ function enable_i2c() {
     fi
 }
 
+function is_raspberry_pi_system() {
+    if [ -r /proc/device-tree/model ] && tr -d '\0' < /proc/device-tree/model | grep -q 'Raspberry Pi'; then
+        return 0
+    fi
+    case "$(uname -r)" in
+        *+rpt-rpi-*) return 0 ;;
+    esac
+    return 1
+}
+
+function install_battery_module() {
+    if ! is_raspberry_pi_system; then
+        echo "Skip PiSugar desktop battery module: this is not a Raspberry Pi system"
+        return 0
+    fi
+    kernel_release=$(uname -r)
+    case "$(uname -m)" in
+        aarch64|arm64) module_arch=arm64 ;;
+        armv6l|armv7l|armhf) module_arch=armhf ;;
+        *)
+            echo "Skip PiSugar desktop battery module: unsupported architecture $(uname -m)"
+            return 0
+            ;;
+    esac
+
+    module_package="pisugar-module_${kernel_release}_${module_arch}.tar.gz"
+    module_dir="$TEMPDIR/pisugar-module"
+    mkdir -p "$module_dir"
+    if ! wget -O "$TEMPDIR/$module_package" \
+        "https://cdn.pisugar.com/${channel}/${module_package}"; then
+        echo "No prebuilt PiSugar battery module for kernel ${kernel_release} (${module_arch})."
+        echo "The power manager is installed, but the desktop battery icon is unavailable."
+        echo "Update Raspberry Pi OS to a supported kernel and run this installer again."
+        return 0
+    fi
+    tar -xzf "$TEMPDIR/$module_package" -C "$module_dir"
+    bash "$module_dir/install.sh" "$module_dir/pisugar_battery.ko"
+}
+
 TEMPDIR=$(mktemp -d /tmp/pisugar.XXXXXX)
 function cleanup() {
     rm -rf "$TEMPDIR"
@@ -178,6 +217,9 @@ uninstall_pkgs pisugar-server pisugar-poweroff pisugar-programmer
 $echo -e "\033[1;34mInstall packages\033[0m"
 install_jq
 install_pkgs "$TEMPDIR/${package_server}" "$TEMPDIR/${package_poweroff}" "$TEMPDIR/${package_programmer}"
+
+$echo -e "\033[1;34mInstall PiSugar desktop battery module\033[0m"
+install_battery_module
 
 $echo -e "\033[1;34mClean up \033[0m"
 rm -f "$TEMPDIR/${package_server}"
