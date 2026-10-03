@@ -42,10 +42,14 @@ esac
 kernel_release=$(uname -r)
 kernel_version=${kernel_release%%+*}
 case "$kernel_release" in
-    6.1.0-rpi8-*) kernel_version=6.1.73 ;;
-    # Raspberry Pi OS used ABI names such as 6.1.54-v8+ in 2023.
+    # Raspberry Pi OS used ABI names such as 6.1.0-rpi4-rpi-v8 in 2023.
     # Historical module releases are grouped by the numeric kernel version.
-    6.1.*-*) kernel_version=${kernel_release%%-*} ;;
+    6.1.0-rpi1-*) kernel_version=6.1.21 ;;
+    6.1.0-rpi2-*) kernel_version=6.1.47 ;;
+    6.1.0-rpi4-*) kernel_version=6.1.54 ;;
+    6.1.0-rpi6-*) kernel_version=6.1.58 ;;
+    6.1.0-rpi7-*) kernel_version=6.1.63 ;;
+    6.1.0-rpi8-*) kernel_version=6.1.73 ;;
 esac
 package="pisugar-module_${kernel_release}_${module_arch}.tar.gz"
 if [[ -z "$base_url" ]]; then
