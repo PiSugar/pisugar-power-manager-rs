@@ -3,11 +3,18 @@ name: Release QiNiu
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag to refresh and verify
+        required: true
+        default: v2.4.0
+        type: string
 
 jobs:
   upload-qiniu:
     name: "Upload to QiNiu"
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout
@@ -63,12 +70,35 @@ jobs:
           done < urls
           ./qshell rput --overwrite --mimetype text/plain "$QINIU_BUCKET" release/pisugar-power-manager.sh "$installer"
 
-          # Detect stale CDN caches as a deployment failure requiring refresh.
-          curl --fail --silent --show-error https://cdn.pisugar.com/release/pisugar-power-manager.sh -o served-installer
-          cmp "$installer" served-installer
-          for package in server poweroff programmer; do
-            filename="pisugar-${package}_${version}-1_arm64.deb"
-            curl --fail --silent --show-error "https://cdn.pisugar.com/release/$filename" -o served-package
-            cmp "$filename" served-package
-          done
-          echo "Release installer and ARM64 packages verified through CDN"
+          bash ../scripts/verify-release-cdn.sh "$version" "$installer"
+
+  refresh-cdn:
+    name: Refresh and verify published CDN assets
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh CDN and verify exact release contents
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          QINIU_AK: ${{ secrets.QINIU_AK }}
+          QINIU_SK: ${{ secrets.QINIU_SK }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          version=${RELEASE_TAG#v}
+          gh release view "$RELEASE_TAG" --json isDraft,isPrerelease > release-info.json
+          jq -e '.isDraft == false and .isPrerelease == false' release-info.json
+          mkdir release
+          cd release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern scripts.tar.gz --pattern "pisugar-*_${version}-1_arm64.deb"
+          tar -xzf scripts.tar.gz scripts/pisugar-power-manager.sh
+          test "$(sed -n 's/^version=//p' scripts/pisugar-power-manager.sh)" = "$version"
+          curl --fail --silent --show-error --location https://github.com/qiniu/qshell/releases/download/v2.16.1/qshell-v2.16.1-linux-amd64.tar.gz -o qshell.tar.gz
+          tar -xzf qshell.tar.gz
+          chmod +x qshell
+          ./qshell account -w "$QINIU_AK" "$QINIU_SK" deploy-account
+          bash ../scripts/verify-release-cdn.sh "$version" scripts/pisugar-power-manager.sh
