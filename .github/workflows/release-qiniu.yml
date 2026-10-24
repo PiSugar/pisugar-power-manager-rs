@@ -7,10 +7,13 @@ on:
 jobs:
   upload-qiniu:
     name: "Upload to QiNiu"
+    if: ${{ !github.event.release.prerelease }}
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - name: "Upload to QiNiu"
         env:
@@ -18,6 +21,7 @@ jobs:
           QINIU_AK: ${{ secrets.QINIU_AK }}
           QINIU_SK: ${{ secrets.QINIU_SK }}
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y unzip
 
@@ -34,21 +38,37 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          curl https://api.github.com/repos/PiSugar/pisugar-power-manager-rs/releases/latest > latest
-
           sudo apt-get install -y jq
-          for url in $(jq '.assets[].browser_download_url' latest); do
-            url=$(echo $url | awk -F '"' '{print $2}')
+          # Publish exactly the assets from this release event, not /releases/latest.
+          jq -r '.release.assets[].browser_download_url' "$GITHUB_EVENT_PATH" > urls
+          while IFS= read -r url; do
             filename=${url##*/}
-            wget -O ${filename} ${url}
-            mimetype=application/octet-stream
-            if (echo "$filename" | grep '.*.sh$'); then
-              mimetype=text/plain
-            fi
-            ./qshell rput --overwrite --mimetype ${mimetype} ${QINIU_BUCKET} release/${filename} ${filename} &
+            wget -O "$filename" "$url"
+          done < urls
+
+          # The installer must come from the same build as the packages.
+          tar -xzf scripts.tar.gz scripts/pisugar-power-manager.sh
+          installer=scripts/pisugar-power-manager.sh
+          version=$(sed -n 's/^version=//p' "$installer")
+          tag=$(jq -r '.release.tag_name' "$GITHUB_EVENT_PATH")
+          test "v$version" = "$tag"
+          for package in server poweroff programmer; do
+            test -s "pisugar-${package}_${version}-1_arm64.deb"
           done
 
-          ./qshell rput --overwrite --mimetype text/plain ${QINIU_BUCKET} release/pisugar-power-manager.sh ../scripts/pisugar-power-manager.sh &
+          # Upload packages first; any failed upload must fail the job.
+          while IFS= read -r url; do
+            filename=${url##*/}
+            ./qshell rput --overwrite --mimetype application/octet-stream "$QINIU_BUCKET" "release/$filename" "$filename"
+          done < urls
+          ./qshell rput --overwrite --mimetype text/plain "$QINIU_BUCKET" release/pisugar-power-manager.sh "$installer"
 
-          wait
-          echo "All uploaded to qiniu"
+          # Detect stale CDN caches as a deployment failure requiring refresh.
+          curl --fail --silent --show-error https://cdn.pisugar.com/release/pisugar-power-manager.sh -o served-installer
+          cmp "$installer" served-installer
+          for package in server poweroff programmer; do
+            filename="pisugar-${package}_${version}-1_arm64.deb"
+            curl --fail --silent --show-error "https://cdn.pisugar.com/release/$filename" -o served-package
+            cmp "$filename" served-package
+          done
+          echo "Release installer and ARM64 packages verified through CDN"

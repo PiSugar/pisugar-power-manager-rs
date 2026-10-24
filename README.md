@@ -100,6 +100,84 @@ Known conflicts and issues:
 2. pisugar-server: Http/tcp/uds server that provide PiSugar battery status
 3. pisugar-poweroff: Systemd service that shut down PiSugar battery
 
+## Installer modes and recovery
+
+The downloaded installer uses interactive debconf dialogs when both stdin and
+stdout are terminals. Without a terminal (including a pipe), it automatically
+uses `DEBIAN_FRONTEND=noninteractive`. Override this with `--non-interactive` or
+`--interactive` (the latter requires a terminal).
+
+```sh
+sudo bash pisugar-power-manager.sh --non-interactive --model 'PiSugar 3'
+# Other supported models: PiSugar 2 (2-LEDs), PiSugar 2 Pro, PiSugar 2 (4-LEDs)
+```
+
+`--model` seeds both server and poweroff packages before installation. If omitted,
+existing debconf model selections are preserved; a fresh installation defaults to
+PiSugar 3. Explicitly select your model when installing other hardware. Interactive
+package installation and `sudo dpkg-reconfigure pisugar-server` still offer model
+and authentication questions. A blank password preserves the existing JSON
+credentials. For unattended credentials, preseed the authentication values shown
+below; avoid placing passwords in shell history. No authentication dialog or
+full-screen service-ready note runs in `postinst`.
+
+The installer downloads all packages before installation and upgrades in place
+using apt to resolve dependencies. It no longer removes installed packages first.
+If installation fails, fix the reported cause and rerun the installer with the same
+model/mode. For already unpacked packages, retry configuration with:
+
+```sh
+sudo env DEBIAN_FRONTEND=noninteractive dpkg --configure pisugar-server pisugar-poweroff pisugar-programmer
+sudo dpkg --audit
+```
+
+Hardware, dependency, malformed JSON, or disk failures still produce a nonzero
+exit status and can require configuration to be retried. Failed authentication
+JSON updates preserve the original file and retain the preseeded password for a
+retry; successful updates clear the debconf password.
+
+### Installation regression tests
+
+Host tests use stub system commands and real jq. They cover headless and terminal
+frontend selection, model preseeding, option validation, cancelled debconf dialogs,
+failed downloads/installation, authentication escaping, and atomic JSON updates:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+Run the package tests **only in a disposable container**. They use real Debian
+13 debconf, dpkg and jq, with architecture-independent fixture packages containing
+the production maintainer scripts. They stub systemd and do not exercise PiSugar
+binaries, I2C or actual service startup:
+
+```sh
+docker run --rm -v "$PWD:/src:ro" -w /src debian:trixie bash -c \
+  'apt-get update && apt-get install -y python3 jq debconf-utils apt-utils && bash tests/debian-install.sh'
+```
+
+CI runs both suites. The package suite checks clean default and seeded installs,
+reinstall, upgrade, configuration retry, and recovery from invalid JSON. Before
+release, also test on a fresh Raspberry Pi OS Trixie ARM64 image: interactive
+installation and cancellation, stdin redirected from `/dev/null`, each hardware
+model, `dpkg --audit`, authentication login, service startup and I2C/poweroff.
+Container fixture success alone does not establish hardware compatibility.
+
+### Release and CDN verification
+
+As checked on 2026-10-24, the public CDN installer selects 2.3.5, GitHub's latest
+stable release is v2.3.5, and this branch's installer selects 2.4.0. A source version
+is not evidence that matching stable packages have been published. The GitHub
+`latest` tag is a development prerelease, separate from the stable release API.
+
+The stable publication workflow now takes the assets from the exact release
+event, extracts its installer from `scripts.tar.gz`, checks the embedded version
+against the release tag, and uploads packages before replacing the installer.
+Upload errors fail the job. It then compares the public CDN installer and all
+three ARM64 Debian packages against the release artifacts. If CDN caches remain
+stale, refresh them and rerun verification. Publish a new stable release containing
+these changes; merging source alone does not update existing CDN packages.
+
 ## Non-interactive
 
 Install `debconf-utils`

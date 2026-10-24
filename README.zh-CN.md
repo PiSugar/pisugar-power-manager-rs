@@ -15,11 +15,11 @@
 
 安装包托管在七牛云。
 
-    curl http://cdn.pisugar.com/release/pisugar-power-manager.sh | sudo bash
+    curl https://cdn.pisugar.com/release/pisugar-power-manager.sh | sudo bash
 
 或
 
-    wget http://cdn.pisugar.com/release/pisugar-power-manager.sh
+    wget https://cdn.pisugar.com/release/pisugar-power-manager.sh
     bash pisugar-power-manager.sh -c release
 
 安装脚本使用方式：
@@ -345,3 +345,21 @@ curl -X POST "http://x.x.x.x:8421/exec?token=<token>&cmd=rtc_web"
 ## LICENSE
 
 GPL v3
+
+## 无终端安装与恢复
+
+安装脚本在 stdin、stdout 都是终端时保留交互式 debconf 配置；没有终端时自动使用非交互模式。
+可通过 `--interactive` 或 `--non-interactive` 显式选择，通过 `--model` 同时设置两个软件包的型号：
+
+```sh
+sudo bash pisugar-power-manager.sh --non-interactive --model 'PiSugar 3'
+```
+
+未指定型号时保留已有 debconf 配置，全新安装默认 PiSugar 3；其他硬件请显式指定正确型号。
+认证信息可提前通过 debconf 设置，空密码保留现有认证配置。交互式重新配置可执行
+`sudo dpkg-reconfigure pisugar-server`。安装失败时先修复报错，再重跑安装脚本；已解包的软件包可通过
+`sudo env DEBIAN_FRONTEND=noninteractive dpkg --configure pisugar-server pisugar-poweroff pisugar-programmer`
+重试配置，并用 `sudo dpkg --audit` 检查状态。
+
+测试方式、实机验证范围及正式发布/CDN 校验流程见 [英文说明](README.md#installer-modes-and-recovery)。
+仓库修复合并后仍需发布包含修复的新版本，才能更新实际 CDN 安装渠道。

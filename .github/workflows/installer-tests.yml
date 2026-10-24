@@ -1,0 +1,20 @@
+name: Installer regression tests
+on:
+  pull_request:
+  push:
+    branches: [master, develop]
+jobs:
+  debian-trixie:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test tools
+        run: apt-get update && apt-get install -y python3 jq debconf-utils apt-utils
+      - name: Shell and mocked installer regressions
+        run: |
+          bash -n scripts/pisugar-power-manager.sh tests/debian-install.sh
+          for f in pisugar-server/debian/config pisugar-server/debian/postinst pisugar-poweroff/debian/config pisugar-poweroff/debian/postinst; do sh -n "$f"; done
+          python3 -m unittest discover -s tests -v
+      - name: Fresh Debian package installation
+        run: bash tests/debian-install.sh

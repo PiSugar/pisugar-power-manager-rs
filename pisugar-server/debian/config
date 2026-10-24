@@ -2,19 +2,28 @@
 
 . /usr/share/debconf/confmodule
 
+# A cancelled dialog keeps the collected/default answers and must not fail dpkg.
+
+# A cancelled dialog keeps the collected/default answers and must not fail dpkg.
+
 # db_reset pisugar-server/model || true
 
 db_input critical pisugar-server/model || true
-db_go
+db_go || true
 
 db_input medium pisugar-server/address || true
-db_go
+db_go || true
 
 db_input medium pisugar-server/web || true
-db_go
+db_go || true
 
 db_input medium pisugar-server/tcp || true
-db_go
+db_go || true
 
 db_input medium pisugar-server/uds || true
-db_go
+db_go || true
+
+# Collect credentials before configuration; blank passwords preserve existing auth.
+db_input high pisugar-server/auth-username || true
+db_input high pisugar-server/auth-password || true
+db_go || true
