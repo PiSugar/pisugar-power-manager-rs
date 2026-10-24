@@ -25,7 +25,7 @@ license-file = ["../LICENSE", "0"]
 copyright = "2020, PiSugar team"
 extended-description = """\
 PiSugar poweroff."""
-depends = "$auto, systemd"
+depends = "$auto, systemd, debconf (>= 0.5) | debconf-2.0"
 section = "utility"
 priority = "optional"
 maintainer-scripts = "debian"
