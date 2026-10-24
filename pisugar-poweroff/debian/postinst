@@ -1,12 +1,22 @@
 #!/bin/sh
+set -e
+
+[ "$1" = configure ] || exit 0
 
 # Enable i2c
-raspi-config nonint do_i2c 0
+if command -v raspi-config >/dev/null 2>&1; then
+  raspi-config nonint do_i2c 0 || true
+fi
 
 if [ -e /usr/share/debconf/confmodule ]; then
   . /usr/share/debconf/confmodule
 
+  OPTS=""
   db_get pisugar-poweroff/model
+  if [ -z "$RET" ]; then
+    db_set pisugar-poweroff/model "PiSugar 3"
+    RET="PiSugar 3"
+  fi
   OPTS="$OPTS --model '$RET'"
 
   db_get pisugar-poweroff/countdown

@@ -2,8 +2,12 @@
 
 . /usr/share/debconf/confmodule
 
+# A cancelled dialog keeps the collected/default answers and must not fail dpkg.
+
+# A cancelled dialog keeps the collected/default answers and must not fail dpkg.
+
 db_input critical pisugar-poweroff/model || true
-db_go
+db_go || true
 
 db_input medium pisugar-poweroff/countdown || true
-db_go
+db_go || true

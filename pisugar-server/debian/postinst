@@ -1,4 +1,7 @@
 #!/bin/sh
+set -e
+
+[ "$1" = configure ] || exit 0
 
 if [ -e /usr/share/debconf/confmodule ]; then
   . /usr/share/debconf/confmodule
@@ -6,6 +9,10 @@ if [ -e /usr/share/debconf/confmodule ]; then
   OPTS="--config config.json"
 
   db_get pisugar-server/model
+  if [ -z "$RET" ]; then
+    db_set pisugar-server/model "PiSugar 3"
+    RET="PiSugar 3"
+  fi
   OPTS="$OPTS --model '$RET'"
 
   db_get pisugar-server/address
@@ -31,32 +38,31 @@ if [ -e /usr/share/debconf/confmodule ]; then
   if which jq > /dev/null; then
     echo "Configuring authentication settings"
 
-    db_input high pisugar-server/auth-username || true
-    db_input high pisugar-server/auth-password || true
-    db_go
-
     db_get pisugar-server/auth-username
     username="$RET"
     db_get pisugar-server/auth-password
     password="$RET"
-    db_set pisugar-server/auth-password ""
 
-    config=$(cat /etc/pisugar-server/config.json)
     if test "x$username" != "x" && test "x$password" != "x"; then
-      echo "$config" |\
-        jq ".auth_user=\"$username\"" |\
-        jq ".auth_password=\"$password\"" > /etc/pisugar-server/config.json
+      # Write beside the original so rename is atomic. Never truncate on jq errors.
+      config_file=/etc/pisugar-server/config.json
+      tmp_config=$(mktemp "${config_file}.XXXXXX")
+      trap 'rm -f "$tmp_config"' EXIT HUP INT TERM
+      chmod --reference="$config_file" "$tmp_config"
+      chown --reference="$config_file" "$tmp_config"
+      jq --arg u "$username" --arg p "$password" \
+        '.auth_user=$u | .auth_password=$p' "$config_file" > "$tmp_config"
+      mv -f "$tmp_config" "$config_file"
+      trap - EXIT HUP INT TERM
+      db_set pisugar-server/auth-password ""
     else
       echo "Skipping authentication setup as username or password is empty"
     fi
-
-    db_input high pisugar-server/auth-note
-    db_go
-
   else
-    db_input high pisugar-server/auth-default
-    db_go
+    echo "jq is unavailable; preserving existing authentication settings"
   fi
+  echo "PiSugar server configured. Visit http://[host_ip]:8421; use dpkg-reconfigure pisugar-server to configure authentication."
+
 fi
 
 # Enable i2c
