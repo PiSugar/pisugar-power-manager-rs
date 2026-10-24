@@ -15,7 +15,7 @@
     "element-ui": "^2.11.1",
     "less": "^3.9.0",
     "less-loader": "^5.0.0",
-    "moment": "^2.24.0",
+    "moment": "^2.31.0",
     "vue": "^2.5.2",
     "vue-i18n": "^8.28.2",
     "vue-native-websocket": "^2.0.13"
