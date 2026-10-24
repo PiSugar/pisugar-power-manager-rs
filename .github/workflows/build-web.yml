@@ -17,10 +17,16 @@ jobs:
         with:
           node-version: 20
 
-      # Nodejs build web
-      - run: |
-          npm install
-          npm run build
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      # Install the dependency versions recorded in yarn.lock.
+      - name: Build web
+        run: |
+          yarn install --frozen-lockfile --non-interactive
+          yarn build
         working-directory: pisugar-webui
 
       # Upload artifact
