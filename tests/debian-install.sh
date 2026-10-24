@@ -18,7 +18,9 @@ build_packages() {
     for name in server poweroff; do
         package=pisugar-$name
         dir="$work/$package"
-        mkdir -p "$dir/DEBIAN" "$dir/etc/default"
+        mkdir -p "$dir/DEBIAN" "$dir/etc/default" "$dir/usr/share/$package"
+        # Give each fixture a real, unique payload so dpkg cannot discard an empty package.
+        printf 'fixture\n' > "$dir/usr/share/$package/fixture"
         cp "$package/debian/"{config,templates,postinst,postrm} "$dir/DEBIAN/"
         chmod 755 "$dir/DEBIAN/"{config,postinst,postrm}
         cat > "$dir/DEBIAN/control" <<EOF
