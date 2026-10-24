@@ -90,4 +90,37 @@ cp "$work/expected.json" /etc/pisugar-server/config.json
 timeout 60 dpkg-reconfigure -f noninteractive pisugar-server </dev/null
 jq -e '.auth_user == "retry" and .auth_password == "retry-secret"' /etc/pisugar-server/config.json
 assert_configured
+
+# Exercise the real wrapper + apt + debconf against a simulated CDN of fixtures.
+# Only download, sudo and systemd are stubbed; package operations remain real.
+dpkg --purge pisugar-server pisugar-poweroff
+mkdir -p "$work/programmer/DEBIAN" "$work/programmer/usr/share/pisugar-programmer"
+printf 'fixture\n' > "$work/programmer/usr/share/pisugar-programmer/fixture"
+cat > "$work/programmer/DEBIAN/control" <<'EOF'
+Package: pisugar-programmer
+Version: 0.0.2
+Architecture: all
+Maintainer: Test <test@example.invalid>
+Description: Disposable programmer fixture
+EOF
+dpkg-deb --build "$work/programmer" "$work/pisugar-programmer.deb"
+printf '#!/bin/sh\nexec "$@"\n' > "$work/bin/sudo"
+cat > "$work/bin/wget" <<'EOF'
+#!/bin/sh
+case "$3" in
+    */pisugar-server_*) package=pisugar-server ;;
+    */pisugar-poweroff_*) package=pisugar-poweroff ;;
+    */pisugar-programmer_*) package=pisugar-programmer ;;
+    *) exit 1 ;;
+esac
+cp "$FIXTURE_DIR/$package.deb" "$2"
+EOF
+chmod +x "$work/bin/sudo" "$work/bin/wget"
+export FIXTURE_DIR="$work"
+timeout 60 bash scripts/pisugar-power-manager.sh --version 0.0.2 --model 'PiSugar 2 (4-LEDs)' </dev/null
+assert_configured
+test "$(dpkg-query -W -f='${Status}' pisugar-programmer)" = 'install ok installed'
+grep -F -- "--model 'PiSugar 2 (4-LEDs)'" /etc/default/pisugar-server
+grep -F -- "--model 'PiSugar 2 (4-LEDs)'" /etc/default/pisugar-poweroff
+
 echo 'Debian fixture installation regression tests passed'
