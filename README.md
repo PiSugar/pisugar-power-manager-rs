@@ -165,8 +165,8 @@ Container fixture success alone does not establish hardware compatibility.
 
 ### Release and CDN verification
 
-As checked on 2026-10-24, the public CDN installer selects 2.3.5, GitHub's latest
-stable release is v2.3.5, and this branch's installer selects 2.4.0. A source version
+As checked on 2026-11-03, GitHub's latest stable release is v2.4.0, and this
+branch's installer selects 2.4.1. A source version
 is not evidence that matching stable packages have been published. The GitHub
 `latest` tag is a development prerelease, separate from the stable release API.
 

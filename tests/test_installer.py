@@ -70,7 +70,7 @@ class InstallerTests(unittest.TestCase):
     def test_type_and_rpm_build(self):
         result = self.run_installer('-t', 'rpm', '--rpm-build', '7')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('2.4.0-7.aarch64.rpm', self.log.read_text())
+        self.assertIn('2.4.1-7.aarch64.rpm', self.log.read_text())
 
     def test_version_suffix_after_override(self):
         result = self.run_installer('-v', '1.7.5')
