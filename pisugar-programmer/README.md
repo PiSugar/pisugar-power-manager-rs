@@ -9,8 +9,12 @@ provides Debian packages and standalone Linux executables for Raspberry Pi. The
 [PiSugar 3 update script](../scripts/PiSugarUpdate.sh) installs the native
 `pisugar-programmer` package on Raspberry Pi OS, replacing an older package at
 `/usr/bin/pisugar-programmer`. Other supported Linux installations use
-`/usr/local/bin/pisugar-programmer`. A normal update also installs the tool
-when the board already has the target firmware.
+`/usr/local/bin/pisugar-programmer`. The script pins programmer 2.4.3. It
+reuses the installed executable when its SHA-256 matches the release for the
+host architecture. On Raspberry Pi OS it also checks the installed Debian
+package version and architecture. A missing or older installation triggers a
+download. A normal update also checks the tool when the board already has the
+target firmware.
 
 To install or upgrade just the programmer, run the following from the directory
 containing the script. This mode can run with the PiSugar board disconnected.
@@ -21,7 +25,7 @@ pisugar-programmer --version
 ```
 
 For a firmware update the script downloads the dual-platform application ZIP from the PiSugar CDN.
-It checks the program version and both download hashes, then reads the board's
+It checks the programmer version and the hash of each download, then reads the board's
 platform and application version twice on bus 1 at 0x57. For this ZIP, FM targets
 v1.4.2 and CH32 targets v1.4.3. If the installed version is equal or newer,
 answer `y` at the terminal to reinstall or downgrade. Enter, EOF, or running

@@ -292,6 +292,20 @@ deb_status() {
     return "$rc"
 }
 
+stage_installed_programmer() {
+    local status version architecture record
+    [[ -f "$installed_tool" && -x "$installed_tool" ]] || return 1
+    if [[ -n "$arch" ]]; then
+        record=$(deb_status "pisugar-programmer:$arch") || return 1
+        IFS=$'\t' read -r status version architecture <<< "$record"
+        [[ "$status" == *' ok installed' && "$version" == "$package_version" && "$architecture" == "$arch" ]] || return 1
+    fi
+    # Use the same verified bytes for offline checks and the post-install comparison,
+    # even if another process replaces the installed file during a download.
+    cp -- "$installed_tool" "$work/local-programmer" || return 1
+    printf '%s  %s\n' "$binary_sha" "$work/local-programmer" | sha256sum --check --status
+}
+
 install_programmer() {
     local status version architecture record visible
     if [[ -n "$deb" ]]; then
@@ -310,10 +324,14 @@ install_programmer() {
         done <<< "$record"
         if (( ! already_installed )) || [[ ! -x "$installed_tool" ]] ||
                 ! cmp -s "$tool_file" "$installed_tool"; then
+            if [[ ! -f "$deb" ]]; then
+                # The installation changed after we verified the local executable.
+                download "$release/$asset" "$deb" "$tool_sha" "$tool_bytes"
+            fi
             step "Installing pisugar-programmer $package_version ($arch) with dpkg"
             dpkg --refuse-downgrade --install "$deb"
         else
-            printf '[PiSugar] Debian package %s is already installed and matches the download.\n' "$package_version" >&2
+            printf '[PiSugar] Debian package %s is already installed and verified.\n' "$package_version" >&2
         fi
         step 'Verifying the installed Debian package version and architecture'
         record=$(deb_status "pisugar-programmer:$arch")
@@ -360,7 +378,7 @@ install_programmer() {
 }
 
 main() {
-    local mode=update target tool_sha tool_bytes ota_url version action platform attempt decision detail prompt
+    local mode=update target tool_sha binary_sha tool_bytes ota_url version action platform attempt decision detail prompt
     local reset_option=(-r)
     local arch='' deb='' tool_file installed_tool asset tool_version=2.4.3
     local package_version="$tool_version-1" expected_version="pisugar-programmer $tool_version"
@@ -403,18 +421,23 @@ main() {
     if command -v dpkg >/dev/null; then
         arch=$(dpkg --print-architecture)
         case "$arch" in
-            arm64) tool_sha=28b6416dd882364d76b9fee82f5d1806b55e446284e76d496637fb069314ef49; tool_bytes=1249604 ;;
-            armhf) tool_sha=c263b644539a8ba6924daa54e70cf2c52a5262f3501c60c39a25ccfa8f3287f4; tool_bytes=1099942 ;;
-            armel) tool_sha=9540cd0ee48cd0c09993033d9676bdeb0f90709807c08f8de5e3981bf537981e; tool_bytes=1103232 ;;
+            arm64)
+                tool_sha=28b6416dd882364d76b9fee82f5d1806b55e446284e76d496637fb069314ef49
+                binary_sha=3df42217ca5a5a7f8a7ff52640439a0bdf29034ae99742caf42478aae00679da
+                tool_bytes=1249604 ;;
+            armhf)
+                tool_sha=c263b644539a8ba6924daa54e70cf2c52a5262f3501c60c39a25ccfa8f3287f4
+                binary_sha=3f21e7cf432b5d19441a951d7d6a634f4b443bd10bf8f51f3b97d688f09f8289
+                tool_bytes=1099942 ;;
+            armel)
+                tool_sha=9540cd0ee48cd0c09993033d9676bdeb0f90709807c08f8de5e3981bf537981e
+                binary_sha=ef6e3bf25a57faa50601413cfbb281d1fb515f7057274f5db5f323da2b38dd9f
+                tool_bytes=1103232 ;;
             *) echo "Unsupported Debian architecture: $arch" >&2; return 1 ;;
         esac
         asset="pisugar-programmer_${package_version}_${arch}.deb"
         deb="$work/$asset"
-        download "$release/$asset" "$deb" "$tool_sha" "$tool_bytes"
-        step "Unpacking $asset"
-        dpkg-deb -x "$deb" "$work/pkg"
         installed_tool=/usr/bin/pisugar-programmer
-        tool_file="$work/pkg$installed_tool"
     else
         target=$(standalone_target)
         case "$target" in
@@ -422,12 +445,24 @@ main() {
             armv7-unknown-linux-musleabihf) tool_sha=fd3d9f4674b672456d130db25146634fcde33f4359c8d05e23f7a18100fd3559; tool_bytes=3057508 ;;
             arm-unknown-linux-musleabi) tool_sha=ef6e3bf25a57faa50601413cfbb281d1fb515f7057274f5db5f323da2b38dd9f; tool_bytes=3113892 ;;
         esac
-        tool_file="$work/pisugar-programmer"
+        binary_sha=$tool_sha
         installed_tool=/usr/local/bin/pisugar-programmer
+    fi
+    step "Checking for a local copy of $expected_version"
+    if stage_installed_programmer; then
+        tool_file="$work/local-programmer"
+        step "Reusing verified $expected_version from $installed_tool (skipping programmer download)"
+    elif [[ -n "$deb" ]]; then
+        download "$release/$asset" "$deb" "$tool_sha" "$tool_bytes"
+        step "Unpacking $asset"
+        dpkg-deb -x "$deb" "$work/pkg"
+        tool_file="$work/pkg$installed_tool"
+    else
+        tool_file="$work/pisugar-programmer"
         download "$release/pisugar-programmer-$tool_version-$target" "$tool_file" "$tool_sha" "$tool_bytes"
         chmod 700 "$tool_file"
     fi
-    step 'Checking the downloaded programmer version'
+    step 'Checking the programmer version'
     version=$("$tool_file" --version)
     if [[ "$version" != "$expected_version" ]]; then
         echo "Unexpected programmer version: $version" >&2
