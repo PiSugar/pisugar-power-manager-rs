@@ -14,7 +14,7 @@ on:
 jobs:
   upload-qiniu:
     name: "Upload to QiNiu"
-    if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v') }}
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout

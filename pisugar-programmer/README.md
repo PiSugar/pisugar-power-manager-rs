@@ -4,6 +4,20 @@ The programmer validates the complete firmware file before resetting the MCU or
 writing Flash. It supports FM33LC0x application migration and guarded CH32L103
 updates. Existing register meanings and `-b`, `-a`, `-r`, `-d` options are retained.
 
+The [programmer 2.4.2 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.2)
+provides standalone Linux executables for Raspberry Pi. The
+[PiSugar 3 update script](../scripts/PiSugarUpdate.sh) selects the executable for
+the host and downloads the dual-platform application ZIP from the PiSugar CDN.
+It checks the program version and both download hashes, then reads the board's
+platform and application version twice on bus 1 at 0x57. For this ZIP, FM targets
+v1.4.2 and CH32 targets v1.4.3. An equal version skips flashing. A newer or
+unrecognized version stops the update. On unmarked legacy boards it also checks
+the serial field to distinguish old FM from the zero-padded 12-byte CH32 serial.
+Ambiguous boards and boards in bootloader mode require a separately verified
+recovery. After a write the script confirms the expected version on the same
+platform. Run `bash PiSugarUpdate.sh --check` to verify downloads on a Pi
+without accessing the hardware.
+
 ```sh
 # Offline checks work on Linux and Windows and never open I2C.
 pisugar-programmer --check pisugar-3-ota.zip
