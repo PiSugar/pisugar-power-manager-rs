@@ -28,9 +28,21 @@ select_target() {
 }
 
 download() {
-    local url=$1 destination=$2 expected=$3
-    curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
-        --connect-timeout 15 --max-time 600 --retry 2 --output "$destination" "$url"
+    local url=$1 destination=$2 expected=$3 attempt status
+    for attempt in 1 2 3; do
+        if curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 600 --output "$destination" "$url"; then
+            break
+        else
+            status=$?
+        fi
+        if (( attempt == 3 )); then
+            echo "Could not download ${url##*/}." >&2
+            return "$status"
+        fi
+        echo "Retrying download of ${url##*/}..." >&2
+        sleep "$attempt"
+    done
     if ! printf '%s  %s\n' "$expected" "$destination" | sha256sum --check --status; then
         echo "SHA-256 verification failed for ${url##*/}." >&2
         return 1
