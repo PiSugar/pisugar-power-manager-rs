@@ -5,9 +5,22 @@ writing Flash. It supports FM33LC0x application migration and guarded CH32L103
 updates. Existing register meanings and `-b`, `-a`, `-r`, `-d` options are retained.
 
 The [programmer 2.4.2 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.2)
-provides standalone Linux executables for Raspberry Pi. The
-[PiSugar 3 update script](../scripts/PiSugarUpdate.sh) selects the executable for
-the host and downloads the dual-platform application ZIP from the PiSugar CDN.
+provides Debian packages and standalone Linux executables for Raspberry Pi. The
+[PiSugar 3 update script](../scripts/PiSugarUpdate.sh) installs the native
+`pisugar-programmer` package on Raspberry Pi OS, replacing an older package at
+`/usr/bin/pisugar-programmer`. Other supported Linux installations use
+`/usr/local/bin/pisugar-programmer`. A normal update also installs the tool
+when the board already has the target firmware.
+
+To install or upgrade just the programmer, run the following from the directory
+containing the script. This mode can run with the PiSugar board disconnected.
+
+```sh
+sudo bash PiSugarUpdate.sh --install-only
+pisugar-programmer --version
+```
+
+For a firmware update the script downloads the dual-platform application ZIP from the PiSugar CDN.
 It checks the program version and both download hashes, then reads the board's
 platform and application version twice on bus 1 at 0x57. For this ZIP, FM targets
 v1.4.2 and CH32 targets v1.4.3. An equal version skips flashing. A newer or
