@@ -1,10 +1,10 @@
-# PiSugar programmer 2.4.2
+# PiSugar programmer 2.4.3
 
 The programmer validates the complete firmware file before resetting the MCU or
 writing Flash. It supports FM33LC0x application migration and guarded CH32L103
 updates. Existing register meanings and `-b`, `-a`, `-r`, `-d` options are retained.
 
-The [programmer 2.4.2 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.2)
+The [programmer 2.4.3 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.3)
 provides Debian packages and standalone Linux executables for Raspberry Pi. The
 [PiSugar 3 update script](../scripts/PiSugarUpdate.sh) installs the native
 `pisugar-programmer` package on Raspberry Pi OS, replacing an older package at
@@ -23,13 +23,32 @@ pisugar-programmer --version
 For a firmware update the script downloads the dual-platform application ZIP from the PiSugar CDN.
 It checks the program version and both download hashes, then reads the board's
 platform and application version twice on bus 1 at 0x57. For this ZIP, FM targets
-v1.4.2 and CH32 targets v1.4.3. An equal version skips flashing. A newer or
-unrecognized version stops the update. On unmarked legacy boards it also checks
+v1.4.2 and CH32 targets v1.4.3. If the installed version is equal or newer,
+answer `y` at the terminal to reinstall or downgrade. Enter, EOF, or running
+without a controlling terminal skips the write. The prompt also works when the
+script arrives via `curl | sudo bash`. On unmarked legacy boards it checks
 the serial field to distinguish old FM from the zero-padded 12-byte CH32 serial.
-Ambiguous boards and boards in bootloader mode require a separately verified
-recovery. After a write the script confirms the expected version on the same
-platform. Run `bash PiSugarUpdate.sh --check` to verify downloads on a Pi
-without accessing the hardware.
+After flashing, the script confirms the expected version on the same platform.
+Each step prints its status. Long operations report elapsed time every five
+seconds, and downloads also report bytes received and percentage.
+
+If the board does not respond, the normal update command keeps waiting.
+Press and release the PiSugar Reset button when prompted. A supported CH32
+bootloader or bootapp can identify the chip even when the application cannot
+start. Recovery then uses the verified platform and skips the installed application
+version check. An application with a stable explicit platform identity and an
+unreadable version register can also be repaired. A bootloader with no identity
+could be legacy FM or early CH32. Recovery from that state alone requires separate
+identification of the chip.
+
+The normal script requests a software reset when the application is responsive.
+Use `sudo bash PiSugarUpdate.sh --wait-reset` to choose a physical Reset instead.
+With the programmer itself, a physical Reset is the default. Start the command,
+confirm the power reminder, then press and release Reset when prompted. The
+programmer polls every 100 ms until the bootloader appears. Ctrl-C cancels the
+wait. Adding `-r` requests one software reset on an identified board and still
+allows a physical Reset if needed. Run `bash PiSugarUpdate.sh --check` to verify
+the downloads on a Pi without accessing the hardware.
 
 ```sh
 # Offline checks work on Linux and Windows and never open I2C.
@@ -52,11 +71,12 @@ are not firmware authentication or digital signatures.
 
 Install programmer 2.4.2 or newer on the Pi **before** updating its FM application.
 Public versions through 2.4.1 predate the unified package and platform checks.
-Successful, stable reads of PiSugar version 3, a recognized mode and eight zero
-bytes at `0x52–0x59` are the legacy FM response. NACKs and timeouts never count as
-an FM identity. The new FM application exposes an explicit identity. Its original
+The old FM application reports product 3, application mode, eight zero bytes at
+`0x52–0x59`, and a 16-byte serial field distinct from the early CH32 layout.
+The new FM application exposes an explicit identity. Its original
 bootloader still returns zeros; this transition is accepted only for the FM
-image already checked in that upgrade session. After the final application launch,
+image already checked in that upgrade session. Keep the same board connected
+through the reset and update. After the final application launch,
 an FM board can briefly return zero for its product and mode registers. The
 updater polls at 50 ms intervals for up to 100 identity checks. It reports success
 only after reading the expected platform identity and application mode.
