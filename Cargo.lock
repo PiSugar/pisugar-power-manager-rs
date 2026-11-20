@@ -1988,7 +1988,7 @@ dependencies = [
 
 [[package]]
 name = "pisugar-programmer"
-version = "2.4.2"
+version = "2.4.3"
 dependencies = [
  "clap 3.2.8",
  "crc32fast",

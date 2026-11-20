@@ -18,7 +18,7 @@ fn number(s: &str) -> Result<u16, String> {
 fn run() -> Result<(), String> {
     let args = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
-        .about("PiSugar 3 platform-checked OTA programmer")
+        .about("PiSugar 3 platform-checked OTA programmer; waits for a manual Reset by default (Ctrl-C to cancel)")
         .arg(Arg::new("debug").short('d').help("Display debug logs"))
         .arg(
             Arg::new("bus")
@@ -37,7 +37,7 @@ fn run() -> Result<(), String> {
         .arg(
             Arg::new("reset")
                 .short('r')
-                .help("Reset into bootloader only after platform and file validation"),
+                .help("Request one soft reset after platform and file validation, then wait for the bootloader"),
         )
         .arg(
             Arg::new("image")

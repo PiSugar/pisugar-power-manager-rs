@@ -135,6 +135,7 @@ impl Transport for Device {
                 }
                 self.mode
             }
+            0x10..=0x1f if self.mode == MODE_APP && (self.platform == Platform::Fm || register < 0x1c) => register,
             0x52..=0x59 => {
                 self.marker_override
                     .unwrap_or_else(|| if self.legacy { [0; 8] } else { marker(self.platform) })
@@ -307,7 +308,7 @@ fn application_handoff_refuses_an_unknown_marker_even_if_only_the_first_sample_i
 #[test]
 fn invalid_device_header_is_not_retried_before_reset_or_flash_writes() {
     for register in [0x00, 0x01] {
-        let mut bus = StartingApplication::new(register, 0, 1);
+        let mut bus = StartingApplication::new(register, 2, 1);
         bus.inject_before_launch = true;
         assert!(bus.update().is_err());
         assert_eq!((bus.device.writes, bus.device.commits, bus.device.waited), (0, 0, 0));
@@ -415,7 +416,11 @@ struct RamLink {
 impl RamLink {
     fn new(platform: Platform, faults: Vec<RamFault>) -> Self {
         Self {
-            device: Device::new(platform, MODE_BOOT, platform == Platform::Fm),
+            device: if platform == Platform::Fm {
+                Device::new(platform, MODE_APP, true)
+            } else {
+                Device::new(platform, MODE_BOOT, false)
+            },
             faults, injected: 0, starts: Vec::new(), waits_before_commit: Vec::new(),
         }
     }
@@ -653,15 +658,117 @@ fn busy_device_and_failure_to_start_have_bounded_timeouts() {
     }
 }
 
+/// Attach the target late, then reset it by hand after the former five-second
+/// timeout. Reject any data or command writes before its bootloader appears.
+struct DelayedTarget {
+    device: Device,
+    polls: usize,
+    reset_commands: usize,
+    unlocks: usize,
+    ready_at: usize,
+    writer_platform: Platform,
+}
+
+impl Transport for DelayedTarget {
+    fn read(&mut self, register: u8) -> Result<u8, String> {
+        match self.polls {
+            0..=59 => Err("NACK".into()),
+            60..=63 => Ok(0xff),
+            64..=67 if register == 1 => Ok(0),
+            _ => self.device.read(register),
+        }
+    }
+
+    fn write(&mut self, register: u8, value: u8) -> Result<(), String> {
+        if self.polls < self.ready_at {
+            assert!(self.polls >= 68 && self.device.mode == MODE_APP);
+            match (register, value) {
+                (0x0b, 0x29) => self.unlocks += 1,
+                (0x03, 0x80) => {
+                    self.reset_commands += 1;
+                    return Err("reset ACK lost".into());
+                }
+                pair => panic!("unexpected write before manual Reset: {:?}", pair),
+            }
+        }
+        self.device.write(register, value)
+    }
+
+    fn wait_ms(&mut self, milliseconds: u64) {
+        if self.polls < self.ready_at {
+            assert_eq!(milliseconds, 100);
+            self.polls += 1;
+            if self.polls == self.ready_at {
+                self.device.mode = MODE_BOOT;
+                self.device.platform = self.writer_platform;
+                self.device.legacy = self.writer_platform == Platform::Fm;
+            }
+        }
+        self.device.wait_ms(milliseconds);
+    }
+}
+
 #[test]
-fn reset_requires_r_and_identity_failure_never_writes() {
-    let image = firmware(Platform::Fm, Kind::Application, 1100);
-    let mut device = Device::new(Platform::Fm, MODE_APP, true);
-    assert!(protocol::upgrade(&mut device, &[image.clone()], Kind::Application, false).is_err());
-    assert_eq!(device.writes, 0);
-    device.bus_dead = true;
-    assert!(protocol::upgrade(&mut device, &[image], Kind::Application, true).is_err());
-    assert_eq!(device.writes, 0);
+fn late_target_waits_for_manual_reset_and_does_not_repeat_an_unacknowledged_soft_reset() {
+    for platform in [Platform::Fm, Platform::Ch32] {
+        for soft_reset in [false, true] {
+            let mut bus = DelayedTarget {
+                device: Device::new(platform, MODE_APP, platform == Platform::Fm),
+                polls: 0, reset_commands: 0, unlocks: 0, ready_at: 150, writer_platform: platform,
+            };
+            let image = firmware(platform, Kind::Application, 1100);
+            protocol::upgrade(&mut bus, std::slice::from_ref(&image), Kind::Application, soft_reset).unwrap();
+            assert_eq!(bus.polls, 150);
+            assert_eq!((bus.unlocks, bus.reset_commands), (soft_reset as usize, soft_reset as usize));
+            assert_eq!((bus.device.commits, bus.device.data_count), (3, 1536));
+            assert_eq!(&bus.device.flash[..image.bytes.len()], &image.bytes);
+        }
+    }
+}
+
+#[test]
+fn delayed_identified_ch_bootloader_accepts_a_direct_start_without_application_evidence() {
+    for soft_reset in [false, true] {
+        let mut bus = DelayedTarget {
+            device: Device::new(Platform::Ch32, MODE_BOOT, false),
+            polls: 0, reset_commands: 0, unlocks: 0, ready_at: 68, writer_platform: Platform::Ch32,
+        };
+        let image = firmware(Platform::Ch32, Kind::Application, 1100);
+        protocol::upgrade(&mut bus, &[image], Kind::Application, soft_reset).unwrap();
+        assert_eq!((bus.polls, bus.device.resets, bus.device.commits), (68, 0, 3));
+    }
+}
+
+#[test]
+fn manual_wait_never_reselects_another_platform_from_the_same_package() {
+    let images = [
+        firmware(Platform::Fm, Kind::Application, 1100),
+        firmware(Platform::Ch32, Kind::Application, 1100),
+    ];
+    let mut bus = DelayedTarget {
+        device: Device::new(Platform::Fm, MODE_APP, true),
+        polls: 0, reset_commands: 0, unlocks: 0, ready_at: 150, writer_platform: Platform::Ch32,
+    };
+    assert!(matches!(protocol::upgrade(&mut bus, &images, Kind::Application, false), Err(Error::Refused(_))));
+    assert_eq!((bus.polls, bus.device.writes, bus.device.commits), (150, 0, 0));
+}
+
+#[test]
+fn unmarked_boot_targets_and_zero_padded_ch_applications_never_select_fm_from_a_unified_package() {
+    let images = [
+        firmware(Platform::Fm, Kind::Application, 1100),
+        firmware(Platform::Ch32, Kind::Application, 1100),
+    ];
+    for mode in [MODE_BOOT, MODE_BOOTAPP, MODE_APP] {
+        for soft_reset in [false, true] {
+            let mut device = Device::new(Platform::Ch32, mode, true);
+            assert!(matches!(
+                protocol::upgrade(&mut device, &images, Kind::Application, soft_reset),
+                Err(Error::Refused(_))
+            ));
+            assert_eq!((device.writes, device.commits), (0, 0));
+        }
+    }
 }
 
 #[test]

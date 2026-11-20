@@ -1,5 +1,6 @@
 use crate::image::{Image, Kind, Platform};
 use std::fmt;
+use std::time::{Duration, Instant};
 
 pub const MODE_APP: u8 = 0x0f;
 pub const MODE_BOOT: u8 = 0xf0;
@@ -12,6 +13,7 @@ pub enum Error {
     TransientRam(String),
     Refused(String),
     InvalidDeviceHeader(&'static str),
+    NotReady,
     Transition,
     Timeout(&'static str),
 }
@@ -21,6 +23,7 @@ impl fmt::Display for Error {
             Self::Io(s) | Self::TransientRam(s) => write!(f, "I2C: {}", s),
             Self::Refused(s) => write!(f, "Refused: {}", s),
             Self::InvalidDeviceHeader(s) => write!(f, "Refused: {}", s),
+            Self::NotReady => write!(f, "PiSugar device registers are not ready"),
             Self::Transition => write!(f, "Device changed mode during identity sampling"),
             Self::Timeout(s) => write!(f, "Timed out: {}", s),
         }
@@ -48,11 +51,23 @@ pub struct Identity {
     pub legacy: bool,
 }
 
-fn snapshot<T: Transport>(bus: &mut T) -> Result<(u8, [u8; 8])> {
-    if bus.read(0x00).map_err(Error::Io)? != 3 {
-        return Err(Error::InvalidDeviceHeader("Device is not PiSugar 3"));
+#[derive(PartialEq, Eq)]
+struct Snapshot {
+    mode: u8,
+    marker: [u8; 8],
+    serial: Option<[u8; 16]>,
+}
+
+fn snapshot<T: Transport>(bus: &mut T) -> Result<Snapshot> {
+    match bus.read(0x00).map_err(Error::Io)? {
+        3 => {}
+        0 | 0xff => return Err(Error::NotReady),
+        _ => return Err(Error::InvalidDeviceHeader("Device is not PiSugar 3")),
     }
     let mode = bus.read(0x01).map_err(Error::Io)?;
+    if mode == 0 || mode == 0xff {
+        return Err(Error::NotReady);
+    }
     if ![MODE_APP, MODE_BOOT, MODE_BOOTAPP].contains(&mode) {
         return Err(Error::InvalidDeviceHeader("Unknown device mode"));
     }
@@ -60,28 +75,49 @@ fn snapshot<T: Transport>(bus: &mut T) -> Result<(u8, [u8; 8])> {
     for (n, byte) in marker.iter_mut().enumerate() {
         *byte = bus.read(0x52 + n as u8).map_err(Error::Io)?;
     }
+    let serial = if mode == MODE_APP && marker == [0; 8] {
+        let mut serial = [0; 16];
+        for (n, byte) in serial.iter_mut().enumerate() {
+            *byte = bus.read(0x10 + n as u8).map_err(Error::Io)?;
+        }
+        Some(serial)
+    } else {
+        None
+    };
     if bus.read(0x00).map_err(Error::Io)? != 3 {
-        return Err(Error::InvalidDeviceHeader("Device identity changed during sampling"));
+        return Err(Error::Transition);
     }
     if bus.read(0x01).map_err(Error::Io)? != mode {
         return Err(Error::Transition);
     }
-    Ok((mode, marker))
+    Ok(Snapshot { mode, marker, serial })
 }
 
 pub fn identify<T: Transport>(bus: &mut T) -> Result<Identity> {
+    identify_for_session(bus, false)
+}
+
+fn identify_for_session<T: Transport>(bus: &mut T, fm_app_seen: bool) -> Result<Identity> {
     let first = snapshot(bus)?;
     let second = snapshot(bus)?;
-    if first.0 != second.0 {
+    if first.mode != second.mode {
         return Err(Error::Transition);
     }
-    if first.1 != second.1 {
+    if first != second {
         return Err(Error::Refused("Device identity is not stable".into()));
     }
-    let (mode, marker) = first;
+    let Snapshot { mode, marker, serial } = first;
     if marker == [0; 8] {
-        // This is a successful read of the legacy FM response, not an I/O
-        // failure. Unmarked experimental CH boards must be migrated separately.
+        if let Some(serial) = serial {
+            // Early CH applications always zero-pad the final four UID bytes.
+            if serial[12..] == [0; 4] || serial[..12] == [0; 12] || serial[..12] == [0xff; 12] {
+                return Err(Error::Refused("Unmarked application with ambiguous serial number".into()));
+            }
+        } else if !fm_app_seen {
+            return Err(Error::Refused(
+                "Unmarked bootloader: no verified FM application in this session".into(),
+            ));
+        }
         return Ok(Identity {
             platform: Platform::Fm,
             mode,
@@ -135,13 +171,13 @@ fn reset<T: Transport>(bus: &mut T) -> Result<()> {
     bus.write(0x03, 0x80).map_err(Error::Io)
 }
 
-fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, require_marker: bool) -> Result<Identity> {
+fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, fm_app_seen: bool) -> Result<Identity> {
     for _ in 0..100 {
-        match identify(bus) {
+        match identify_for_session(bus, fm_app_seen) {
             Ok(identity) => {
                 target_matches(identity, image)?;
                 if identity.mode == expected {
-                    if require_marker && identity.legacy {
+                    if identity.legacy {
                         return Err(Error::Refused(
                             "Updated firmware did not expose its platform identity".into(),
                         ));
@@ -151,9 +187,8 @@ fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, require
             }
             Err(Error::Io(_)) => {} // Expected briefly during reset/CRC validation.
             Err(Error::Transition) => {}
-            // Only the read-only, final application handoff waits for registers
-            // 0x00/0x01 to initialize. Every pre-write check stays fail-closed.
-            Err(Error::InvalidDeviceHeader(_)) if expected == MODE_APP => {}
+            // The application register cache is briefly uninitialized on handoff.
+            Err(Error::NotReady | Error::InvalidDeviceHeader(_)) if expected == MODE_APP => {}
             Err(error) => return Err(error),
         }
         bus.wait_ms(50);
@@ -220,51 +255,91 @@ fn commit_block<T: Transport>(bus: &mut T) -> Result<()> {
     Err(Error::Timeout("waiting for Flash acknowledgement"))
 }
 
+fn select_image(candidates: &[Image], platform: Platform, requested: Kind) -> Result<&Image> {
+    let mut matches = candidates
+        .iter()
+        .filter(|image| image.platform == platform && image.kind == requested);
+    let image = matches.next().ok_or_else(|| {
+        Error::Refused(format!(
+            "No {} image for detected {}",
+            requested.name(),
+            platform.name()
+        ))
+    })?;
+    if matches.next().is_some() {
+        return Err(Error::Refused("Ambiguous firmware selection".into()));
+    }
+    Ok(image)
+}
+
+/// An unmarked FM bootloader cannot distinguish itself from an early CH32.
+/// Keep the FM application evidence within this single invocation.
+fn wait_for_writer<'a, T: Transport>(
+    bus: &mut T,
+    candidates: &'a [Image],
+    requested: Kind,
+    expected: u8,
+    allow_reset: bool,
+) -> Result<(&'a Image, bool)> {
+    let mut selected = None;
+    let mut fm_app_seen = false;
+    let mut reset_attempted = false;
+    let mut next_notice = Instant::now();
+    loop {
+        match identify_for_session(bus, fm_app_seen) {
+            Ok(identity) => {
+                let image = match selected {
+                    Some(image) => image,
+                    None => select_image(candidates, identity.platform, requested)?,
+                };
+                target_matches(identity, image)?;
+                selected = Some(image);
+                if identity.platform == Platform::Fm && identity.mode == MODE_APP {
+                    fm_app_seen = true;
+                }
+                if identity.mode == expected {
+                    return Ok((image, fm_app_seen));
+                }
+                if expected == MODE_BOOTAPP {
+                    return Err(Error::Refused(
+                        "Install and run the matching CH32 bootapp before updating its bootloader".into(),
+                    ));
+                }
+                if allow_reset && !reset_attempted {
+                    // A missing ACK may mean the reset already took effect.
+                    // From here to writer mode only read the device.
+                    reset_attempted = true;
+                    if let Err(error) = reset(bus) {
+                        log::warn!("Soft reset was not acknowledged: {}", error);
+                    }
+                }
+            }
+            Err(Error::Io(_) | Error::Transition | Error::NotReady) => {}
+            Err(error) => return Err(error),
+        }
+        let now = Instant::now();
+        if now >= next_notice {
+            log::info!("Waiting for PiSugar bootloader. Press Reset or Ctrl-C to cancel. 请按 Reset，或按 Ctrl-C 取消。");
+            next_notice = now + Duration::from_secs(5);
+        }
+        bus.wait_ms(100);
+    }
+}
+
 /// All candidates must already have been validated in memory by image::load.
-/// No firmware mutation occurs until platform/type and transition checks pass.
 pub fn upgrade<T: Transport>(
     bus: &mut T,
     candidates: &[Image],
     requested: Kind,
     allow_reset: bool,
 ) -> Result<Identity> {
-    let initial = identify(bus)?;
-    let mut matches = candidates
-        .iter()
-        .filter(|image| image.platform == initial.platform && image.kind == requested);
-    let image = matches.next().ok_or_else(|| {
-        Error::Refused(format!(
-            "No {} image for detected {}",
-            requested.name(),
-            initial.platform.name()
-        ))
-    })?;
-    if matches.next().is_some() {
-        return Err(Error::Refused("Ambiguous firmware selection".into()));
-    }
-    target_matches(initial, image)?;
     let expected = if requested == Kind::Bootloader {
         MODE_BOOTAPP
     } else {
         MODE_BOOT
     };
-    if initial.mode != expected {
-        if expected == MODE_BOOTAPP {
-            return Err(Error::Refused(
-                "Install and run the matching CH32 bootapp before updating its bootloader".into(),
-            ));
-        }
-        if !allow_reset {
-            return Err(Error::Refused(
-                "Application is running; use -r to enter bootloader after validation".into(),
-            ));
-        }
-        reset(bus)?;
-        wait_for_mode(bus, image, expected, false)?;
-    }
-    // Old FM bootloader has no identity field. Only the successful all-zero
-    // legacy response is accepted here, bound to the already validated FM image.
-    let before_write = identify(bus)?;
+    let (image, fm_app_seen) = wait_for_writer(bus, candidates, requested, expected, allow_reset)?;
+    let before_write = identify_for_session(bus, fm_app_seen)?;
     target_matches(before_write, image)?;
     if before_write.mode != expected {
         return Err(Error::Refused("Device left the upgrade mode before writing".into()));
@@ -273,7 +348,7 @@ pub fn upgrade<T: Transport>(
         let mut block = [0xff; BLOCK];
         block[..data.len()].copy_from_slice(data);
         send_block(bus, image.platform, (n * BLOCK) as u16, &block)?;
-        let at_commit = identify(bus)?;
+        let at_commit = identify_for_session(bus, fm_app_seen)?;
         target_matches(at_commit, image)?;
         if at_commit.mode != expected {
             return Err(Error::Refused("Device changed mode before Flash commit".into()));
@@ -301,9 +376,9 @@ pub fn upgrade<T: Transport>(
         // prove reset ran the newly written bootloader. Observe the intermediate
         // boot mode, then explicitly launch bootapp (identity reads extend the
         // bootloader's idle timeout, so polling must not wait for auto-jump).
-        wait_for_mode(bus, image, MODE_BOOT, true)?;
+        wait_for_mode(bus, image, MODE_BOOT, fm_app_seen)?;
         let _launch_result = bus.write(0xd0, 0x10);
         bus.wait_ms(50);
     }
-    wait_for_mode(bus, image, final_mode, true)
+    wait_for_mode(bus, image, final_mode, fm_app_seen)
 }
