@@ -51,6 +51,18 @@ pub struct Identity {
     pub legacy: bool,
 }
 
+impl fmt::Display for Identity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mode = match self.mode {
+            MODE_APP => "application",
+            MODE_BOOT => "bootloader",
+            MODE_BOOTAPP => "bootapp",
+            _ => "unknown mode",
+        };
+        write!(f, "{} {} (0x{:02X})", self.platform.name(), mode, self.mode)
+    }
+}
+
 #[derive(PartialEq, Eq)]
 struct Snapshot {
     mode: u8,
@@ -284,9 +296,17 @@ fn wait_for_writer<'a, T: Transport>(
     let mut selected = None;
     let mut fm_app_seen = false;
     let mut reset_attempted = false;
-    let mut next_notice = Instant::now();
+    let started = Instant::now();
+    let mut next_notice = started;
+    let mut probes = 0u64;
+    let mut io_errors = 0u64;
+    let mut not_ready = 0u64;
+    let mut transitions = 0u64;
+    let mut last_mode = None;
     loop {
-        match identify_for_session(bus, fm_app_seen) {
+        probes += 1;
+        let observation = identify_for_session(bus, fm_app_seen);
+        let first_seen = match observation {
             Ok(identity) => {
                 let image = match selected {
                     Some(image) => image,
@@ -298,6 +318,8 @@ fn wait_for_writer<'a, T: Transport>(
                     fm_app_seen = true;
                 }
                 if identity.mode == expected {
+                    log::info!("Detected {} after {} probes (I2C errors={}, not ready={}, mode changes during reads={})",
+                               identity, probes, io_errors, not_ready, transitions);
                     return Ok((image, fm_app_seen));
                 }
                 if expected == MODE_BOOTAPP {
@@ -313,13 +335,30 @@ fn wait_for_writer<'a, T: Transport>(
                         log::warn!("Soft reset was not acknowledged: {}", error);
                     }
                 }
+                last_mode.replace(identity.mode) != Some(identity.mode)
             }
-            Err(Error::Io(_) | Error::Transition | Error::NotReady) => {}
+            Err(Error::Io(_)) => {
+                io_errors += 1;
+                io_errors == 1
+            }
+            Err(Error::NotReady) => {
+                not_ready += 1;
+                not_ready == 1
+            }
+            Err(Error::Transition) => {
+                transitions += 1;
+                transitions == 1
+            }
             Err(error) => return Err(error),
-        }
+        };
         let now = Instant::now();
-        if now >= next_notice {
-            log::info!("Waiting for PiSugar bootloader. Press Reset or Ctrl-C to cancel. 请按 Reset，或按 Ctrl-C 取消。");
+        if first_seen || now >= next_notice {
+            let latest = match &observation {
+                Ok(identity) => identity as &dyn fmt::Display,
+                Err(error) => error,
+            };
+            log::info!("Waiting for PiSugar bootloader ({}s, {} probes). Latest: {}. I2C errors={}, not ready={}, mode changes during reads={}. Press Reset or Ctrl-C to cancel. 请按 Reset，或按 Ctrl-C 取消。",
+                       now.duration_since(started).as_secs(), probes, latest, io_errors, not_ready, transitions);
             next_notice = now + Duration::from_secs(5);
         }
         bus.wait_ms(100);

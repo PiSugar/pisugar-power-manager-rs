@@ -710,6 +710,7 @@ impl Transport for DelayedTarget {
 
 #[test]
 fn late_target_waits_for_manual_reset_and_does_not_repeat_an_unacknowledged_soft_reset() {
+    let _ = env_logger::builder().is_test(true).try_init();
     for platform in [Platform::Fm, Platform::Ch32] {
         for soft_reset in [false, true] {
             let mut bus = DelayedTarget {

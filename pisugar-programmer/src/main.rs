@@ -56,7 +56,7 @@ fn run() -> Result<(), String> {
             Arg::new("yes")
                 .long("yes")
                 .short('y')
-                .help("Skip interactive confirmation (all safety checks remain)"),
+                .help("Skip the power confirmation when waiting for a manual Reset"),
         )
         .arg(
             Arg::new("file")
@@ -122,7 +122,7 @@ fn hardware_upgrade(
     {
         return Err("Stop pisugar-server before upgrading: sudo systemctl stop pisugar-server".into());
     }
-    if !yes {
+    if !reset && !yes {
         println!("Keep a stable power supply connected throughout the update. Continue? [y/N]");
         let mut answer = String::new();
         io::stdin().read_line(&mut answer).map_err(|e| e.to_string())?;

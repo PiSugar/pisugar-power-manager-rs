@@ -1,15 +1,15 @@
-# PiSugar programmer 2.4.3
+# PiSugar programmer 2.4.4
 
 The programmer validates the complete firmware file before resetting the MCU or
 writing Flash. It supports FM33LC0x application migration and guarded CH32L103
 updates. Existing register meanings and `-b`, `-a`, `-r`, `-d` options are retained.
 
-The [programmer 2.4.3 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.3)
+The [programmer 2.4.4 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.4)
 provides Debian packages and standalone Linux executables for Raspberry Pi. The
 [PiSugar 3 update script](../scripts/PiSugarUpdate.sh) installs the native
 `pisugar-programmer` package on Raspberry Pi OS, replacing an older package at
 `/usr/bin/pisugar-programmer`. Other supported Linux installations use
-`/usr/local/bin/pisugar-programmer`. The script pins programmer 2.4.3. It
+`/usr/local/bin/pisugar-programmer`. The script pins programmer 2.4.4. It
 reuses the installed executable when its SHA-256 matches the release for the
 host architecture. On Raspberry Pi OS it also checks the installed Debian
 package version and architecture. A missing or older installation triggers a
@@ -109,8 +109,8 @@ sudo pisugar-programmer -r ch32-application.bin
 The bootapp and bootloader must both use the supported v2 format. Maintenance
 temporarily replaces the application. Bootloader interruption can require a
 hardware debugger; this tool does not promise rollback. FM maintenance is not
-enabled in this migration. `--yes` skips the interactive power reminder only;
-it does not bypass any file, platform or image-type check.
+enabled in this migration. Manual Reset mode asks for power confirmation unless
+you pass `-y` or `--yes`. Using `-r` skips this prompt automatically.
 
 After writing the CH32 bootloader, the tool must observe bootloader mode after
 reset before launching and confirming bootapp again. Seeing the pre-existing
