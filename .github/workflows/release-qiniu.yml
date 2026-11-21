@@ -74,7 +74,7 @@ jobs:
 
   refresh-cdn:
     name: Refresh and verify published CDN assets
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && !startsWith(inputs.tag, 'pisugar-programmer-v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -102,3 +102,19 @@ jobs:
           chmod +x qshell
           ./qshell account -w "$QINIU_AK" "$QINIU_SK" deploy-account
           bash ../scripts/verify-release-cdn.sh "$version" scripts/pisugar-power-manager.sh
+
+  sync-programmer:
+    if: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'pisugar-programmer-v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish and verify the tagged programmer and one-click update
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
+          QINIU_AK: ${{ secrets.QINIU_AK }}
+          QINIU_SK: ${{ secrets.QINIU_SK }}
+        run: bash scripts/sync-programmer-cdn.sh

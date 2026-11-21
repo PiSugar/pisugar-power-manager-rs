@@ -380,9 +380,9 @@ install_programmer() {
 main() {
     local mode=update target tool_sha binary_sha tool_bytes ota_url version action platform attempt decision detail prompt
     local reset_option=(-r)
-    local arch='' deb='' tool_file installed_tool asset tool_version=2.4.3
+    local arch='' deb='' tool_file installed_tool asset tool_version=2.4.4
     local package_version="$tool_version-1" expected_version="pisugar-programmer $tool_version"
-    local release="https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/pisugar-programmer-v$tool_version"
+    local release="https://cdn.pisugar.com/release/PiSugar3Firmware/programmer/v$tool_version"
     local ota_sha=f098d458b04e1294d3f78813d4686f10511ffe09e75cea1fb0349ff9a88d5c6d
     if (( $# == 1 )) && [[ "$1" == --check || "$1" == --install-only || "$1" == --wait-reset ]]; then
         mode=${1#--}
@@ -422,17 +422,17 @@ main() {
         arch=$(dpkg --print-architecture)
         case "$arch" in
             arm64)
-                tool_sha=28b6416dd882364d76b9fee82f5d1806b55e446284e76d496637fb069314ef49
-                binary_sha=3df42217ca5a5a7f8a7ff52640439a0bdf29034ae99742caf42478aae00679da
-                tool_bytes=1249604 ;;
+                tool_sha=bcbd6e1f918df6fdd8ebd0522c468541b12532dc7aee9ce9a3e7dd201077b1da
+                binary_sha=cb8a5564c078f172bd38b0e698666de870a6990afbe81dde0caea9dd81b3b506
+                tool_bytes=1250674 ;;
             armhf)
-                tool_sha=c263b644539a8ba6924daa54e70cf2c52a5262f3501c60c39a25ccfa8f3287f4
-                binary_sha=3f21e7cf432b5d19441a951d7d6a634f4b443bd10bf8f51f3b97d688f09f8289
-                tool_bytes=1099942 ;;
+                tool_sha=f883e5e845fa01358b0427144b133abd5d3b6bcc3cd8d9161feef9d241344ea8
+                binary_sha=54f31a65925fb1bfd30eab60a1a31e41bf8d09e8b3c857adb66e3b144c211a65
+                tool_bytes=1100740 ;;
             armel)
-                tool_sha=9540cd0ee48cd0c09993033d9676bdeb0f90709807c08f8de5e3981bf537981e
-                binary_sha=ef6e3bf25a57faa50601413cfbb281d1fb515f7057274f5db5f323da2b38dd9f
-                tool_bytes=1103232 ;;
+                tool_sha=98a9bf5a2571ffc967c6afcfb33231097bd9613c6f4fb1446e17a732a098b1ba
+                binary_sha=aa978404e3fb8d9352e7d89069aa1878830b9960c5bf546d7d5731ffa1a2df3f
+                tool_bytes=1103846 ;;
             *) echo "Unsupported Debian architecture: $arch" >&2; return 1 ;;
         esac
         asset="pisugar-programmer_${package_version}_${arch}.deb"
@@ -441,9 +441,9 @@ main() {
     else
         target=$(standalone_target)
         case "$target" in
-            aarch64-unknown-linux-musl) tool_sha=3df42217ca5a5a7f8a7ff52640439a0bdf29034ae99742caf42478aae00679da; tool_bytes=3712512 ;;
-            armv7-unknown-linux-musleabihf) tool_sha=fd3d9f4674b672456d130db25146634fcde33f4359c8d05e23f7a18100fd3559; tool_bytes=3057508 ;;
-            arm-unknown-linux-musleabi) tool_sha=ef6e3bf25a57faa50601413cfbb281d1fb515f7057274f5db5f323da2b38dd9f; tool_bytes=3113892 ;;
+            aarch64-unknown-linux-musl) tool_sha=cb8a5564c078f172bd38b0e698666de870a6990afbe81dde0caea9dd81b3b506; tool_bytes=3714632 ;;
+            armv7-unknown-linux-musleabihf) tool_sha=c05a64e1ddaabaae6ef8baca6a7594d3a73296dd40c07acda0f90acda4ff09c0; tool_bytes=3059464 ;;
+            arm-unknown-linux-musleabi) tool_sha=aa978404e3fb8d9352e7d89069aa1878830b9960c5bf546d7d5731ffa1a2df3f; tool_bytes=3115676 ;;
         esac
         binary_sha=$tool_sha
         installed_tool=/usr/local/bin/pisugar-programmer
