@@ -2,8 +2,11 @@
 set -euo pipefail
 [[ "$RELEASE_TAG" =~ ^pisugar-programmer-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
 version=${BASH_REMATCH[1]}
-[[ "$GITHUB_REF" == "refs/tags/$RELEASE_TAG" ]]
-installer="$PWD/scripts/PiSugarUpdate.sh"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+git fetch --no-tags --depth=1 origin "refs/tags/$RELEASE_TAG"
+installer="$work/PiSugarUpdate.sh"
+git show FETCH_HEAD:scripts/PiSugarUpdate.sh > "$installer"
 grep -Fq " tool_version=$version" "$installer"
 fw_url=$(sed -n 's/^    ota_url=//p' "$installer")
 fw_sha=$(sed -n 's/^    local ota_sha=//p' "$installer")
@@ -11,14 +14,13 @@ fw_sha=$(sed -n 's/^    local ota_sha=//p' "$installer")
 fw_dir=${BASH_REMATCH[1]}
 fw_tag=${BASH_REMATCH[2]}
 tool_dir=release/PiSugar3Firmware/programmer/v$version
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
 cd "$work"
 mkdir tools fw
 gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir tools
 (cd tools && sha256sum -c SHA256SUMS && sha256sum -c SHA256SUMS-deb)
 cmp "$installer" tools/PiSugarUpdate.sh
-gh release download "$fw_tag" --repo PiSugar/pisugar-3-firmware --pattern pisugar-3-ota.zip --dir fw
+# The existing OTA ZIP is public on the CDN. The tagged installer pins its hash.
+curl -fsSL --retry 3 "$fw_url" -o fw/pisugar-3-ota.zip
 (cd fw && echo "$fw_sha  pisugar-3-ota.zip" | sha256sum -c - && unzip -jo pisugar-3-ota.zip 'pisugar-3-*-application.bin')
 test -s fw/pisugar-3-fm33lc0x-application.bin
 test -s fw/pisugar-3-ch32l103-application.bin
