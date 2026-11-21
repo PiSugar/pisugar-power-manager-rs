@@ -6,6 +6,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 git fetch --no-tags --depth=1 origin "refs/tags/$RELEASE_TAG"
 installer="$work/PiSugarUpdate.sh"
+manager_installer="$PWD/scripts/pisugar-power-manager.sh"
 git show FETCH_HEAD:scripts/PiSugarUpdate.sh > "$installer"
 grep -Fq " tool_version=$version" "$installer"
 fw_url=$(sed -n 's/^    ota_url=//p' "$installer")
@@ -57,4 +58,5 @@ verify
 : > verify.tsv
 publish "$installer" "$fw_dir/PiSugarUpdate.sh" text/plain
 publish "$installer" release/PiSugarUpdate.sh text/plain
+publish "$manager_installer" release/pisugar-power-manager.sh text/plain
 verify
