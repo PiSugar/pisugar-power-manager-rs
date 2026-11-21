@@ -1,0 +1,30 @@
+name: Programmer OTA safety
+
+on:
+  pull_request:
+    paths:
+      - 'pisugar-programmer/**'
+      - 'Cargo.lock'
+      - '.github/workflows/programmer-safety.yml'
+  push:
+    paths:
+      - 'pisugar-programmer/**'
+      - 'Cargo.lock'
+      - '.github/workflows/programmer-safety.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Use crates.io on the hosted runner
+        run: sed -i '/^[[:space:]]*replace-with[[:space:]]*=/d' .cargo/config.toml
+      - name: Test file validation and simulated I2C upgrades
+        run: cargo test --locked -p pisugar-programmer
+      - name: Check Linux I2C executable
+        run: cargo check --locked -p pisugar-programmer --all-targets

@@ -48,11 +48,21 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('pisugar-poweroff/model select PiSugar 2 Pro', log)
         self.assertIn('apt:noninteractive:install -y /tmp/', log)
         self.assertNotIn('dpkg:-r', log)
+        self.assertIn('https://cdn.pisugar.com/release/PiSugarUpdate.sh', log)
+        self.assertNotIn('pisugar-programmer_2.4.1-1_arm64.deb', log)
 
     def test_no_model_preserves_answers(self):
         result = self.run_installer('--non-interactive')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn('/model select', self.log.read_text())
+
+    def test_default_arm_programmer_install_cannot_start_firmware_update(self):
+        self.stub('wget', '''if [ "${2##*/}" = PiSugarUpdate.sh ]; then
+            printf '%s\n' 'echo "updater:$*" >> "$LOG"' 'test "$#" = 1 && test "$1" = --install-only' > "$2"
+        else touch "$2"; fi''')
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('updater:--install-only', self.log.read_text())
 
     def test_interactive_terminal(self):
         master, slave = pty.openpty()
@@ -76,6 +86,7 @@ class InstallerTests(unittest.TestCase):
         result = self.run_installer('-v', '1.7.5')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('pisugar-server_1.7.5_arm64.deb', self.log.read_text())
+        self.assertIn('pisugar-programmer_1.7.5_arm64.deb', self.log.read_text())
 
     def test_reject_invalid_options_before_changes(self):
         for args in [('--model', 'unknown'), ('--type', 'zip'), ('--channel', 'bad'),

@@ -59,7 +59,13 @@ Troubleshooting:
     Stop pisugar-server and upgrade pisugar3
 
         sudo systemctl stop pisugar-server
-        pisugar-programmer -r --addr 0x57 --file pisugar-3-application.bin
+        sudo pisugar-programmer -r -a 0x57 pisugar-3-ota.zip
+
+    Install programmer 2.4.2 or newer before migrating an existing FM application. It
+    validates the complete package and selects the platform before reset/write.
+    The old `pisugar-3-application.bin` filename remains FM-only. CH32 factory
+    images are not application OTA inputs. See the [programmer migration and
+    maintenance guide](../pisugar-programmer/README.md).
 
 ## Write protection
 

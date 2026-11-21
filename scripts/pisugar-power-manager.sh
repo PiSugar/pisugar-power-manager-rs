@@ -4,6 +4,7 @@ set -o pipefail
 
 # version
 version=2.4.1
+explicit_version=false
 
 # channel: nightly or release
 channel=release
@@ -81,6 +82,7 @@ do
             ;;
         -v|--version)
             shift && version=$1
+            explicit_version=true
             ;;
         -c|--channel)
             shift && channel=$1
@@ -201,14 +203,25 @@ trap cleanup EXIT
 $echo -e "\033[1;34mDownload PiSugar-server and PiSugar-poweroff package \033[0m"
 wget -O "$TEMPDIR/${package_server}" "https://cdn.pisugar.com/${channel}/${package_server}"
 wget -O "$TEMPDIR/${package_poweroff}" "https://cdn.pisugar.com/${channel}/${package_poweroff}"
-wget -O "$TEMPDIR/${package_programmer}" "https://cdn.pisugar.com/${channel}/${package_programmer}"
+packages=("$TEMPDIR/${package_server}" "$TEMPDIR/${package_poweroff}")
+case "$type/$channel/$explicit_version/${arch_deb:-}" in
+    deb/release/false/arm64|deb/release/false/armhf|deb/release/false/armel)
+        # The Pi programmer has its own release cycle and verified install cache.
+        wget -O "$TEMPDIR/PiSugarUpdate.sh" https://cdn.pisugar.com/release/PiSugarUpdate.sh
+        sudo bash "$TEMPDIR/PiSugarUpdate.sh" --install-only
+        ;;
+    *)
+        wget -O "$TEMPDIR/${package_programmer}" "https://cdn.pisugar.com/${channel}/${package_programmer}"
+        packages+=("$TEMPDIR/${package_programmer}")
+        ;;
+esac
 
 
 $echo -e "\033[1;34mOpen I2C Interface \033[0m"
 enable_i2c
 
 $echo -e "\033[1;34mInstall packages\033[0m"
-install_pkgs "$TEMPDIR/${package_server}" "$TEMPDIR/${package_poweroff}" "$TEMPDIR/${package_programmer}"
+install_pkgs "${packages[@]}"
 
 $echo -e "\033[1;34mClean up \033[0m"
 rm -f "$TEMPDIR/${package_server}"
