@@ -14,6 +14,7 @@ pub enum Error {
     Refused(String),
     InvalidDeviceHeader(&'static str),
     NotReady,
+    UnmarkedBootloader,
     Transition,
     Timeout(&'static str),
 }
@@ -24,6 +25,7 @@ impl fmt::Display for Error {
             Self::Refused(s) => write!(f, "Refused: {}", s),
             Self::InvalidDeviceHeader(s) => write!(f, "Refused: {}", s),
             Self::NotReady => write!(f, "PiSugar device registers are not ready"),
+            Self::UnmarkedBootloader => write!(f, "Bootloader 0xF0 has no platform marker"),
             Self::Transition => write!(f, "Device changed mode during identity sampling"),
             Self::Timeout(s) => write!(f, "Timed out: {}", s),
         }
@@ -129,9 +131,11 @@ fn identify_for_session<T: Transport>(bus: &mut T, unmarked_writer: Option<Platf
         let platform = if mode == MODE_APP {
             Platform::Fm
         } else {
-            unmarked_writer.ok_or_else(|| Error::Refused(
-                "Unmarked bootloader: no verified platform in this session. For recovery, verify the physical MCU and use --force-platform.".into()
-            ))?
+            unmarked_writer.ok_or_else(|| if mode == MODE_BOOT {
+                Error::UnmarkedBootloader
+            } else {
+                Error::Refused("Unmarked bootapp has no verified platform".into())
+            })?
         };
         return Ok(Identity {
             platform,
@@ -316,8 +320,40 @@ fn select_image(candidates: &[Image], platform: Platform, requested: Kind) -> Re
     Ok(image)
 }
 
-/// An unmarked FM bootloader cannot distinguish itself from an early CH32.
-/// Keep the FM application evidence within this single invocation.
+fn require_unmarked_bootloader<T: Transport>(bus: &mut T) -> Result<()> {
+    match identify(bus) {
+        Err(Error::UnmarkedBootloader) => Ok(()),
+        Err(error) => Err(error),
+        Ok(_) => Err(Error::Refused("Bootloader identity changed during RAM probe".into())),
+    }
+}
+
+/// FM preserves its staging bytes when the segment low byte changes. The early
+/// unmarked CH32 clears the entire buffer to FF on that same register write.
+/// Use only staging registers here. The caller restages the image from byte zero.
+fn probe_legacy_fm<T: Transport>(bus: &mut T) -> Result<()> {
+    wait_flash_idle(bus)?;
+    for pattern in [[0x39, 0xa6], [0xc6, 0x59]] {
+        require_unmarked_bootloader(bus)?;
+        write_pair(bus, 0xd1, 0)?;
+        write_pair(bus, 0xd3, u16::MAX)?;
+        for byte in pattern.iter().copied() {
+            if bus.exchange_ram_byte(byte)? != byte {
+                return Err(Error::Refused("Bootloader RAM probe write did not echo; Flash untouched".into()));
+            }
+        }
+        let other_segment = 0x10;
+        write_pair(bus, 0xd1, other_segment)?;
+        for (index, &byte) in pattern.iter().enumerate() {
+            write_pair(bus, 0xd3, other_segment + index as u16)?;
+            if bus.read(0xdd).map_err(Error::Io)? != byte {
+                return Err(Error::Refused("Bootloader did not retain the legacy FM RAM signature; Flash untouched".into()));
+            }
+        }
+    }
+    require_unmarked_bootloader(bus)
+}
+
 fn wait_for_writer<'a, T: Transport>(
     bus: &mut T,
     candidates: &'a [Image],
@@ -337,7 +373,16 @@ fn wait_for_writer<'a, T: Transport>(
     let mut last_mode = None;
     loop {
         probes += 1;
-        let observation = identify_for_session(bus, unmarked_writer);
+        let observation = match identify_for_session(bus, unmarked_writer) {
+            Err(Error::UnmarkedBootloader) if selected.is_none() && requested == Kind::Application => {
+                let image = select_image(candidates, Platform::Fm, Kind::Application)?;
+                log::info!("Unmarked bootloader detected. Checking its staging RAM before selecting firmware.");
+                probe_legacy_fm(bus)?;
+                log::info!("Identified legacy FM33LC0x bootloader by RAM readback; restarting the application update from byte zero");
+                return Ok((image, Some(Platform::Fm)));
+            }
+            other => other,
+        };
         let first_seen = match observation {
             Ok(identity) => {
                 let image = match selected {
@@ -472,7 +517,7 @@ fn program_image<T: Transport>(bus: &mut T, image: &Image, expected: u8, unmarke
         if let Err(error) = commit_block(bus, image, expected, unmarked_writer, offset) {
             log::error!("Flash commit at image offset 0x{:04x} was not confirmed: {}. Stopping without resending the erase/write command.", offset, error);
             if image.kind == Kind::Application {
-                log::error!("Keep power connected. If the board stays in 0xF0, verify the MCU marking, stop pisugar-server and restart from byte zero: pisugar-programmer --force-platform {} <matching-application.bin-or-ota.zip> (retain your I2C bus/address options).", image.platform.name());
+                log::error!("Keep power connected and run the same updater again. It will recheck the bootloader and restart the application from byte zero.");
             }
             return Err(error);
         }

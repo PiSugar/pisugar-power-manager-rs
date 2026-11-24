@@ -191,7 +191,9 @@ impl Transport for Device {
             0xd1 => self.segment = (self.segment & 0xff) | ((value as u16) << 8),
             0xd2 => {
                 self.segment = (self.segment & 0xff00) | value as u16;
-                self.buffer = [0xff; 512];
+                if self.platform == Platform::Ch32 {
+                    self.buffer = [0xff; 512];
+                }
             }
             0xd3 => self.position = (self.position & 0xff) | ((value as u16) << 8),
             0xd4 => self.position = (self.position & 0xff00) | value as u16,
@@ -697,6 +699,43 @@ fn lost_flash_ack_with_observed_busy_then_done_commits_each_block_once() {
 }
 
 #[test]
+fn fresh_unmarked_fm_boot_selects_fm_from_both_images_without_reset() {
+    let images = [
+        firmware(Platform::Ch32, Kind::Application, 1100),
+        firmware(Platform::Fm, Kind::Application, 17700),
+    ];
+    let mut device = Device::new(Platform::Fm, MODE_BOOT, true);
+    device.buffer = [0x26; 512];
+    let result = protocol::upgrade(&mut device, &images, Kind::Application, true).unwrap();
+    assert_eq!((result.platform, result.mode, device.resets), (Platform::Fm, MODE_APP, 0));
+    assert_eq!(&device.flash[..17700], &images[1].bytes);
+}
+
+#[test]
+fn unmarked_writer_probe_refuses_a_changed_identity_or_unconfirmed_segment() {
+    struct ProbeFault { device: Device, change_marker: bool }
+    impl Transport for ProbeFault {
+        fn read(&mut self, reg: u8) -> Result<u8, String> {
+            if self.device.data_count == 2 {
+                if self.change_marker {
+                    self.device.marker_override = Some(marker(Platform::Ch32));
+                } else if reg == 0xd2 {
+                    return Ok(0);
+                }
+            }
+            self.device.read(reg)
+        }
+        fn write(&mut self, reg: u8, value: u8) -> Result<(), String> { self.device.write(reg, value) }
+        fn wait_ms(&mut self, _: u64) {}
+    }
+    for change_marker in [true, false] {
+        let mut bus = ProbeFault { device: Device::new(Platform::Fm, MODE_BOOT, true), change_marker };
+        assert!(protocol::upgrade(&mut bus, &[firmware(Platform::Fm, Kind::Application, 1100)], Kind::Application, true).is_err());
+        assert_eq!((bus.device.data_count, bus.device.commits, bus.device.resets), (2, 0, 0));
+    }
+}
+
+#[test]
 fn partial_fm_update_in_unmarked_bootloader_can_restart_from_zero_after_unknown_commit() {
     let image = firmware(Platform::Fm, Kind::Application, 17700);
     let mut device = Device::new(Platform::Fm, MODE_APP, true);
@@ -704,10 +743,7 @@ fn partial_fm_update_in_unmarked_bootloader_can_restart_from_zero_after_unknown_
     let images = std::slice::from_ref(&image);
     assert!(matches!(protocol::upgrade(&mut device, images, Kind::Application, true), Err(Error::Timeout(_))));
     assert_eq!((device.commits, device.mode, device.legacy), (33, MODE_BOOT, true));
-    let writes = device.writes;
-    assert!(matches!(protocol::upgrade(&mut device, images, Kind::Application, false), Err(Error::Refused(_))));
-    assert_eq!(device.writes, writes);
-    let result = protocol::recover_application(&mut device, images, Platform::Fm).unwrap();
+    let result = protocol::upgrade(&mut device, images, Kind::Application, false).unwrap();
     assert_eq!((result.mode, result.platform, result.legacy), (MODE_APP, Platform::Fm, false));
     assert_eq!(device.commits, 33 + 35);
     assert_eq!(&device.flash[..image.bytes.len()], &image.bytes);
@@ -860,7 +896,12 @@ fn unmarked_boot_targets_and_zero_padded_ch_applications_never_select_fm_from_a_
                 protocol::upgrade(&mut device, &images, Kind::Application, soft_reset),
                 Err(Error::Refused(_))
             ));
-            assert_eq!((device.writes, device.commits), (0, 0));
+            assert_eq!((device.resets, device.commits, device.mode), (0, 0, mode));
+            if mode == MODE_BOOT {
+                assert_eq!(device.data_count, 2);
+            } else {
+                assert_eq!(device.writes, 0);
+            }
         }
     }
 }

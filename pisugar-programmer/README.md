@@ -1,15 +1,15 @@
-# PiSugar programmer 2.4.4
+# PiSugar programmer 2.4.5
 
 The programmer validates the complete firmware file before resetting the MCU or
 writing Flash. It supports FM33LC0x application migration and guarded CH32L103
 updates. Existing register meanings and `-b`, `-a`, `-r`, `-d` options are retained.
 
-The [programmer 2.4.4 release](https://github.com/PiSugar/pisugar-power-manager-rs/releases/tag/pisugar-programmer-v2.4.4)
-provides Debian packages and standalone Linux executables for Raspberry Pi. The
+[Programmer releases](https://github.com/PiSugar/pisugar-power-manager-rs/releases)
+provide Debian packages and standalone Linux executables for Raspberry Pi. The
 [PiSugar 3 update script](../scripts/PiSugarUpdate.sh) installs the native
 `pisugar-programmer` package on Raspberry Pi OS, replacing an older package at
 `/usr/bin/pisugar-programmer`. Other supported Linux installations use
-`/usr/local/bin/pisugar-programmer`. The script pins programmer 2.4.4. It
+`/usr/local/bin/pisugar-programmer`. The script pins programmer 2.4.5. It
 reuses the installed executable when its SHA-256 matches the release for the
 host architecture. On Raspberry Pi OS it also checks the installed Debian
 package version and architecture. A missing or older installation triggers a
@@ -41,9 +41,9 @@ Press and release the PiSugar Reset button when prompted. A supported CH32
 bootloader or bootapp can identify the chip even when the application cannot
 start. Recovery then uses the verified platform and skips the installed application
 version check. An application with a stable explicit platform identity and an
-unreadable version register can also be repaired. A bootloader with no identity
-could be legacy FM or early CH32. Recovery from that state alone requires separate
-identification of the chip.
+unreadable version register can also be repaired. When an interrupted update leaves an unmarked bootloader at 03 F0, rerun the
+same script. The programmer checks for legacy FM staging-RAM behavior before
+writing a fresh copy of the application from offset zero.
 
 The normal script requests a software reset when the application is responsive.
 Use `sudo bash PiSugarUpdate.sh --wait-reset` to choose a physical Reset instead.
@@ -78,8 +78,8 @@ Public versions through 2.4.1 predate the unified package and platform checks.
 The old FM application reports product 3, application mode, eight zero bytes at
 `0x52–0x59`, and a 16-byte serial field distinct from the early CH32 layout.
 The new FM application exposes an explicit identity. Its original
-bootloader still returns zeros; this transition is accepted only for the FM
-image already checked in that upgrade session. Keep the same board connected
+bootloader still returns zeros; the programmer uses the FM identity seen before reset or,
+in a fresh process, the staging-RAM check described below. Keep the same board connected
 through the reset and update. After the final application launch,
 an FM board can briefly return zero for its product and mode registers. The
 updater polls at 50 ms intervals for up to 100 identity checks. It reports success
@@ -143,14 +143,21 @@ Flash erase/write is issued once per block after observing an idle writer.
 If the command ACK is lost, the programmer polls status. An observed busy-to-idle
 transition with a clear error bit confirms completion after rechecking the writer
 and segment. An idle response alone is ambiguous. If completion cannot be
-confirmed, the tool stops at that offset and prints the recovery command.
+confirmed, the tool reports the offset. Rerun the normal updater with power connected.
 
 ### Recover an application from an unmarked bootloader
 
-Keep both devices powered. Verify the MCU marking on the physical board:
-legacy FM and early CH32 can both report product `03`, mode `F0`, and an
-all-zero platform marker. In this state a checksum identifies the file only.
-With the ordinary server stopped, select the verified family explicitly:
+Keep both devices powered and run the normal updater again. A fresh process can
+recognize a legacy FM writer with no working application. After two matching
+reads of product `03`, mode `F0` and an all-zero marker, it checks idle status,
+writes a pair of bytes to staging RAM, switches the segment low byte and
+reads the same relative positions. It repeats with different bytes. Legacy FM
+retains both pairs. Early CH32 clears the buffer on each segment change. A
+mismatch stops the update before any Flash command. A matching FM writer gets
+the normal validated FM application and must report its platform after restart.
+
+For manual recovery on a physically identified board whose writer cannot be
+identified automatically, an explicit override is available:
 
 ```sh
 sudo systemctl stop pisugar-server
