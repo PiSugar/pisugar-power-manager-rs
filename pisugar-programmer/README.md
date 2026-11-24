@@ -42,8 +42,8 @@ bootloader or bootapp can identify the chip even when the application cannot
 start. Recovery then uses the verified platform and skips the installed application
 version check. An application with a stable explicit platform identity and an
 unreadable version register can also be repaired. When an interrupted update leaves an unmarked bootloader at 03 F0, rerun the
-same script. The programmer checks for legacy FM staging-RAM behavior before
-writing a fresh copy of the application from offset zero.
+same script. Two stable all-zero platform marker reads identify the legacy FM bootloader.
+The programmer writes the FM application from offset zero.
 
 The normal script requests a software reset when the application is responsive.
 Use `sudo bash PiSugarUpdate.sh --wait-reset` to choose a physical Reset instead.
@@ -78,8 +78,8 @@ Public versions through 2.4.1 predate the unified package and platform checks.
 The old FM application reports product 3, application mode, eight zero bytes at
 `0x52–0x59`, and a 16-byte serial field distinct from the early CH32 layout.
 The new FM application exposes an explicit identity. Its original
-bootloader still returns zeros; the programmer uses the FM identity seen before reset or,
-in a fresh process, the staging-RAM check described below. Keep the same board connected
+bootloader still returns an all-zero platform marker. A new programmer process
+can recognize it directly in bootloader mode. Keep the same board connected
 through the reset and update. After the final application launch,
 an FM board can briefly return zero for its product and mode registers. The
 updater polls at 50 ms intervals for up to 100 identity checks. It reports success
@@ -92,9 +92,8 @@ FM bootloader. Do not replace existing FM-only download URLs with CH32 binaries.
 ## CH32 devices
 
 Automatic CH32 updates require the explicit identity in application, bootloader and bootapp
-mode. The bootloader identity must advertise guarded OTA before writing. A new
-application on an old, unmarked bootloader is refused. Earlier experimental CH32
-boards without identity require physical MCU identification for application recovery.
+mode. The bootloader identity must advertise guarded OTA before writing. These rules describe production boards. If the updater sees a CH32 application,
+it keeps the CH32 image selected and requires CH32 identity after reset.
 
 Normal operation updates only `application`. CH32 bootloader maintenance needs
 explicit image types and a stable power supply:
@@ -149,12 +148,11 @@ confirmed, the tool reports the offset. Rerun the normal updater with power conn
 
 Keep both devices powered and run the normal updater again. A fresh process can
 recognize a legacy FM writer with no working application. After two matching
-reads of product `03`, mode `F0` and an all-zero marker, it checks idle status,
-writes a pair of bytes to staging RAM, switches the segment low byte and
-reads the same relative positions. It repeats with different bytes. Legacy FM
-retains both pairs. Early CH32 clears the buffer on each segment change. A
-mismatch stops the update before any Flash command. A matching FM writer gets
-the normal validated FM application and must report its platform after restart.
+reads of product `03`, mode `F0` and eight zero bytes at `0x52–0x59`, the
+updater selects the FM application. Production CH32 bootloaders return their
+CH32 PSID at those registers. Failed reads, conflicting identities and malformed
+markers cannot select the FM image. After restart the new application must
+report the expected platform.
 
 For manual recovery on a physically identified board whose writer cannot be
 identified automatically, an explicit override is available:

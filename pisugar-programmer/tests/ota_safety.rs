@@ -712,26 +712,14 @@ fn fresh_unmarked_fm_boot_selects_fm_from_both_images_without_reset() {
 }
 
 #[test]
-fn unmarked_writer_probe_refuses_a_changed_identity_or_unconfirmed_segment() {
-    struct ProbeFault { device: Device, change_marker: bool }
-    impl Transport for ProbeFault {
-        fn read(&mut self, reg: u8) -> Result<u8, String> {
-            if self.device.data_count == 2 {
-                if self.change_marker {
-                    self.device.marker_override = Some(marker(Platform::Ch32));
-                } else if reg == 0xd2 {
-                    return Ok(0);
-                }
-            }
-            self.device.read(reg)
-        }
-        fn write(&mut self, reg: u8, value: u8) -> Result<(), String> { self.device.write(reg, value) }
-        fn wait_ms(&mut self, _: u64) {}
-    }
-    for change_marker in [true, false] {
-        let mut bus = ProbeFault { device: Device::new(Platform::Fm, MODE_BOOT, true), change_marker };
-        assert!(protocol::upgrade(&mut bus, &[firmware(Platform::Fm, Kind::Application, 1100)], Kind::Application, true).is_err());
-        assert_eq!((bus.device.data_count, bus.device.commits, bus.device.resets), (2, 0, 0));
+fn production_bootloader_identity_is_read_only_and_requires_successful_reads() {
+    for (platform, legacy) in [(Platform::Fm, true), (Platform::Ch32, false)] {
+        let mut device = Device::new(platform, MODE_BOOT, legacy);
+        let identity = protocol::identify(&mut device).unwrap();
+        assert_eq!((identity.platform, identity.mode, identity.legacy), (platform, MODE_BOOT, legacy));
+        device.identity_error = true;
+        assert!(matches!(protocol::identify(&mut device), Err(Error::Io(_))));
+        assert_eq!(device.writes, 0);
     }
 }
 
@@ -884,12 +872,12 @@ fn manual_wait_never_reselects_another_platform_from_the_same_package() {
 }
 
 #[test]
-fn unmarked_boot_targets_and_zero_padded_ch_applications_never_select_fm_from_a_unified_package() {
+fn unmarked_bootapps_and_zero_padded_ch_applications_never_select_fm_from_a_unified_package() {
     let images = [
         firmware(Platform::Fm, Kind::Application, 1100),
         firmware(Platform::Ch32, Kind::Application, 1100),
     ];
-    for mode in [MODE_BOOT, MODE_BOOTAPP, MODE_APP] {
+    for mode in [MODE_BOOTAPP, MODE_APP] {
         for soft_reset in [false, true] {
             let mut device = Device::new(Platform::Ch32, mode, true);
             assert!(matches!(
@@ -897,11 +885,7 @@ fn unmarked_boot_targets_and_zero_padded_ch_applications_never_select_fm_from_a_
                 Err(Error::Refused(_))
             ));
             assert_eq!((device.resets, device.commits, device.mode), (0, 0, mode));
-            if mode == MODE_BOOT {
-                assert_eq!(device.data_count, 2);
-            } else {
-                assert_eq!(device.writes, 0);
-            }
+            assert_eq!(device.writes, 0);
         }
     }
 }
