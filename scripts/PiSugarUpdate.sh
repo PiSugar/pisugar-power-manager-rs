@@ -171,8 +171,13 @@ def decide(read):
         raise ValueError("Inconsistent platform, serial or firmware version.")
     mode, marker, serial, raw = first
     if marker == bytes(8):
+        if mode == 0xf0:
+            # This names the candidate image only. The programmer must independently
+            # prove FM staging-RAM behavior before it can commit the first block.
+            print("Unmarked bootloader found. Checking for the legacy FM writer.", file=sys.stderr)
+            return "probe fm33lc0x bootloader"
         if mode != 0x0f:
-            raise ValueError("Unmarked bootloader: legacy FM and early CH32 look alike here. Verify the MCU on the board before recovery.")
+            raise ValueError("Cannot identify an unmarked bootapp.")
         if serial[-4:] == bytes(4) or serial[:12] in (bytes(12), b"\xff" * 12):
             raise ValueError("Unmarked board with an ambiguous serial number; verify the MCU before updating.")
         platform = "fm33lc0x"
@@ -380,7 +385,7 @@ install_programmer() {
 main() {
     local mode=update target tool_sha binary_sha tool_bytes ota_url version action platform attempt decision detail prompt
     local reset_option=(-r)
-    local arch='' deb='' tool_file installed_tool asset tool_version=2.4.4
+    local arch='' deb='' tool_file installed_tool asset tool_version=2.4.5
     local package_version="$tool_version-1" expected_version="pisugar-programmer $tool_version"
     local release="https://cdn.pisugar.com/release/PiSugar3Firmware/programmer/v$tool_version"
     local ota_sha=f098d458b04e1294d3f78813d4686f10511ffe09e75cea1fb0349ff9a88d5c6d
@@ -422,17 +427,17 @@ main() {
         arch=$(dpkg --print-architecture)
         case "$arch" in
             arm64)
-                tool_sha=bcbd6e1f918df6fdd8ebd0522c468541b12532dc7aee9ce9a3e7dd201077b1da
-                binary_sha=cb8a5564c078f172bd38b0e698666de870a6990afbe81dde0caea9dd81b3b506
-                tool_bytes=1250674 ;;
+                tool_sha=971c24d5a5519d2c2e9b6d380c32f5558cebfd01002cc7996173f6865f5f0958
+                binary_sha=46f52e1cb20ee250b8575972a11e3479c9dd4143c5af0ae5910d8f520f7556c3
+                tool_bytes=1256094 ;;
             armhf)
-                tool_sha=f883e5e845fa01358b0427144b133abd5d3b6bcc3cd8d9161feef9d241344ea8
-                binary_sha=54f31a65925fb1bfd30eab60a1a31e41bf8d09e8b3c857adb66e3b144c211a65
-                tool_bytes=1100740 ;;
+                tool_sha=15eaa999fbebf40dfc95af5ce43d7399e8c4d7ebbb26f810b1048d4978e35d2c
+                binary_sha=7cfe4726edcb857b8a556dedbeeaddbe5b3a2987e07464d763dab2b7b3c3eedc
+                tool_bytes=1105178 ;;
             armel)
-                tool_sha=98a9bf5a2571ffc967c6afcfb33231097bd9613c6f4fb1446e17a732a098b1ba
-                binary_sha=aa978404e3fb8d9352e7d89069aa1878830b9960c5bf546d7d5731ffa1a2df3f
-                tool_bytes=1103846 ;;
+                tool_sha=cb01f2431b3f7274dbae0a88e088019a8d9e67e9cf195819191f5c5758134e55
+                binary_sha=a37913b3a4d5ff7e27b4d27557d75dcfb31316602ba9a3d9f3866e973aeffba6
+                tool_bytes=1108800 ;;
             *) echo "Unsupported Debian architecture: $arch" >&2; return 1 ;;
         esac
         asset="pisugar-programmer_${package_version}_${arch}.deb"
@@ -441,9 +446,9 @@ main() {
     else
         target=$(standalone_target)
         case "$target" in
-            aarch64-unknown-linux-musl) tool_sha=cb8a5564c078f172bd38b0e698666de870a6990afbe81dde0caea9dd81b3b506; tool_bytes=3714632 ;;
-            armv7-unknown-linux-musleabihf) tool_sha=c05a64e1ddaabaae6ef8baca6a7594d3a73296dd40c07acda0f90acda4ff09c0; tool_bytes=3059464 ;;
-            arm-unknown-linux-musleabi) tool_sha=aa978404e3fb8d9352e7d89069aa1878830b9960c5bf546d7d5731ffa1a2df3f; tool_bytes=3115676 ;;
+            aarch64-unknown-linux-musl) tool_sha=46f52e1cb20ee250b8575972a11e3479c9dd4143c5af0ae5910d8f520f7556c3; tool_bytes=3729576 ;;
+            armv7-unknown-linux-musleabihf) tool_sha=011e9440376aa0a5e5cc79ea656e68b8f388da4f59edacdbe730f7f2be9a70e8; tool_bytes=3073456 ;;
+            arm-unknown-linux-musleabi) tool_sha=a37913b3a4d5ff7e27b4d27557d75dcfb31316602ba9a3d9f3866e973aeffba6; tool_bytes=3129632 ;;
         esac
         binary_sha=$tool_sha
         installed_tool=/usr/local/bin/pisugar-programmer
@@ -489,6 +494,7 @@ main() {
     read -r action platform detail <<< "$decision"
     case "$platform" in fm33lc0x|ch32l103) ;; *) echo 'Unknown MCU; stopping.' >&2; return 1 ;; esac
     case "$action" in
+        probe) step 'Preparing the candidate FM image for bootloader RAM identification'; prompt='' ;;
         upgrade|recover) prompt='' ;;
         current) prompt="Reinstall the same firmware version on $platform?" ;;
         downgrade) prompt="Downgrade $platform from $detail to the older package version shown above?" ;;
