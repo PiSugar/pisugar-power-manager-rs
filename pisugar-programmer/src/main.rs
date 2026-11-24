@@ -19,6 +19,10 @@ fn run() -> Result<(), String> {
     let args = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about("PiSugar 3 platform-checked OTA programmer; waits for a manual Reset by default (Ctrl-C to cancel)")
+        .arg(Arg::new("force-platform").long("force-platform")
+            .takes_value(true).possible_values(["fm33lc0x", "ch32l103"])
+            .conflicts_with_all(&["reset", "check"])
+            .help("Recover an application in bootloader mode using the physically verified MCU family"))
         .arg(Arg::new("debug").short('d').help("Display debug logs"))
         .arg(
             Arg::new("bus")
@@ -69,6 +73,14 @@ fn run() -> Result<(), String> {
     )
     .init();
     let requested = image::Kind::parse(args.value_of("image").unwrap())?;
+    let recovery = args.value_of("force-platform").map(|name| match name {
+        "fm33lc0x" => image::Platform::Fm,
+        "ch32l103" => image::Platform::Ch32,
+        _ => unreachable!("validated by clap"),
+    });
+    if recovery.is_some() && requested != image::Kind::Application {
+        return Err("--force-platform only supports application recovery".into());
+    }
     // Entire package, including the unselected platform, is checked before any
     // reset, write-enable command, or opening of the hardware transport.
     let images = image::load(Path::new(args.value_of("file").unwrap()))?;
@@ -100,6 +112,7 @@ fn run() -> Result<(), String> {
         requested,
         args.is_present("reset"),
         args.is_present("yes"),
+        recovery,
     )
 }
 
@@ -111,6 +124,7 @@ fn hardware_upgrade(
     kind: image::Kind,
     reset: bool,
     yes: bool,
+    recovery: Option<image::Platform>,
 ) -> Result<(), String> {
     use sysinfo::{ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt};
     let system =
@@ -121,6 +135,9 @@ fn hardware_upgrade(
         .any(|process| process.name().contains("pisugar-server"))
     {
         return Err("Stop pisugar-server before upgrading: sudo systemctl stop pisugar-server".into());
+    }
+    if let Some(platform) = recovery {
+        eprintln!("Forced application recovery for {}. An unmarked bootloader cannot verify this choice; confirm the MCU marking on the board.", platform.name());
     }
     if !reset && !yes {
         println!("Keep a stable power supply connected throughout the update. Continue? [y/N]");
@@ -134,7 +151,10 @@ fn hardware_upgrade(
     i2c.set_slave_address(address).map_err(|e| e.to_string())?;
     i2c.set_timeout(100).map_err(|e| e.to_string())?;
     let mut transport = LinuxTransport(i2c);
-    let result = protocol::upgrade(&mut transport, images, kind, reset).map_err(|e| e.to_string())?;
+    let result = match recovery {
+        Some(platform) => protocol::recover_application(&mut transport, images, platform),
+        None => protocol::upgrade(&mut transport, images, kind, reset),
+    }.map_err(|e| e.to_string())?;
     println!(
         "Upgrade verified: {} mode 0x{:02x}, valid platform identity.",
         result.platform.name(),
@@ -154,6 +174,7 @@ fn hardware_upgrade(
     _kind: image::Kind,
     _reset: bool,
     _yes: bool,
+    _recovery: Option<image::Platform>,
 ) -> Result<(), String> {
     Err("Hardware programming requires Linux I2C. Use --check for offline validation on this computer.".into())
 }

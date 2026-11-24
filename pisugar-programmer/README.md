@@ -91,11 +91,10 @@ FM bootloader. Do not replace existing FM-only download URLs with CH32 binaries.
 
 ## CH32 devices
 
-CH32 must expose its explicit identity in application, bootloader and bootapp
+Automatic CH32 updates require the explicit identity in application, bootloader and bootapp
 mode. The bootloader identity must advertise guarded OTA before writing. A new
 application on an old, unmarked bootloader is refused. Earlier experimental CH32
-boards without identity must be migrated through a separately verified factory
-procedure; absence of identity is never permission to install a CH32 image.
+boards without identity require physical MCU identification for application recovery.
 
 Normal operation updates only `application`. CH32 bootloader maintenance needs
 explicit image types and a stable power supply:
@@ -134,14 +133,37 @@ Each entry has `platform`, `kind`, `board`, `base`, `file`, `size`, and lowercas
 `sha256`. Only a single application per platform is permitted; member names must
 be plain filenames and all archive members must be listed. No extraction occurs.
 
-Transfers retain the 512-byte register protocol and pad the last block with
-`0xFF`. CH32 holds the first two blocks in RAM until its platform/type checks
-pass. If Linux reports `EIO` or `EREMOTEIO` on a CH32 data-register exchange
-at `0xDD`, the tool resets the segment and position and resends the entire
-uncommitted block. It allows up to eight attempts on these errors, with a delay
-starting at 10 ms and capped at 100 ms. A failed Flash commit ends the upgrade.
-On a transfer failure, keep power connected and explicitly restart the same
-validated update from the beginning.
+Transfers use 512-byte blocks and pad the last block with `0xFF`. On either MCU,
+the programmer retries a failed RAM byte until it succeeds or the operator
+presses Ctrl-C. Before resending it checks writer identity, mode and segment,
+then writes and reads back the position immediately preceding that byte. On a
+recovered transfer it checks the buffered block before committing Flash. Retry
+messages include the image offset, total retry count and elapsed time.
+Flash erase/write is issued once per block after observing an idle writer.
+If the command ACK is lost, the programmer polls status. An observed busy-to-idle
+transition with a clear error bit confirms completion after rechecking the writer
+and segment. An idle response alone is ambiguous. If completion cannot be
+confirmed, the tool stops at that offset and prints the recovery command.
+
+### Recover an application from an unmarked bootloader
+
+Keep both devices powered. Verify the MCU marking on the physical board:
+legacy FM and early CH32 can both report product `03`, mode `F0`, and an
+all-zero platform marker. In this state a checksum identifies the file only.
+With the ordinary server stopped, select the verified family explicitly:
+
+```sh
+sudo systemctl stop pisugar-server
+sudo pisugar-programmer --force-platform fm33lc0x pisugar-3-ota.zip
+sudo systemctl start pisugar-server
+```
+
+For a physically verified CH32L103 use `--force-platform ch32l103`. The input
+may also be the matching tagged application BIN. Recovery starts at offset zero,
+checks the image and any readable identity, and requires the new application
+to report its expected platform after handoff. A wrong physical choice on an
+unmarked writer can install the wrong application. The automatic updater never
+selects this override. Firmware release selection is via the supplied ZIP or BIN.
 
 ## Tests
 
