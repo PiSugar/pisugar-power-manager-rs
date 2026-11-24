@@ -65,7 +65,7 @@ class UpdateVersionTests(unittest.TestCase):
                 # A read outside these boot registers fails this test with KeyError.
                 values = {0: 3, 1: mode, **dict(enumerate(marker, 0x52))}
                 if marker == LEGACY and mode == 0xf0:
-                    self.assertEqual(self.decide(values.__getitem__), "probe fm33lc0x bootloader")
+                    self.assertEqual(self.decide(values.__getitem__), "recover fm33lc0x bootloader")
                     continue
                 with self.subTest(marker=marker, mode=mode), self.assertRaises(ValueError):
                     self.decide(values.__getitem__)
