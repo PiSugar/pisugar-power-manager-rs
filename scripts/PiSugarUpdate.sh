@@ -425,17 +425,17 @@ main() {
         arch=$(dpkg --print-architecture)
         case "$arch" in
             arm64)
-                tool_sha=a050b718b6c94bc4876606be45ea716d1e8f093ccb28af5bbb155aa57972e923
-                binary_sha=02b31a8c102c952225004bdd159ef4d43e6f955567a978f48fd3e552b77cc5f6
-                tool_bytes=1254522 ;;
+                tool_sha=8fff11c8f37b6d58335be2f4e9e9e7f7bfca0998c0d5b2415863d2c1fc2a365c
+                binary_sha=84c063cb46d4475c975622a1bcd4caed7c4f4f43a4dd169dfb74e623cc3a1e84
+                tool_bytes=1254928 ;;
             armhf)
-                tool_sha=b7984b3e4e4235202d85e80cbb5f27915cae0317659ba84213af7a108d4156b4
-                binary_sha=a56d69796e9f7c88dc19731582c7491279739f6058cb9d40d106ba1907214c98
-                tool_bytes=1103800 ;;
+                tool_sha=0b2a452e841e51759bcea01463ea73a2cbc6d903254489970c8f31fca203ba92
+                binary_sha=2c9cd24db3dcbcbac36b84f47a2ff3c039d4c9f15280aa0c87396c9d0bae9fed
+                tool_bytes=1104154 ;;
             armel)
-                tool_sha=f51477c296863f1bb3813e4734d25074548c5cc4d954d18479b82074506980cc
-                binary_sha=e7c161df7a797bf56eb7d4f52ff3997d13cf8ef4f0e261f0f54c2baf791f3e52
-                tool_bytes=1107582 ;;
+                tool_sha=7d07549b73ae349cdcf89c7b51e1649beafda656502a6f78e8e27cde518f8464
+                binary_sha=cf48e659ee9d2715ed0bef6d4d3e2ee9f5b63f7da2db468126573f298c759dfa
+                tool_bytes=1107946 ;;
             *) echo "Unsupported Debian architecture: $arch" >&2; return 1 ;;
         esac
         asset="pisugar-programmer_${package_version}_${arch}.deb"
@@ -444,9 +444,9 @@ main() {
     else
         target=$(standalone_target)
         case "$target" in
-            aarch64-unknown-linux-musl) tool_sha=02b31a8c102c952225004bdd159ef4d43e6f955567a978f48fd3e552b77cc5f6; tool_bytes=3725776 ;;
-            armv7-unknown-linux-musleabihf) tool_sha=18f6d79581a900bd6abef425f37638d0d95b77a1db700cf5dcbf257c1a359cba; tool_bytes=3070260 ;;
-            arm-unknown-linux-musleabi) tool_sha=e7c161df7a797bf56eb7d4f52ff3997d13cf8ef4f0e261f0f54c2baf791f3e52; tool_bytes=3126508 ;;
+            aarch64-unknown-linux-musl) tool_sha=84c063cb46d4475c975622a1bcd4caed7c4f4f43a4dd169dfb74e623cc3a1e84; tool_bytes=3726056 ;;
+            armv7-unknown-linux-musleabihf) tool_sha=ae3e5eb38bcde476c2b43832078f8c15261edfecc8ed97180743933e50ed878f; tool_bytes=3070776 ;;
+            arm-unknown-linux-musleabi) tool_sha=cf48e659ee9d2715ed0bef6d4d3e2ee9f5b63f7da2db468126573f298c759dfa; tool_bytes=3127028 ;;
         esac
         binary_sha=$tool_sha
         installed_tool=/usr/local/bin/pisugar-programmer
