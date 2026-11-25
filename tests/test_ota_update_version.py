@@ -64,6 +64,9 @@ class UpdateVersionTests(unittest.TestCase):
             for mode in (0xf0, 0xba):
                 # A read outside these boot registers fails this test with KeyError.
                 values = {0: 3, 1: mode, **dict(enumerate(marker, 0x52))}
+                if marker == LEGACY and mode == 0xf0:
+                    self.assertEqual(self.decide(values.__getitem__), "recover fm33lc0x bootloader")
+                    continue
                 with self.subTest(marker=marker, mode=mode), self.assertRaises(ValueError):
                     self.decide(values.__getitem__)
 
@@ -201,7 +204,7 @@ class UpdateVersionTests(unittest.TestCase):
                 self.assertGreaterEqual(requests.count((position, 0x59)), 2)
 
     def test_reset_wait_refuses_unidentified_or_wrong_boot_target(self):
-        for product, marker in [(3, LEGACY), (3, CH32[:-1] + b"\0"), (2, CH32)]:
+        for product, marker in [(3, CH32[:-1] + b"\0"), (2, CH32), (2, LEGACY)]:
             with self.subTest(product=product, marker=marker):
                 values = {0: product, 1: 0xf0, **dict(enumerate(marker, 0x52))}
                 calls = 0

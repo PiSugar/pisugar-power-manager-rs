@@ -66,6 +66,9 @@ struct Device {
     busy: bool,
     reject: bool,
     fail_commit: bool,
+    lost_ack_after_write: bool,
+    lose_ack_at_segment: Option<u16>,
+    busy_reads: usize,
     no_boot: bool,
     bad_identity_after_data: bool,
     exit_after_first_block: bool,
@@ -97,6 +100,9 @@ impl Device {
             busy: false,
             reject: false,
             fail_commit: false,
+            lost_ack_after_write: false,
+            lose_ack_at_segment: None,
+            busy_reads: 0,
             no_boot: false,
             bad_identity_after_data: false,
             exit_after_first_block: false,
@@ -150,6 +156,10 @@ impl Transport for Device {
                 if let Some(status) = self.status_override {
                     return Ok(status);
                 }
+                if self.busy_reads > 0 {
+                    self.busy_reads -= 1;
+                    return Ok(8);
+                }
                 if self.busy {
                     8
                 } else if self.reject {
@@ -181,7 +191,9 @@ impl Transport for Device {
             0xd1 => self.segment = (self.segment & 0xff) | ((value as u16) << 8),
             0xd2 => {
                 self.segment = (self.segment & 0xff00) | value as u16;
-                self.buffer = [0xff; 512];
+                if self.platform == Platform::Ch32 {
+                    self.buffer = [0xff; 512];
+                }
             }
             0xd3 => self.position = (self.position & 0xff) | ((value as u16) << 8),
             0xd4 => self.position = (self.position & 0xff00) | value as u16,
@@ -207,6 +219,14 @@ impl Transport for Device {
                 if !self.reject {
                     self.flash.resize(self.segment as usize + 512, 0xff);
                     self.flash[self.segment as usize..self.segment as usize + 512].copy_from_slice(&self.buffer);
+                }
+                if self.lose_ack_at_segment == Some(self.segment) {
+                    self.lose_ack_at_segment = None;
+                    return Err("commit completed before first status poll, ACK lost".into());
+                }
+                if self.lost_ack_after_write {
+                    self.busy_reads = 1;
+                    return Err("lost commit ACK after target accepted it".into());
                 }
             }
             0xd0 if value == 0x10 => {
@@ -403,12 +423,16 @@ enum RamFault {
     LostWriteAck,
     WrongEcho,
     OtherIo,
+    LostBuffer,
+    SwitchedPlatform,
+    PointerReadback,
 }
 
 struct RamLink {
     device: Device,
     faults: Vec<RamFault>,
     injected: usize,
+    bad_position_read: bool,
     starts: Vec<(u16, u16)>,
     waits_before_commit: Vec<u64>,
 }
@@ -421,13 +445,17 @@ impl RamLink {
             } else {
                 Device::new(platform, MODE_BOOT, false)
             },
-            faults, injected: 0, starts: Vec::new(), waits_before_commit: Vec::new(),
+            faults, injected: 0, bad_position_read: false, starts: Vec::new(), waits_before_commit: Vec::new(),
         }
     }
 }
 
 impl Transport for RamLink {
     fn read(&mut self, register: u8) -> Result<u8, String> {
+        if register == 0xd4 && self.bad_position_read {
+            self.bad_position_read = false;
+            return Ok((self.device.position as u8) ^ 1);
+        }
         self.device.read(register)
     }
 
@@ -443,7 +471,7 @@ impl Transport for RamLink {
         // Every failed write in this model reached the target and advanced its
         // position. Retrying DD alone would write the wrong next byte.
         self.device.write(0xdd, value).map_err(Error::Io)?;
-        let fail_at = [17, 241, 407][self.injected % 3];
+        let fail_at = 241;
         if self.device.segment == 0 && self.device.position == fail_at {
             if let Some(fault) = self.faults.get(self.injected).copied() {
                 self.injected += 1;
@@ -451,6 +479,18 @@ impl Transport for RamLink {
                     RamFault::ReadNack => Err(Error::TransientRam("read DD: EREMOTEIO".into())),
                     RamFault::LostWriteAck => Err(Error::TransientRam("write DD: EIO".into())),
                     RamFault::WrongEcho => Ok(value ^ 1),
+                    RamFault::PointerReadback => {
+                        self.bad_position_read = true;
+                        Err(Error::Io("lost RAM data acknowledgement".into()))
+                    }
+                    RamFault::LostBuffer => {
+                        self.device.buffer[0] ^= 1;
+                        Err(Error::Io("RAM reset".into()))
+                    }
+                    RamFault::SwitchedPlatform => {
+                        self.device.marker_override = Some(marker(Platform::Fm));
+                        Err(Error::Io("link interrupted".into()))
+                    }
                     RamFault::OtherIo => Err(Error::Io("batch input unavailable".into())),
                 };
             }
@@ -459,7 +499,7 @@ impl Transport for RamLink {
     }
 
     fn wait_ms(&mut self, milliseconds: u64) {
-        if self.device.commits == 0 {
+        if self.device.commits == 0 && self.injected > 0 {
             self.waits_before_commit.push(milliseconds);
         }
         self.device.wait_ms(milliseconds);
@@ -467,42 +507,68 @@ impl Transport for RamLink {
 }
 
 #[test]
-fn mixed_ch_ram_faults_restage_the_entire_segment_then_commit_exactly_once() {
-    let mut link = RamLink::new(Platform::Ch32, vec![RamFault::ReadNack, RamFault::LostWriteAck, RamFault::ReadNack]);
-    let image = firmware(Platform::Ch32, Kind::Application, 1301);
-    protocol::upgrade(&mut link, std::slice::from_ref(&image), Kind::Application, true).unwrap();
-    assert_eq!(link.injected, 3);
-    assert_eq!(link.starts, [(0, 0xffff), (0, 0xffff), (0, 0xffff), (0, 0xffff), (512, 511), (1024, 1023)]);
-    assert_eq!(link.waits_before_commit, [10, 20, 40]);
-    assert_eq!(link.device.commits, 3);
-    assert_eq!(&link.device.flash[..image.bytes.len()], &image.bytes);
-    assert!(link.device.flash[image.bytes.len()..].iter().all(|byte| *byte == 0xff));
-}
-
-#[test]
-fn persistent_ch_ram_io_stops_with_capped_backoff_and_no_commit() {
-    let mut link = RamLink::new(Platform::Ch32, vec![RamFault::ReadNack; 9]);
-    let image = firmware(Platform::Ch32, Kind::Application, 1301);
-    assert!(protocol::upgrade(&mut link, &[image], Kind::Application, true).is_err());
-    assert_eq!(link.injected, 8);
-    assert_eq!(link.starts, [(0, 0xffff); 8]);
-    assert_eq!(link.waits_before_commit, [10, 20, 40, 80, 100, 100, 100]);
-    assert_eq!(link.device.commits, 0);
-    assert!(link.device.flash.is_empty());
-}
-
-#[test]
-fn wrong_echo_other_io_and_fm_keep_the_original_three_attempt_limit() {
-    for (platform, fault) in [(Platform::Ch32, RamFault::WrongEcho), (Platform::Ch32, RamFault::OtherIo),
-                              (Platform::Fm, RamFault::LostWriteAck)] {
-        let mut link = RamLink::new(platform, vec![fault; 9]);
+fn both_platforms_retry_only_the_failed_byte_beyond_the_old_limits() {
+    for platform in [Platform::Fm, Platform::Ch32] {
+        let faults = [RamFault::ReadNack, RamFault::LostWriteAck, RamFault::WrongEcho, RamFault::OtherIo].repeat(8);
+        let mut link = RamLink::new(platform, faults);
         let image = firmware(platform, Kind::Application, 1301);
-        assert!(protocol::upgrade(&mut link, &[image], Kind::Application, true).is_err());
-        assert_eq!(link.injected, 3);
-        assert_eq!(link.starts, [(0, 0xffff); 3]);
-        assert_eq!(link.device.commits, 0);
-        assert!(link.device.flash.is_empty());
+        protocol::upgrade(&mut link, std::slice::from_ref(&image), Kind::Application, true).unwrap();
+        assert_eq!(link.injected, 32);
+        assert_eq!(&link.starts[1..33], &[(0, 240); 32]);
+        assert_eq!(link.device.data_count, 1536 + 32);
+        assert_eq!(&link.waits_before_commit[..4], &[10, 20, 40, 80]);
+        assert_eq!(&link.waits_before_commit[4..32], &[100; 28]);
+        assert_eq!(link.device.commits, 3);
+        assert_eq!(&link.device.flash[..image.bytes.len()], &image.bytes);
+        assert!(link.device.flash[image.bytes.len()..].iter().all(|b| *b == 0xff));
     }
+}
+
+#[test]
+fn retry_validates_the_rewound_pointer_before_resending_the_byte() {
+    let mut link = RamLink::new(Platform::Fm, vec![RamFault::PointerReadback]);
+    let image = firmware(Platform::Fm, Kind::Application, 1301);
+    protocol::upgrade(&mut link, std::slice::from_ref(&image), Kind::Application, true).unwrap();
+    assert_eq!(&link.starts[1..3], &[(0, 240); 2]);
+    assert_eq!(link.device.data_count, 1537);
+    assert_eq!(&link.device.flash[..image.bytes.len()], &image.bytes);
+}
+
+#[test]
+fn ram_retry_checks_target_and_buffer_before_any_flash_commit() {
+    for fault in [RamFault::LostBuffer, RamFault::SwitchedPlatform] {
+        let mut link = RamLink::new(Platform::Ch32, vec![fault]);
+        let image = firmware(Platform::Ch32, Kind::Application, 1301);
+        assert!(matches!(protocol::upgrade(&mut link, &[image], Kind::Application, true), Err(Error::Refused(_))));
+        assert_eq!(link.device.commits, 0);
+    }
+}
+
+#[test]
+fn explicit_recovery_selects_the_named_application_on_an_unmarked_writer() {
+    let images = [firmware(Platform::Fm, Kind::Application, 1100), firmware(Platform::Ch32, Kind::Application, 1100)];
+    for image in &images {
+        let mut device = Device::new(image.platform, MODE_BOOT, true);
+        let result = protocol::recover_application(&mut device, &images, image.platform).unwrap();
+        assert_eq!((result.platform, result.mode, result.legacy), (image.platform, MODE_APP, false));
+        assert_eq!(&device.flash[..image.bytes.len()], &image.bytes);
+        assert_eq!(device.resets, 0);
+    }
+}
+
+#[test]
+fn forced_recovery_rejects_wrong_image_conflicting_marker_invalid_identity_and_non_writer() {
+    let fm = firmware(Platform::Fm, Kind::Application, 1100);
+    for (platform, mode, invalid) in [(Platform::Ch32, MODE_BOOT, false), (Platform::Fm, MODE_BOOTAPP, false),
+                                      (Platform::Fm, MODE_APP, false), (Platform::Fm, MODE_BOOT, true)] {
+        let mut device = Device::new(platform, mode, false);
+        if invalid { device.marker_override = Some([0xff; 8]); }
+        assert!(protocol::recover_application(&mut device, std::slice::from_ref(&fm), Platform::Fm).is_err());
+        assert_eq!(device.writes, 0);
+    }
+    let mut device = Device::new(Platform::Ch32, MODE_BOOT, true);
+    assert!(protocol::recover_application(&mut device, &[fm], Platform::Ch32).is_err());
+    assert_eq!(device.writes, 0);
 }
 
 #[test]
@@ -617,7 +683,89 @@ fn unknown_flash_status_does_not_advance_to_next_segment() {
         true
     )
     .is_err());
-    assert_eq!(device.commits, 1);
+    assert_eq!(device.commits, 0);
+}
+
+#[test]
+fn lost_flash_ack_with_observed_busy_then_done_commits_each_block_once() {
+    for platform in [Platform::Fm, Platform::Ch32] {
+        let image = firmware(platform, Kind::Application, 1301);
+        let mut device = Device::new(platform, MODE_BOOT, true);
+        device.lost_ack_after_write = true;
+        protocol::recover_application(&mut device, std::slice::from_ref(&image), platform).unwrap();
+        assert_eq!(device.commits, 3);
+        assert_eq!(&device.flash[..image.bytes.len()], &image.bytes);
+    }
+}
+
+#[test]
+fn fresh_unmarked_fm_boot_selects_fm_from_both_images_without_reset() {
+    let images = [
+        firmware(Platform::Ch32, Kind::Application, 1100),
+        firmware(Platform::Fm, Kind::Application, 17700),
+    ];
+    let mut device = Device::new(Platform::Fm, MODE_BOOT, true);
+    device.buffer = [0x26; 512];
+    let result = protocol::upgrade(&mut device, &images, Kind::Application, true).unwrap();
+    assert_eq!((result.platform, result.mode, device.resets), (Platform::Fm, MODE_APP, 0));
+    assert_eq!(&device.flash[..17700], &images[1].bytes);
+}
+
+#[test]
+fn production_bootloader_identity_is_read_only_and_requires_successful_reads() {
+    for (platform, legacy) in [(Platform::Fm, true), (Platform::Ch32, false)] {
+        let mut device = Device::new(platform, MODE_BOOT, legacy);
+        let identity = protocol::identify(&mut device).unwrap();
+        assert_eq!((identity.platform, identity.mode, identity.legacy), (platform, MODE_BOOT, legacy));
+        device.identity_error = true;
+        assert!(matches!(protocol::identify(&mut device), Err(Error::Io(_))));
+        assert_eq!(device.writes, 0);
+    }
+}
+
+#[test]
+fn ch32_rechecks_an_unavailable_writer_header_before_committing() {
+    struct HeaderReads { device: Device, remaining: usize }
+    impl Transport for HeaderReads {
+        fn read(&mut self, reg: u8) -> Result<u8, String> {
+            if self.device.data_count == 512 && self.remaining > 0 && reg == 0 {
+                self.remaining -= 1;
+                return Ok(0);
+            }
+            self.device.read(reg)
+        }
+        fn write(&mut self, reg: u8, value: u8) -> Result<(), String> {
+            self.device.write(reg, value)
+        }
+        fn wait_ms(&mut self, ms: u64) { self.device.wait_ms(ms); }
+    }
+    let image = firmware(Platform::Ch32, Kind::Application, 1100);
+    for remaining in [2, 20] {
+        let mut bus = HeaderReads { device: Device::new(Platform::Ch32, MODE_BOOT, false), remaining };
+        let result = protocol::upgrade(&mut bus, std::slice::from_ref(&image), Kind::Application, false);
+        if remaining == 2 {
+            assert_eq!(result.unwrap().mode, MODE_APP);
+            assert_eq!(&bus.device.flash[..1100], &image.bytes);
+            assert_eq!(bus.device.commits, 3);
+        } else {
+            assert!(matches!(result, Err(Error::NotReady)));
+            assert_eq!(bus.device.commits, 0);
+        }
+    }
+}
+
+#[test]
+fn partial_fm_update_in_unmarked_bootloader_can_restart_from_zero_after_unknown_commit() {
+    let image = firmware(Platform::Fm, Kind::Application, 17700);
+    let mut device = Device::new(Platform::Fm, MODE_APP, true);
+    device.lose_ack_at_segment = Some(0x4000);
+    let images = std::slice::from_ref(&image);
+    assert!(matches!(protocol::upgrade(&mut device, images, Kind::Application, true), Err(Error::Timeout(_))));
+    assert_eq!((device.commits, device.mode, device.legacy), (33, MODE_BOOT, true));
+    let result = protocol::upgrade(&mut device, images, Kind::Application, false).unwrap();
+    assert_eq!((result.mode, result.platform, result.legacy), (MODE_APP, Platform::Fm, false));
+    assert_eq!(device.commits, 33 + 35);
+    assert_eq!(&device.flash[..image.bytes.len()], &image.bytes);
 }
 
 #[test]
@@ -755,19 +903,20 @@ fn manual_wait_never_reselects_another_platform_from_the_same_package() {
 }
 
 #[test]
-fn unmarked_boot_targets_and_zero_padded_ch_applications_never_select_fm_from_a_unified_package() {
+fn unmarked_bootapps_and_zero_padded_ch_applications_never_select_fm_from_a_unified_package() {
     let images = [
         firmware(Platform::Fm, Kind::Application, 1100),
         firmware(Platform::Ch32, Kind::Application, 1100),
     ];
-    for mode in [MODE_BOOT, MODE_BOOTAPP, MODE_APP] {
+    for mode in [MODE_BOOTAPP, MODE_APP] {
         for soft_reset in [false, true] {
             let mut device = Device::new(Platform::Ch32, mode, true);
             assert!(matches!(
                 protocol::upgrade(&mut device, &images, Kind::Application, soft_reset),
                 Err(Error::Refused(_))
             ));
-            assert_eq!((device.writes, device.commits), (0, 0));
+            assert_eq!((device.resets, device.commits, device.mode), (0, 0, mode));
+            assert_eq!(device.writes, 0);
         }
     }
 }

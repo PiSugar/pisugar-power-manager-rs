@@ -106,10 +106,10 @@ fn snapshot<T: Transport>(bus: &mut T) -> Result<Snapshot> {
 }
 
 pub fn identify<T: Transport>(bus: &mut T) -> Result<Identity> {
-    identify_for_session(bus, false)
+    identify_for_session(bus, None)
 }
 
-fn identify_for_session<T: Transport>(bus: &mut T, fm_app_seen: bool) -> Result<Identity> {
+fn identify_for_session<T: Transport>(bus: &mut T, unmarked_writer: Option<Platform>) -> Result<Identity> {
     let first = snapshot(bus)?;
     let second = snapshot(bus)?;
     if first.mode != second.mode {
@@ -125,13 +125,16 @@ fn identify_for_session<T: Transport>(bus: &mut T, fm_app_seen: bool) -> Result<
             if serial[12..] == [0; 4] || serial[..12] == [0; 12] || serial[..12] == [0xff; 12] {
                 return Err(Error::Refused("Unmarked application with ambiguous serial number".into()));
             }
-        } else if !fm_app_seen {
-            return Err(Error::Refused(
-                "Unmarked bootloader: no verified FM application in this session".into(),
-            ));
         }
+        let platform = match mode {
+            MODE_APP => Platform::Fm,
+            // Production CH32 bootloaders expose PSID. The original FM bootloader
+            // returns eight zero bytes on both identity reads.
+            MODE_BOOT => unmarked_writer.unwrap_or(Platform::Fm),
+            _ => return Err(Error::Refused("Unmarked bootapp has no verified platform".into())),
+        };
         return Ok(Identity {
-            platform: Platform::Fm,
+            platform,
             mode,
             legacy: true,
         });
@@ -167,12 +170,16 @@ fn target_matches(identity: Identity, image: &Image) -> Result<()> {
     Ok(())
 }
 
+fn read_pair<T: Transport>(bus: &mut T, high_register: u8) -> Result<u16> {
+    let high = bus.read(high_register).map_err(Error::Io)?;
+    let low = bus.read(high_register + 1).map_err(Error::Io)?;
+    Ok(u16::from_be_bytes([high, low]))
+}
+
 fn write_pair<T: Transport>(bus: &mut T, high_register: u8, value: u16) -> Result<()> {
     bus.write(high_register, (value >> 8) as u8).map_err(Error::Io)?;
     bus.write(high_register + 1, value as u8).map_err(Error::Io)?;
-    let actual = ((bus.read(high_register).map_err(Error::Io)? as u16) << 8)
-        | bus.read(high_register + 1).map_err(Error::Io)? as u16;
-    if actual != value {
+    if read_pair(bus, high_register)? != value {
         return Err(Error::Io("Offset readback mismatch".into()));
     }
     Ok(())
@@ -183,9 +190,9 @@ fn reset<T: Transport>(bus: &mut T) -> Result<()> {
     bus.write(0x03, 0x80).map_err(Error::Io)
 }
 
-fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, fm_app_seen: bool) -> Result<Identity> {
+fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, unmarked_writer: Option<Platform>) -> Result<Identity> {
     for _ in 0..100 {
-        match identify_for_session(bus, fm_app_seen) {
+        match identify_for_session(bus, unmarked_writer) {
             Ok(identity) => {
                 target_matches(identity, image)?;
                 if identity.mode == expected {
@@ -208,63 +215,102 @@ fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, fm_app_
     Err(Error::Timeout("waiting for the expected firmware mode"))
 }
 
-fn send_block<T: Transport>(bus: &mut T, platform: Platform, offset: u16, block: &[u8; BLOCK]) -> Result<()> {
-    // Retry only the uncommitted RAM buffer. Never move the write pointer back
-    // and continue halfway through a block, or repeat an ambiguous erase command.
-    let mut attempt_number = 1;
+fn check_writer<T: Transport>(bus: &mut T, image: &Image, mode: u8, unmarked_writer: Option<Platform>) -> Result<()> {
+    let mut retries = 0;
     loop {
-        let attempt = (|| {
-            write_pair(bus, 0xd1, offset)?;
-            write_pair(bus, 0xd3, offset.wrapping_sub(1))?;
-            for byte in block {
-                if bus.exchange_ram_byte(*byte)? != *byte {
-                    return Err(Error::Io("Buffered byte readback mismatch".into()));
+        match identify_for_session(bus, unmarked_writer) {
+            Ok(identity) => {
+                target_matches(identity, image)?;
+                if identity.mode != mode {
+                    return Err(Error::Refused("Device left the expected writer mode before Flash commit".into()));
                 }
+                return Ok(());
             }
-            Ok(())
-        })();
-        let error = match attempt {
-            Ok(()) => return Ok(()),
-            Err(error) => error,
-        };
-        // CH32 field traces show EIO and EREMOTEIO on data-register transfers
-        // across three consecutive attempts. A write error may have advanced
-        // the pointer. Reset both segment and position before sending again.
-        let transient_data = platform == Platform::Ch32 && matches!(error, Error::TransientRam(_));
-        let limit = if transient_data { 8 } else { 3 };
-        if attempt_number >= limit {
-            return Err(error);
+            Err(error @ (Error::NotReady | Error::Transition | Error::Io(_))) if retries < 9 => {
+                if retries == 0 {
+                    log::warn!("Re-reading writer identity after {}.", error);
+                }
+                retries += 1;
+                bus.wait_ms(10);
+            }
+            Err(error) => return Err(error),
         }
-        let delay_ms = if transient_data { (10u64 << (attempt_number - 1)).min(100) } else { 10 };
-        log::warn!("Restarting uncommitted RAM block 0x{:04x} after attempt {}: {}; waiting {} ms",
-                   offset, attempt_number, error, delay_ms);
-        bus.wait_ms(delay_ms);
-        attempt_number += 1;
     }
 }
 
-fn commit_block<T: Transport>(bus: &mut T) -> Result<()> {
-    // A failed write may or may not have reached the MCU. Stop, leaving its
-    // bootloader available for an explicit restart; do not blindly erase again.
-    bus.write(0xd0, 0xa0).map_err(Error::Io)?;
-    bus.wait_ms(50);
+/// Only RAM preparation and transfer use this loop. Flash commands are never replayed here.
+fn retry_ram<T: Transport, F: FnMut(&mut T, bool) -> Result<()>>(
+    bus: &mut T, offset: u16, failures: &mut u64, started: Instant, mut transfer: F,
+) -> Result<bool> {
+    let mut retry = false;
+    let mut delay_ms = 10;
+    let mut next_notice = Instant::now();
+    loop {
+        match transfer(bus, retry) {
+            Ok(()) => return Ok(retry),
+            Err(Error::Io(error) | Error::TransientRam(error)) => {
+                retry = true;
+                *failures = failures.saturating_add(1);
+                if Instant::now() >= next_notice {
+                    log::warn!("RAM at image offset 0x{:04x}: {} ({} cumulative retries, {}s elapsed). Ctrl-C to cancel.",
+                               offset, error, failures, started.elapsed().as_secs());
+                    next_notice = Instant::now() + Duration::from_secs(5);
+                }
+                bus.wait_ms(delay_ms);
+                delay_ms = (delay_ms * 2).min(100);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn check_segment<T: Transport>(bus: &mut T, offset: u16) -> Result<()> {
+    if read_pair(bus, 0xd1)? != offset {
+        return Err(Error::Refused("RAM segment changed; restart the update from the beginning".into()));
+    }
+    Ok(())
+}
+
+/// Wait for a known idle writer before sending a single erase/write command.
+fn wait_flash_idle<T: Transport>(bus: &mut T) -> Result<()> {
     for _ in 0..100 {
         match bus.read(0xd0) {
-            Ok(status) if status & !0x09 != 0 => {
-                return Err(Error::Refused("Unknown upgrade status bits".into()));
+            Ok(0 | 1) => return Ok(()), // bit 0 can describe a previous attempt
+            Ok(8 | 9) | Err(_) => bus.wait_ms(20),
+            Ok(_) => return Err(Error::Refused("Unknown upgrade status bits before Flash commit".into())),
+        }
+    }
+    Err(Error::Timeout("waiting for idle Flash before commit"))
+}
+
+fn commit_block<T: Transport>(bus: &mut T, image: &Image, mode: u8, writer: Option<Platform>, offset: u16) -> Result<()> {
+    wait_flash_idle(bus)?;
+    check_writer(bus, image, mode, writer)?;
+    check_segment(bus, offset)?;
+    let write_error = bus.write(0xd0, 0xa0).err();
+    let mut observed_busy = false;
+    if let Some(error) = &write_error {
+        log::warn!("Flash command at 0x{:04x}: {}. Checking status without sending the command again.", offset, error);
+    } else {
+        bus.wait_ms(50);
+    }
+    for _ in 0..100 {
+        match bus.read(0xd0) {
+            Ok(8 | 9) => observed_busy = true,
+            Ok(1) => return Err(Error::Refused("MCU reported a Flash write error".into())),
+            Ok(0) if write_error.is_none() || observed_busy => {
+                match check_writer(bus, image, mode, writer).and_then(|_| check_segment(bus, offset)) {
+                    Ok(()) => return Ok(()),
+                    Err(Error::Io(_)) => {} // Only repeat reads while confirming the commit.
+                    Err(error) => return Err(error),
+                }
             }
-            Ok(status) if status & 8 != 0 => {}
-            Ok(status) if status & 1 != 0 => {
-                return Err(Error::Refused(
-                    "MCU rejected the image/block; no automatic erase retry".into(),
-                ))
-            }
-            Ok(_) => return Ok(()),
-            Err(_) => {}
+            Ok(0) | Err(_) => {} // Idle alone cannot confirm a write whose ACK was lost.
+            Ok(_) => return Err(Error::Refused("Unknown upgrade status bits after Flash commit".into())),
         }
         bus.wait_ms(20);
     }
-    Err(Error::Timeout("waiting for Flash acknowledgement"))
+    Err(Error::Timeout("Flash commit outcome unknown"))
 }
 
 fn select_image(candidates: &[Image], platform: Platform, requested: Kind) -> Result<&Image> {
@@ -284,17 +330,14 @@ fn select_image(candidates: &[Image], platform: Platform, requested: Kind) -> Re
     Ok(image)
 }
 
-/// An unmarked FM bootloader cannot distinguish itself from an early CH32.
-/// Keep the FM application evidence within this single invocation.
 fn wait_for_writer<'a, T: Transport>(
     bus: &mut T,
     candidates: &'a [Image],
     requested: Kind,
     expected: u8,
     allow_reset: bool,
-) -> Result<(&'a Image, bool)> {
+) -> Result<&'a Image> {
     let mut selected = None;
-    let mut fm_app_seen = false;
     let mut reset_attempted = false;
     let started = Instant::now();
     let mut next_notice = started;
@@ -305,7 +348,7 @@ fn wait_for_writer<'a, T: Transport>(
     let mut last_mode = None;
     loop {
         probes += 1;
-        let observation = identify_for_session(bus, fm_app_seen);
+        let observation = identify(bus);
         let first_seen = match observation {
             Ok(identity) => {
                 let image = match selected {
@@ -314,13 +357,10 @@ fn wait_for_writer<'a, T: Transport>(
                 };
                 target_matches(identity, image)?;
                 selected = Some(image);
-                if identity.platform == Platform::Fm && identity.mode == MODE_APP {
-                    fm_app_seen = true;
-                }
                 if identity.mode == expected {
                     log::info!("Detected {} after {} probes (I2C errors={}, not ready={}, mode changes during reads={})",
                                identity, probes, io_errors, not_ready, transitions);
-                    return Ok((image, fm_app_seen));
+                    return Ok(image);
                 }
                 if expected == MODE_BOOTAPP {
                     return Err(Error::Refused(
@@ -377,22 +417,73 @@ pub fn upgrade<T: Transport>(
     } else {
         MODE_BOOT
     };
-    let (image, fm_app_seen) = wait_for_writer(bus, candidates, requested, expected, allow_reset)?;
-    let before_write = identify_for_session(bus, fm_app_seen)?;
-    target_matches(before_write, image)?;
-    if before_write.mode != expected {
-        return Err(Error::Refused("Device left the upgrade mode before writing".into()));
+    let image = wait_for_writer(bus, candidates, requested, expected, allow_reset)?;
+    program_image(bus, image, expected, None)
+}
+
+/// Application recovery on a physically identified board already in bootloader mode.
+pub fn recover_application<T: Transport>(bus: &mut T, candidates: &[Image], platform: Platform) -> Result<Identity> {
+    let image = select_image(candidates, platform, Kind::Application)?;
+    let identity = identify_for_session(bus, Some(platform))?;
+    target_matches(identity, image)?;
+    if identity.mode != MODE_BOOT {
+        return Err(Error::Refused("Forced recovery requires bootloader mode 0xF0".into()));
     }
+    let unmarked_writer = if identity.legacy { Some(platform) } else { None };
+    program_image(bus, image, MODE_BOOT, unmarked_writer)
+}
+
+fn program_image<T: Transport>(bus: &mut T, image: &Image, expected: u8, unmarked_writer: Option<Platform>) -> Result<Identity> {
+    let started = Instant::now();
+    let mut failures = 0;
     for (n, data) in image.bytes.chunks(BLOCK).enumerate() {
         let mut block = [0xff; BLOCK];
         block[..data.len()].copy_from_slice(data);
-        send_block(bus, image.platform, (n * BLOCK) as u16, &block)?;
-        let at_commit = identify_for_session(bus, fm_app_seen)?;
-        target_matches(at_commit, image)?;
-        if at_commit.mode != expected {
-            return Err(Error::Refused("Device changed mode before Flash commit".into()));
+        let offset = (n * BLOCK) as u16;
+        retry_ram(bus, offset, &mut failures, started, |bus, _| {
+            check_writer(bus, image, expected, unmarked_writer)?;
+            write_pair(bus, 0xd1, offset)?;
+            write_pair(bus, 0xd3, offset.wrapping_sub(1))
+        })?;
+        let mut recovered = false;
+        for (index, &byte) in block.iter().enumerate() {
+            let address = offset + index as u16;
+            recovered |= retry_ram(bus, address, &mut failures, started, |bus, retry| {
+                if retry {
+                    check_writer(bus, image, expected, unmarked_writer)?;
+                    check_segment(bus, offset)?;
+                    // DD pre-increments the position. A lost ACK may have advanced it.
+                    // Rewriting the segment here would clear the CH32 RAM buffer.
+                    write_pair(bus, 0xd3, address.wrapping_sub(1))?;
+                }
+                if bus.exchange_ram_byte(byte)? != byte {
+                    return Err(Error::Io("Buffered byte readback mismatch".into()));
+                }
+                Ok(())
+            })?;
         }
-        commit_block(bus)?;
+        retry_ram(bus, offset, &mut failures, started, |bus, retry| {
+            check_writer(bus, image, expected, unmarked_writer)?;
+            if recovered || retry {
+                // An interrupted link can hide a reset that cleared segment zero.
+                check_segment(bus, offset)?;
+                for (index, &byte) in block.iter().enumerate() {
+                    write_pair(bus, 0xd3, offset + index as u16)?;
+                    if bus.read(0xdd).map_err(Error::Io)? != byte {
+                        return Err(Error::Refused("RAM contents changed before Flash commit; restart the update".into()));
+                    }
+                }
+                check_writer(bus, image, expected, unmarked_writer)?;
+            }
+            Ok(())
+        })?;
+        if let Err(error) = commit_block(bus, image, expected, unmarked_writer, offset) {
+            log::error!("Flash commit at image offset 0x{:04x} was not confirmed: {}. Stopping without resending the erase/write command.", offset, error);
+            if image.kind == Kind::Application {
+                log::error!("Keep power connected and run the same updater again. It will recheck the bootloader and restart the application from byte zero.");
+            }
+            return Err(error);
+        }
         log::info!(
             "Accepted {}/{} bytes",
             ((n + 1) * BLOCK).min(image.bytes.len()),
@@ -401,7 +492,7 @@ pub fn upgrade<T: Transport>(
     }
     // Re-read identity as well as mode after the actual application starts;
     // successful RAM echo/Flash commands alone do not mean the update booted.
-    let final_mode = if requested == Kind::Application {
+    let final_mode = if image.kind == Kind::Application {
         MODE_APP
     } else {
         MODE_BOOTAPP
@@ -410,14 +501,14 @@ pub fn upgrade<T: Transport>(
     // can turn this handoff into success, regardless of its write result.
     let _handoff_result = bus.write(0xd0, 0x10);
     bus.wait_ms(50);
-    if requested == Kind::Bootloader {
+    if image.kind == Kind::Bootloader {
         // Bootapp also existed before the update. Seeing it again alone cannot
         // prove reset ran the newly written bootloader. Observe the intermediate
         // boot mode, then explicitly launch bootapp (identity reads extend the
         // bootloader's idle timeout, so polling must not wait for auto-jump).
-        wait_for_mode(bus, image, MODE_BOOT, fm_app_seen)?;
+        wait_for_mode(bus, image, MODE_BOOT, unmarked_writer)?;
         let _launch_result = bus.write(0xd0, 0x10);
         bus.wait_ms(50);
     }
-    wait_for_mode(bus, image, final_mode, fm_app_seen)
+    wait_for_mode(bus, image, final_mode, unmarked_writer)
 }
