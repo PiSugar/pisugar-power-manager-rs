@@ -724,6 +724,37 @@ fn production_bootloader_identity_is_read_only_and_requires_successful_reads() {
 }
 
 #[test]
+fn ch32_rechecks_an_unavailable_writer_header_before_committing() {
+    struct HeaderReads { device: Device, remaining: usize }
+    impl Transport for HeaderReads {
+        fn read(&mut self, reg: u8) -> Result<u8, String> {
+            if self.device.data_count == 512 && self.remaining > 0 && reg == 0 {
+                self.remaining -= 1;
+                return Ok(0);
+            }
+            self.device.read(reg)
+        }
+        fn write(&mut self, reg: u8, value: u8) -> Result<(), String> {
+            self.device.write(reg, value)
+        }
+        fn wait_ms(&mut self, ms: u64) { self.device.wait_ms(ms); }
+    }
+    let image = firmware(Platform::Ch32, Kind::Application, 1100);
+    for remaining in [2, 20] {
+        let mut bus = HeaderReads { device: Device::new(Platform::Ch32, MODE_BOOT, false), remaining };
+        let result = protocol::upgrade(&mut bus, std::slice::from_ref(&image), Kind::Application, false);
+        if remaining == 2 {
+            assert_eq!(result.unwrap().mode, MODE_APP);
+            assert_eq!(&bus.device.flash[..1100], &image.bytes);
+            assert_eq!(bus.device.commits, 3);
+        } else {
+            assert!(matches!(result, Err(Error::NotReady)));
+            assert_eq!(bus.device.commits, 0);
+        }
+    }
+}
+
+#[test]
 fn partial_fm_update_in_unmarked_bootloader_can_restart_from_zero_after_unknown_commit() {
     let image = firmware(Platform::Fm, Kind::Application, 17700);
     let mut device = Device::new(Platform::Fm, MODE_APP, true);

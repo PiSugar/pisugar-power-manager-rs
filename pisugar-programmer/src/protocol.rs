@@ -216,12 +216,26 @@ fn wait_for_mode<T: Transport>(bus: &mut T, image: &Image, expected: u8, unmarke
 }
 
 fn check_writer<T: Transport>(bus: &mut T, image: &Image, mode: u8, unmarked_writer: Option<Platform>) -> Result<()> {
-    let identity = identify_for_session(bus, unmarked_writer)?;
-    target_matches(identity, image)?;
-    if identity.mode != mode {
-        return Err(Error::Refused("Device left the expected writer mode before Flash commit".into()));
+    let mut retries = 0;
+    loop {
+        match identify_for_session(bus, unmarked_writer) {
+            Ok(identity) => {
+                target_matches(identity, image)?;
+                if identity.mode != mode {
+                    return Err(Error::Refused("Device left the expected writer mode before Flash commit".into()));
+                }
+                return Ok(());
+            }
+            Err(error @ (Error::NotReady | Error::Transition | Error::Io(_))) if retries < 9 => {
+                if retries == 0 {
+                    log::warn!("Re-reading writer identity after {}.", error);
+                }
+                retries += 1;
+                bus.wait_ms(10);
+            }
+            Err(error) => return Err(error),
+        }
     }
-    Ok(())
 }
 
 /// Only RAM preparation and transfer use this loop. Flash commands are never replayed here.
